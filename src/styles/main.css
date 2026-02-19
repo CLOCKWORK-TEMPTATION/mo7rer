@@ -1,0 +1,94 @@
+/* ===================================
+   تحميل الخطوط
+   =================================== */
+@font-face {
+  font-family: 'AzarMehrMonospaced-San';
+  src: url('../../fonts/AzarMehrMonospaced_Sans_Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'AzarMehrMonospaced-San';
+  src: url('../../fonts/AzarMehrMonospaced_Sans_Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Cairo';
+  src: url('../../fonts/Cairo-VariableFont_slnt,wght.ttf') format('truetype');
+  font-weight: 200 1000;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ===================================
+   المتغيرات العامة
+   =================================== */
+:root {
+  /* أبعاد الصفحة */
+  --page-height: 1123px;
+  --page-width: 794px;
+  --page-header-height: 0.8in;
+  --page-footer-height: 0.8in;
+  --page-margin-left: 1in;
+  --page-margin-right: 1.25in;
+
+  /* الخطوط */
+  --font-family-editor: 'AzarMehrMonospaced-San', 'Noto Naskh Arabic', 'Amiri', 'Traditional Arabic', monospace;
+  --font-family-ui: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+  /* الألوان */
+  --color-bg: #e8e8e8;
+  --color-page-bg: #ffffff;
+  --color-text: #1a1a1a;
+  --color-toolbar-bg: #2c2c2c;
+  --color-toolbar-text: #e0e0e0;
+  --color-toolbar-hover: #444444;
+  --color-toolbar-active: #0078d4;
+  --color-border: #d0d0d0;
+  --color-scene-heading: #1a5276;
+  --color-character: #6c3483;
+  --color-transition: #7d6608;
+  --color-parenthetical: #555555;
+  --color-active-element-bg: rgba(0, 120, 212, 0.06);
+
+  /* ظلال */
+  --shadow-page: 0 2px 12px rgba(0, 0, 0, 0.15);
+  --shadow-toolbar: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ===================================
+   إعادة التعيين الأساسية
+   =================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-family-ui);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  direction: rtl;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}

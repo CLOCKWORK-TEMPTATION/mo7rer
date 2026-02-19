@@ -1,0 +1,180 @@
+import { Node, mergeAttributes } from '@tiptap/core'
+import { TextSelection } from '@tiptap/pm/state'
+import { SCENE_NUMBER_EXACT_RE } from './arabic-patterns'
+import { isSceneHeader2Line } from './scene-header-2'
+import { normalizeLine } from './text-utils'
+
+export interface SceneHeaderTopLineParts {
+  header1: string
+  header2: string
+}
+
+/**
+ * تحليل سطر رأس المشهد العلوي إلى جزأين: رقم المشهد + الوصف.
+ */
+export const splitSceneHeaderLine = (line: string): SceneHeaderTopLineParts | null => {
+  const raw = line ?? ''
+  const normalized = normalizeLine(raw)
+  if (!normalized) return null
+
+  const sceneMatch = normalized.match(/^((?:مشهد|scene)\s*[0-9٠-٩]+)(.*)$/i)
+  if (!sceneMatch) return null
+
+  const header1Base = sceneMatch[1].trim()
+  const afterMatch = sceneMatch[2] ?? ''
+
+  if (!afterMatch.trim()) {
+    return { header1: header1Base, header2: '' }
+  }
+
+  const tabSplit = afterMatch.match(/^[\t]+(.+)$/)
+  if (tabSplit) {
+    return { header1: header1Base, header2: normalizeLine(tabSplit[1]) }
+  }
+
+  const cleaned = afterMatch.replace(/^[\s:،,–—-]+/, '').trim()
+  if (!cleaned) return { header1: header1Base, header2: '' }
+
+  const colonIdx = cleaned.indexOf(':')
+  if (colonIdx !== -1) {
+    const beforeColon = normalizeLine(cleaned.slice(0, colonIdx))
+    const afterColon = normalizeLine(cleaned.slice(colonIdx + 1))
+    if (afterColon) {
+      const header1 = beforeColon ? `${header1Base} ${beforeColon}`.trim() : header1Base
+      return { header1, header2: afterColon }
+    }
+  }
+
+  return {
+    header1: header1Base,
+    header2: normalizeLine(cleaned),
+  }
+}
+
+/**
+ * التحقق أن السطر يمثل scene-header-top-line كامل (رقم + وصف زمني/مكاني).
+ */
+export const isCompleteSceneHeaderLine = (line: string): boolean => {
+  const normalized = normalizeLine(line)
+  if (!normalized) return false
+  if (!SCENE_NUMBER_EXACT_RE.test(normalized)) return false
+
+  const parts = splitSceneHeaderLine(normalized)
+  if (!parts || !parts.header2) return false
+
+  return isSceneHeader2Line(parts.header2)
+}
+
+/**
+ * سطر رأس المشهد العلوي (Scene Header Top Line)
+ * عقدة مركبة تحتوي على sceneHeader1 (يمين) و sceneHeader2 (يسار) على نفس السطر
+ * تُعرض بتخطيط flex مع justify-content: space-between
+ */
+export const SceneHeaderTopLine = Node.create({
+  name: 'sceneHeaderTopLine',
+  group: 'block',
+  content: 'sceneHeader1 sceneHeader2',
+  defining: true,
+
+  parseHTML() {
+    return [{ tag: 'div[data-type="scene-header-top-line"]' }]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {
+        'data-type': 'scene-header-top-line',
+        class: 'screenplay-scene-header-top-line',
+      }),
+      0,
+    ]
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      // Enter داخل sceneHeader1 → ينتقل إلى sceneHeader2
+      // Enter داخل sceneHeader2 → ينشئ sceneHeader3 بعد السطر العلوي
+      Enter: ({ editor }) => {
+        // التعامل مع sceneHeader1
+        if (editor.isActive('sceneHeader1')) {
+          const { state } = editor
+          const { $from } = state.selection
+
+          // البحث عن sceneHeaderTopLine الأب
+          for (let d = $from.depth; d >= 0; d--) {
+            if ($from.node(d).type.name === 'sceneHeaderTopLine') {
+              const topLineNode = $from.node(d)
+              const topLineContentStart = $from.start(d)
+              const sceneHeader1Size = topLineNode.child(0).nodeSize
+              // موضع بداية محتوى sceneHeader2
+              const sceneHeader2ContentPos = topLineContentStart + sceneHeader1Size + 1
+
+              return editor
+                .chain()
+                .command(({ tr }) => {
+                  tr.setSelection(TextSelection.create(tr.doc, sceneHeader2ContentPos))
+                  return true
+                })
+                .run()
+            }
+          }
+          return false
+        }
+
+        // التعامل مع sceneHeader2
+        if (editor.isActive('sceneHeader2')) {
+          const { state } = editor
+          const { $from } = state.selection
+
+          // البحث عن sceneHeaderTopLine الأب
+          for (let d = $from.depth; d >= 0; d--) {
+            if ($from.node(d).type.name === 'sceneHeaderTopLine') {
+              const afterTopLine = $from.after(d)
+
+              return editor
+                .chain()
+                .command(({ tr }) => {
+                  const sceneHeader3 = state.schema.nodes.sceneHeader3.create()
+                  tr.insert(afterTopLine, sceneHeader3)
+                  tr.setSelection(TextSelection.create(tr.doc, afterTopLine + 1))
+                  return true
+                })
+                .run()
+            }
+          }
+          return false
+        }
+
+        return false
+      },
+
+      // Tab داخل sceneHeader1 → ينتقل إلى sceneHeader2
+      Tab: ({ editor }) => {
+        if (editor.isActive('sceneHeader1')) {
+          const { state } = editor
+          const { $from } = state.selection
+
+          for (let d = $from.depth; d >= 0; d--) {
+            if ($from.node(d).type.name === 'sceneHeaderTopLine') {
+              const topLineNode = $from.node(d)
+              const topLineContentStart = $from.start(d)
+              const sceneHeader1Size = topLineNode.child(0).nodeSize
+              const sceneHeader2ContentPos = topLineContentStart + sceneHeader1Size + 1
+
+              return editor
+                .chain()
+                .command(({ tr }) => {
+                  tr.setSelection(TextSelection.create(tr.doc, sceneHeader2ContentPos))
+                  return true
+                })
+                .run()
+            }
+          }
+        }
+
+        return false
+      },
+    }
+  },
+})
