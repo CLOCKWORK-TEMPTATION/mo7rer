@@ -56,6 +56,15 @@ export interface ClassificationContext {
   readonly isAfterSceneHeaderTopLine: boolean
 }
 
+export interface ClassifiedDraft {
+  readonly type: ElementType
+  readonly text: string
+  readonly header1?: string
+  readonly header2?: string
+  readonly confidence: number
+  readonly classificationMethod: ClassificationMethod
+}
+
 const LEGACY_TO_ELEMENT: Record<LegacyElementType, ElementType> = {
   basmala: 'basmala',
   'scene-header-top-line': 'sceneHeaderTopLine',

@@ -21,12 +21,22 @@ import {
   matchesActionStartPattern,
   normalizeCharacterName,
   normalizeLine,
+  stripLeadingBullets,
 } from './text-utils'
 
 export interface ParsedInlineCharacterDialogue {
   characterName: string
   dialogueText: string
   cue?: string
+}
+
+/**
+ * يضمن أن اسم الشخصية ينتهي دائمًا بنقطتين.
+ */
+export const ensureCharacterTrailingColon = (value: string): string => {
+  const normalized = normalizeCharacterName(stripLeadingBullets(value ?? ''))
+  if (!normalized) return ''
+  return `${normalized}:`
 }
 
 const NON_CHARACTER_SINGLE_TOKENS = new Set([
@@ -103,9 +113,10 @@ export const parseInlineCharacterDialogue = (
   line: string
 ): ParsedInlineCharacterDialogue | null => {
   const trimmed = (line ?? '').trim()
-  if (!trimmed) return null
+  const sanitized = normalizeLine(stripLeadingBullets(trimmed))
+  if (!sanitized) return null
 
-  const glueMatch = trimmed.match(INLINE_DIALOGUE_GLUE_RE)
+  const glueMatch = sanitized.match(INLINE_DIALOGUE_GLUE_RE)
   if (glueMatch) {
     const cueText = glueMatch[1].trim()
     const candidateName = normalizeCharacterName(glueMatch[2])
@@ -122,7 +133,7 @@ export const parseInlineCharacterDialogue = (
     }
   }
 
-  const inlineMatch = trimmed.match(INLINE_DIALOGUE_RE)
+  const inlineMatch = sanitized.match(INLINE_DIALOGUE_RE)
   if (!inlineMatch) return null
 
   const rawNamePart = (inlineMatch[1] ?? '').trim()
@@ -199,7 +210,7 @@ export const isCharacterLine = (
   line: string,
   context?: Partial<ClassificationContext>
 ): boolean => {
-  const trimmed = (line ?? '').trim()
+  const trimmed = normalizeLine(stripLeadingBullets((line ?? '').trim()))
   if (!trimmed) return false
 
   if (!/[:：]\s*$/.test(trimmed)) return false
@@ -253,6 +264,30 @@ export const Character = Node.create({
       // الانتقال إلى الحوار عند الضغط على Enter
       Enter: ({ editor }) => {
         if (!editor.isActive('character')) return false
+
+        // تأكيد وجود ":" في نهاية اسم الشخصية قبل الانتقال للحوار.
+        editor
+          .chain()
+          .command(({ state, tr }) => {
+            const { $from } = state.selection
+
+            for (let depth = $from.depth; depth >= 0; depth--) {
+              if ($from.node(depth).type.name !== 'character') continue
+
+              const characterNode = $from.node(depth)
+              const currentText = characterNode.textContent.trim()
+              if (!currentText) return true
+              if (/[:：]\s*$/.test(currentText)) return true
+
+              const nodeContentEnd = $from.start(depth) + characterNode.content.size
+              tr.insertText(':', nodeContentEnd, nodeContentEnd)
+              return true
+            }
+
+            return true
+          })
+          .run()
+
         return editor
           .chain()
           .focus()

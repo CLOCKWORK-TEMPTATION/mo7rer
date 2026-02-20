@@ -10,6 +10,7 @@ import {
   isActionCueLine,
   isActionVerbStart,
   matchesActionStartPattern,
+  startsWithBullet,
 } from './text-utils'
 import { PRONOUN_ACTION_RE } from './arabic-patterns'
 import {
@@ -45,6 +46,7 @@ const DEFAULT_CONFIG: ReviewerConfig = {
 interface TextFeatures {
   readonly wordCount: number
   readonly startsWithDash: boolean
+  readonly startsWithBullet: boolean
   readonly isParenthetical: boolean
   readonly hasActionIndicators: boolean
   readonly endsWithColon: boolean
@@ -59,6 +61,7 @@ const extractTextFeatures = (text: string): TextFeatures => {
   return {
     wordCount: words.length,
     startsWithDash: /^[-–—]/.test(normalized),
+    startsWithBullet: startsWithBullet(normalized),
     isParenthetical: /^\s*[\(（].*[\)）]\s*$/.test(normalized),
     hasActionIndicators: detectActionIndicators(normalized),
     endsWithColon: /[:：]\s*$/.test(normalized),
@@ -70,7 +73,7 @@ const extractTextFeatures = (text: string): TextFeatures => {
 const detectActionIndicators = (text: string): boolean => {
   if (!text) return false
   if (/^[-–—]/.test(text)) return true
-  if (/^[•●○]/.test(text)) return true
+  if (startsWithBullet(text)) return true
 
   return (
     isActionCueLine(text) ||
@@ -105,7 +108,7 @@ const isLikelyCharacterFragment = (
 const hasStrongNarrativeActionSignal = (text: string): boolean => {
   const normalized = (text ?? '').trim()
   if (!normalized) return false
-  if (/^[-–—•●○]/.test(normalized)) return true
+  if (/^[-–—]/.test(normalized) || startsWithBullet(normalized)) return true
 
   return (
     isActionCueLine(normalized) ||

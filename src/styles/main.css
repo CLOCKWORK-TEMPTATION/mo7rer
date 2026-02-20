@@ -39,10 +39,10 @@
 
   /* الخطوط */
   --font-family-editor: 'AzarMehrMonospaced-San', 'Noto Naskh Arabic', 'Amiri', 'Traditional Arabic', monospace;
-  --font-family-ui: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-family-ui: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 
   /* الألوان */
-  --color-bg: #e8e8e8;
+  --color-bg: #060808;
   --color-page-bg: #ffffff;
   --color-text: #1a1a1a;
   --color-toolbar-bg: #2c2c2c;
@@ -80,8 +80,8 @@ html {
 
 body {
   font-family: var(--font-family-ui);
-  background-color: var(--color-bg);
-  color: var(--color-text);
+  background-color: var(--background, var(--color-bg));
+  color: var(--foreground, var(--color-text));
   direction: rtl;
   min-height: 100vh;
   overflow-x: hidden;

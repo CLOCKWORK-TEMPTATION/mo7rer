@@ -90,7 +90,7 @@ function getDefaultContent(): string {
     <div data-type="scene-header-3">شقة سيد - غرفة النوم</div>
     <div data-type="action">الغرفة مضاءة بنور خافت. أحمد يجلس على الأريكة يقرأ كتابًا. الهدوء يعمّ المكان إلا من صوت ساعة الحائط.</div>
     <div data-type="action">ينظر إلى الباب بتوجس</div>
-    <div data-type="character">أحمد</div>
+    <div data-type="character">أحمد:</div>
     <div data-type="dialogue">من هناك؟</div>
     <div data-type="action">يُسمع طرق على الباب. أحمد يضع الكتاب جانبًا وينهض ببطء.</div>
     <div data-type="transition">قطع إلى:</div>

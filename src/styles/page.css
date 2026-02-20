@@ -23,6 +23,64 @@
   overflow: hidden;
 }
 
+/* Paged mode keeps legacy header/footer spacing while allowing dynamic document growth. */
+.screenplay-sheet.filmlane-sheet-paged {
+  height: auto;
+  min-height: var(--page-height);
+}
+
+/* Keep page overlays above the editor content so footer/header markers stay visible. */
+.screenplay-sheet.filmlane-sheet-paged .screenplay-sheet__header,
+.screenplay-sheet.filmlane-sheet-paged .screenplay-sheet__body,
+.screenplay-sheet.filmlane-sheet-paged .screenplay-sheet__footer {
+  position: relative;
+  z-index: 1;
+}
+
+.screenplay-sheet.filmlane-sheet-paged .filmlane-page-overlays {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.screenplay-sheet.filmlane-sheet-paged .filmlane-page-divider {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.screenplay-sheet.filmlane-sheet-paged .filmlane-page-header-band,
+.screenplay-sheet.filmlane-sheet-paged .filmlane-page-footer-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: var(--color-page-bg);
+}
+
+.screenplay-sheet.filmlane-sheet-paged .filmlane-page-header-band {
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.08);
+}
+
+.screenplay-sheet.filmlane-sheet-paged .filmlane-page-footer-band {
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.08);
+}
+
+.screenplay-sheet.filmlane-sheet-paged .filmlane-page-number-marker {
+  position: absolute;
+  left: var(--page-margin-left);
+  font-family: var(--font-family-editor);
+  font-size: 12pt;
+  color: #111111;
+}
+
+/* In paged mode, page numbers are rendered by overlays per-page. */
+.screenplay-sheet.filmlane-sheet-paged .screenplay-page-number {
+  display: none;
+}
+
 .screenplay-sheet__header {
   height: var(--page-header-height);
   width: 100%;

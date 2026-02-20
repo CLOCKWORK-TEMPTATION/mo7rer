@@ -211,3 +211,48 @@ export const INLINE_DIALOGUE_RE = /^([^:：]{1,60}?)\s*[:：]\s*(.+)$/
 
 export const ARABIC_ONLY_WITH_NUMBERS_RE =
   /^[\s\u0600-\u06FF\d٠-٩\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+$/
+
+// إضافات التغطية اللغوية الأوسع (غير مرتبطة بـ React)
+export const DIALECT_PATTERNS = {
+  egyptian:
+    /(?:^|\s)(قال|عمل|راح|جه|قعد|مشي|عايز|عايزة|بيعمل|بتعمل|هيعمل|كده|دي|ده|ليه|فين|ازاي|يعني|بقى|خلاص)(?:\s|$)/,
+  levantine:
+    /(?:^|\s)(صار|صير|بدّو|بدي|هلق|هلأ|كتير|شوي|ليش|وين|كيف|هيك|هيدا|هيدي|بعدين)(?:\s|$)/,
+  gulf: /(?:^|\s)(صاير|يبي|ودّه|حق|زين|شلون|وين|ليش|يالله|خلنا|ابي|تبي|يبغى)(?:\s|$)/,
+} as const
+
+export const detectDialect = (text: string): string | null => {
+  for (const [dialect, pattern] of Object.entries(DIALECT_PATTERNS)) {
+    if (pattern.test(text)) return dialect
+  }
+  return null
+}
+
+export const NEGATION_PATTERNS = /(?:^|\s)(لا|ليس|ما|لم|لن|مش|مو|ماهو|ماهي)\s+/
+export const ARABIC_NUMBER_RE = /[٠-٩]+/
+export const WESTERN_NUMBER_RE = /[0-9]+/
+export const MIXED_NUMBER_RE = /[0-9٠-٩]+/
+
+export const convertHindiToArabic = (text: string): string => {
+  const hindiDigits = '٠١٢٣٤٥٦٧٨٩'
+  return text.replace(/[٠-٩]/g, (digit) => String(hindiDigits.indexOf(digit)))
+}
+
+export const DATE_PATTERNS =
+  /(?:يوم|اليوم|غداً|غدا|أمس|البارحة)\s*(?:ال)?(?:أحد|اثنين|ثلاثاء|أربعاء|خميس|جمعة|سبت)?/i
+export const TIME_PATTERNS =
+  /(?:الساعة|صباحاً|مساءً|صباحا|مساء|ظهراً|ظهرا|فجراً|فجرا|عصراً|عصرا)\s*(?:[0-9٠-٩]{1,2})?/i
+export const ABBREVIATION_PATTERNS = /\b(م\.|هـ\.|ص\.|ق\.م|ب\.ظ|ص\.ب)\b/
+
+export const EXTENDED_ACTION_VERB_LIST = [...FULL_ACTION_VERB_SET].join('|')
+export const SCENE_HEADER3_CANDIDATE_RE =
+  /^(مسجد|بيت|منزل|فيلا|شقة|قصر|شارع|حديقة|مدرسة|جامعة|مكتب|محطة|مطار|مباحث|مستشفى|مطعم|فندق|سيارة|غرفة|قاعة|ممر|سطح|ساحة|ميدان)/i
+export const SCENE_HEADER3_KNOWN_PLACES_RE =
+  /^(مسجد|بيت|منزل|فيلا|شقة|شارع|حديقة|مدرسة|جامعة|مكتب|محل|مستشفى|مطعم|فندق|سيارة|غرفة|قاعة|ممر|سطح|ساحة|مقبرة|مخبز|مكتبة|نهر|بحر|جبل|غابة|سوق|مصنع|بنك|محكمة|سجن|موقف|محطة|مطار|ميناء|كوبرى|نفق|مبنى|قصر|نادي|ملعب|ملهى|بار|كازينو|متحف|مسرح|سينما|معرض|مزرعة|مختبر|مستودع|مقهى|شركة|كهف|صالة|حمام|مطبخ|شرفة|ميدان|مخزن|مخازن|حرم|باحة|دار|روضة|معهد|مركز|عيادة|ورشة|مصلى|زاوية|مباحث)/i
+export const SCENE_HEADER3_MULTI_LOCATION_RE =
+  /^(منزل|بيت|مكتب|شقة|فيلا|قصر|محل|مصنع|مستشفى|مدرسة|جامعة|فندق|مطعم|مقهى|شركة|بنك|مركز|مباحث|محطة|مطار)\s+[\u0600-\u06FF\s0-9٠-٩]+(?:\s*[–—-]\s*[\u0600-\u06FF\s0-9٠-٩]+)+/i
+
+export const PRONOUN_PLUS_VERB_RE = PRONOUN_ACTION_RE
+export const PRONOUN_PREFIX_RE = /^(?:و|ف)?(?:هو|هي|هم|هن)\s+/
+export const MASDAR_PREFIX_RE =
+  /^(?:ب|بـ)?(?:فزع|هستري|خوف|قلق|غضب|حزن|فرح|دهش|صمت|هدوء|سرع|بطء)/

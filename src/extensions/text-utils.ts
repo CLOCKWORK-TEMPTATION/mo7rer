@@ -12,7 +12,10 @@ import {
 } from './arabic-patterns'
 
 export const INVISIBLE_CHARS_RE = /[\u200f\u200e\ufeff]/g
-export const LEADING_BULLETS_RE = /^[\s]*[•●○\-–—]+\s*/
+export const STARTS_WITH_BULLET_RE =
+  /^[\s\u200E\u200F\u061C\uFEFF]*[•·∙⋅●○◦■□▪▫◆◇–—−‒―‣⁃*+]/
+export const LEADING_BULLETS_RE =
+  /^[\s\u200E\u200F\u061C\uFEFF]*[•·∙⋅●○◦■□▪▫◆◇–—−‒―‣⁃*+]+\s*/
 
 export function cleanInvisibleChars(text: string): string {
   return (text ?? '').replace(INVISIBLE_CHARS_RE, '')
@@ -27,6 +30,10 @@ export function normalizeLine(text: string): string {
 
 export function stripLeadingBullets(text: string): string {
   return (text ?? '').replace(LEADING_BULLETS_RE, '')
+}
+
+export function startsWithBullet(text: string): boolean {
+  return STARTS_WITH_BULLET_RE.test(text ?? '')
 }
 
 export function normalizeCharacterName(text: string): string {
