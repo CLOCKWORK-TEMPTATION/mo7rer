@@ -27,6 +27,8 @@ import {
 import { EditorArea } from './components/editor/EditorArea'
 import type { DocumentStats, FileImportMode } from './components/editor/editor-area.types'
 import { HoverBorderGradient } from './components/ui/hover-border-gradient'
+import { DockIcon } from './components/DockIcon'
+import { SidebarButton } from './components/SidebarButton'
 import { SCREENPLAY_ELEMENTS } from './editor'
 import { type ElementType, isElementType } from './extensions/classification-types'
 import { toast } from './hooks'
@@ -514,16 +516,14 @@ export function App(): React.JSX.Element {
                 const SIcon = section.icon
                 return (
                   <div key={section.id}>
-                    <button
-                      className="group flex w-full items-center gap-2.5 rounded-[var(--radius-lg)] px-3 py-2.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]/50 hover:text-[var(--foreground)]"
-                      onClick={() => setOpenSidebarItem((prev) => (prev === section.id ? null : section.id))}
-                    >
-                      <SIcon className="size-[18px] text-[var(--muted-foreground)] transition-colors group-hover:text-[var(--brand)]" />
-                      <span className="flex-1 text-right text-[13px] font-medium">{section.label}</span>
-                      {section.items.length > 0 && (
-                        <ChevronLeft className={`size-4 text-[var(--muted-foreground)] transition-transform ${openSidebarItem === section.id ? '-rotate-90' : ''}`} />
-                      )}
-                    </button>
+                    <SidebarButton
+                      icon={SIcon}
+                      label={section.label}
+                      hasItems={section.items.length > 0}
+                      isOpen={openSidebarItem === section.id}
+                      onToggle={() => setOpenSidebarItem((prev) => (prev === section.id ? null : section.id))}
+                      duration={1}
+                    />
                     {openSidebarItem === section.id && section.items.length > 0 && (
                       <div className="mt-0.5 space-y-0.5 pr-4">
                         {section.items.map((item) => (
@@ -558,23 +558,17 @@ export function App(): React.JSX.Element {
           <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 flex justify-center pt-3">
             <div className="pointer-events-auto">
               <div className="flex h-14 items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--card)]/90 px-3 shadow-[0_8px_30px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
-                {DOCK_BUTTONS.map((button, index) => {
-                  const BIcon = button.icon
-                  return (
-                    <React.Fragment key={`${button.title}-${index}`}>
-                      <button
-                        className="group flex size-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] transition-all hover:border-[var(--brand)]/40 hover:bg-[var(--accent)] hover:text-[var(--foreground)] active:scale-95"
-                        title={button.title}
-                        onClick={() => void handleMenuAction(button.actionId)}
-                      >
-                        <BIcon className="size-[16px]" strokeWidth={1.75} />
-                      </button>
-                      {(index === 0 || index === 3 || index === 5 || index === 7 || index === 9 || index === 11 || index === 13) && (
-                        <div className="mx-0.5 h-5 w-px bg-[var(--border)]" />
-                      )}
-                    </React.Fragment>
-                  )
-                })}
+                {DOCK_BUTTONS.map((button, index) => (
+                  <React.Fragment key={`${button.title}-${index}`}>
+                    <DockIcon
+                      icon={button.icon}
+                      onClick={() => void handleMenuAction(button.actionId)}
+                    />
+                    {(index === 0 || index === 3 || index === 5 || index === 7 || index === 9 || index === 11 || index === 13) && (
+                      <div className="mx-0.5 h-5 w-px bg-[var(--border)]" />
+                    )}
+                  </React.Fragment>
+                ))}
               </div>
             </div>
           </div>
