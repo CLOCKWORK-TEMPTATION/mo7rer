@@ -22,9 +22,10 @@ import {
   Settings,
   Sparkles,
   ChevronLeft,
-  LayoutGrid,
+  Clapperboard,
 } from 'lucide-react'
 import { EditorArea } from './components/editor/EditorArea'
+import { HoverBorderGradient } from './components/ui/hover-border-gradient'
 import type { DocumentStats, FileImportMode } from './components/editor/editor-area.types'
 import { SCREENPLAY_ELEMENTS } from './editor'
 import { type ElementType, isElementType } from './extensions/classification-types'
@@ -98,6 +99,14 @@ const downloadTextFile = (fileName: string, content: string, mimeType: string): 
   URL.revokeObjectURL(url)
 }
 
+const BackgroundGrid = (): React.JSX.Element => (
+  <div className="pointer-events-none fixed inset-0 z-0">
+    <div className="absolute inset-0 bg-neutral-950 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+    <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-[#0F4C8A] opacity-20 blur-[100px]" />
+    <div className="absolute bottom-0 right-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-[#029784] opacity-20 blur-[100px]" />
+  </div>
+)
+
 interface MenuSection {
   label: string
   items: readonly { label: string; actionId: MenuActionId }[]
@@ -105,7 +114,7 @@ interface MenuSection {
 
 const MENU_SECTIONS: readonly MenuSection[] = [
   {
-    label: 'ملف',
+    label: 'مـلــــف',
     items: [
       { label: 'مستند جديد', actionId: 'new-file' },
       { label: 'فتح...', actionId: 'open-file' },
@@ -116,7 +125,7 @@ const MENU_SECTIONS: readonly MenuSection[] = [
     ],
   },
   {
-    label: 'تعديل',
+    label: 'تعديـــل',
     items: [
       { label: 'تراجع', actionId: 'undo' },
       { label: 'إعادة', actionId: 'redo' },
@@ -127,7 +136,7 @@ const MENU_SECTIONS: readonly MenuSection[] = [
     ],
   },
   {
-    label: 'إدراج',
+    label: 'إضافـــــة',
     items: [
       { label: 'مشهد جديد', actionId: 'format:sceneHeaderTopLine' },
       { label: 'حدث/وصف', actionId: 'format:action' },
@@ -135,7 +144,7 @@ const MENU_SECTIONS: readonly MenuSection[] = [
     ],
   },
   {
-    label: 'تنسيق',
+    label: 'تنسيـــق',
     items: [
       { label: 'عريض', actionId: 'bold' },
       { label: 'مائل', actionId: 'italic' },
@@ -163,29 +172,50 @@ interface DockButtonItem {
 }
 
 const DOCK_BUTTONS: readonly DockButtonItem[] = [
-  { actionId: 'about', icon: Info, title: 'معلومات' },
-  /* separator after 0 */
-  { actionId: 'about', icon: AlignRight, title: 'محاذاة يمين' },
-  { actionId: 'about', icon: AlignCenter, title: 'محاذاة وسط' },
-  /* separator after 3 */
-  { actionId: 'italic', icon: Italic, title: 'مائل' },
-  { actionId: 'bold', icon: Bold, title: 'عريض' },
-  /* separator after 5 */
-  { actionId: 'redo', icon: Redo2, title: 'إعادة' },
-  { actionId: 'undo', icon: Undo2, title: 'تراجع' },
-  /* separator after 7 */
-  { actionId: 'save-file', icon: Save, title: 'حفظ' },
+  // Media/Export
+  { actionId: 'about', icon: Clapperboard, title: 'تبديل التنسيق المباشر' },
+  { actionId: 'export-html', icon: Download, title: 'تصدير PDF' },
+  // Tools
+  { actionId: 'about', icon: Stethoscope, title: 'تحليل السيناريو' },
+  { actionId: 'about', icon: Lightbulb, title: 'اقتراحات الذكاء الاصطناعي' },
+  // Actions
+  { actionId: 'about', icon: MessageSquare, title: 'الملاحظات' },
+  { actionId: 'about', icon: History, title: 'سجل التغييرات' },
   { actionId: 'open-file', icon: Upload, title: 'فتح ملف' },
-  /* separator after 9 */
-  { actionId: 'about', icon: History, title: 'سجل' },
-  { actionId: 'about', icon: MessageSquare, title: 'ملاحظات' },
-  /* separator after 11 */
-  { actionId: 'about', icon: Lightbulb, title: 'اقتراحات' },
-  { actionId: 'about', icon: Stethoscope, title: 'فحص' },
-  /* separator after 13 */
-  { actionId: 'export-html', icon: Download, title: 'تصدير' },
-  { actionId: 'about', icon: LayoutGrid, title: 'عرض شبكي' },
+  { actionId: 'save-file', icon: Save, title: 'حفظ الملف' },
+  // Formatting
+  { actionId: 'undo', icon: Undo2, title: 'تراجع' },
+  { actionId: 'redo', icon: Redo2, title: 'إعادة' },
+  { actionId: 'bold', icon: Bold, title: 'غامق' },
+  { actionId: 'italic', icon: Italic, title: 'مائل' },
+  { actionId: 'about', icon: AlignRight, title: 'محاذاة لليمين' },
+  { actionId: 'about', icon: AlignCenter, title: 'توسيط' },
+  // Info
+  { actionId: 'about', icon: Info, title: 'مساعدة' },
 ]
+
+interface DockIconButtonProps {
+  icon: React.ElementType
+  title: string
+  onClick: () => void
+}
+
+function DockIconButton({ icon: Icon, title, onClick }: DockIconButtonProps): React.JSX.Element {
+  return (
+    <div className="relative z-10 flex h-10 w-10 items-center justify-center">
+      <HoverBorderGradient
+        as="button"
+        onClick={onClick}
+        title={title}
+        containerClassName="h-full w-full rounded-full"
+        className="flex h-full w-full items-center justify-center rounded-[inherit] bg-neutral-900/90 p-0 text-neutral-400 transition-all duration-200 hover:bg-neutral-800 hover:text-white active:scale-95"
+        duration={1}
+      >
+        <Icon className="size-[18px]" strokeWidth={1.75} />
+      </HoverBorderGradient>
+    </div>
+  )
+}
 
 /* ── Sidebar sections config ── */
 const SIDEBAR_SECTIONS = [
@@ -421,39 +451,44 @@ export function App(): React.JSX.Element {
   /* ──────────────────────── JSX ──────────────────────── */
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--background)] font-['Cairo'] text-[var(--foreground)] selection:bg-[var(--brand)]/30" dir="rtl">
-      {/* Background effects */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-[var(--background)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,oklch(0.4_0_0/0.03)_1px,transparent_1px),linear-gradient(to_bottom,oklch(0.4_0_0/0.03)_1px,transparent_1px)] bg-[size:24px_24px]" />
-        <div className="absolute left-1/2 top-[10%] -translate-x-1/2 h-[600px] w-[600px] rounded-full bg-[var(--brand)] opacity-[0.06] blur-[150px]" />
-      </div>
+      <BackgroundGrid />
 
       {/* ── Header ── */}
-      <header className="relative z-40 flex h-[52px] flex-shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--card)]/80 px-5 backdrop-blur-2xl">
+      <header className="relative z-40 flex h-[60px] flex-shrink-0 items-center justify-between bg-[var(--card)]/80 px-7 backdrop-blur-2xl">
         {/* Right side: Brand + Nav */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2.5 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--secondary)]/50 px-3.5 py-1.5">
-            <span className="h-2 w-2 rounded-full bg-[var(--brand)] shadow-[0_0_6px_rgba(2,151,132,0.5)]" />
-            <span className="bg-gradient-to-l from-[var(--brand)] to-[#5eead4] bg-clip-text text-lg font-bold text-transparent">أفان تيتر</span>
+          <div className="flex h-11 items-center gap-1.5 rounded-full border border-white/5 bg-neutral-800/20 p-1.5 backdrop-blur-md">
+            <HoverBorderGradient
+              as="div"
+              duration={1}
+              containerClassName="h-full rounded-full"
+              className="flex h-full items-center gap-2.5 rounded-[inherit] bg-neutral-950 px-5"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-[#0F4C8A] shadow-[0_0_6px_rgba(15,76,138,0.5)]" />
+              <span className="bg-gradient-to-r from-[#0F4C8A]/60 to-[#0F4C8A] bg-clip-text text-[15px] font-bold text-transparent transition-all duration-300 group-hover:to-accent">أفان تيتر</span>
+            </HoverBorderGradient>
           </div>
 
-          <nav className="relative flex items-center gap-0.5 rounded-full border border-[var(--border)] bg-[var(--secondary)]/30 p-1 backdrop-blur-md">
+          <div className="relative z-50 flex h-11 items-center gap-1.5 rounded-full border border-white/5 bg-neutral-800/20 p-1.5 backdrop-blur-md">
             {MENU_SECTIONS.map((section) => (
               <div
                 key={section.label}
-                className="relative"
+                className="group relative h-full"
                 onClick={(event) => { event.stopPropagation() }}
               >
-                <button
-                  className={`rounded-full px-3.5 py-1 text-[13px] font-medium transition-all ${
+                <HoverBorderGradient
+                  as="button"
+                  duration={1}
+                  containerClassName="h-full rounded-full"
+                  className={`flex h-full min-w-[72px] justify-center items-center rounded-[inherit] px-4 text-[13px] font-medium transition-all ${
                     activeMenu === section.label
-                      ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
-                      : 'text-[var(--muted-foreground)] hover:bg-[var(--accent)]/50 hover:text-[var(--foreground)]'
+                      ? 'bg-neutral-800 text-white'
+                      : 'bg-neutral-950 text-neutral-400 hover:bg-neutral-800 group-hover:text-white'
                   }`}
                   onClick={() => setActiveMenu((prev) => (prev === section.label ? null : section.label))}
                 >
                   {section.label}
-                </button>
+                </HoverBorderGradient>
 
                 {activeMenu === section.label && (
                   <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--popover)]/95 p-1 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
@@ -470,67 +505,102 @@ export function App(): React.JSX.Element {
                 )}
               </div>
             ))}
-          </nav>
+          </div>
         </div>
 
-        {/* Left side: Status + User + Edition badge */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5 rounded-full border border-[var(--brand)]/25 bg-[var(--brand)]/[0.08] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--brand)]">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--brand)]" />
+        {/* Left side: Status + User + Edition badge — shared container like nav */}
+        <div className="flex h-11 items-center gap-1.5 rounded-full border border-white/5 bg-neutral-800/20 p-1.5 backdrop-blur-md">
+          <HoverBorderGradient
+            as="div"
+            duration={1}
+            containerClassName="h-full rounded-full"
+            className="bg-ring/10 flex h-full items-center gap-2 rounded-[inherit] px-4 text-[11px] font-bold uppercase tracking-wider text-ring"
+          >
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ring" />
             Online
-          </div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--secondary)]">
-            <User className="size-4 text-[var(--muted-foreground)]" />
-          </div>
-          <div className="flex items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--secondary)]/50 px-3 py-1.5">
-            <span className="bg-gradient-to-l from-[var(--brand)] to-[#5eead4] bg-clip-text text-lg font-bold text-transparent">النسخة</span>
-            <span className="h-2 w-2 rounded-full bg-[var(--brand)] shadow-[0_0_6px_rgba(2,151,132,0.5)]" />
-          </div>
+          </HoverBorderGradient>
+
+          <HoverBorderGradient
+            as="div"
+            duration={1}
+            containerClassName="h-full w-8 cursor-pointer rounded-full"
+            className="flex h-full w-full items-center justify-center rounded-[inherit] bg-gradient-to-tr from-neutral-900 to-neutral-800 p-0"
+          >
+            <User className="size-4 text-neutral-300" />
+          </HoverBorderGradient>
+
+          <HoverBorderGradient
+            as="div"
+            duration={1}
+            containerClassName="group h-full cursor-pointer rounded-full"
+            className="flex h-full items-center gap-2.5 rounded-[inherit] bg-neutral-950 px-5 leading-none"
+          >
+            <span className="bg-gradient-to-r from-[#029784]/60 to-[#029784] bg-clip-text text-[15px] font-bold text-transparent transition-all duration-300 group-hover:to-[#40A5B3]">النسخة</span>
+            <span className="flex h-1.5 w-1.5">
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#029784]" />
+            </span>
+          </HoverBorderGradient>
         </div>
       </header>
 
       {/* ── Main area ── */}
       <div className="relative z-10 flex flex-1 overflow-hidden">
         {/* ── Sidebar ── */}
-        <aside className="hidden w-64 flex-col p-4 xl:flex">
-          <div className="flex h-full w-full flex-col items-stretch rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--card)]/60 p-3.5 backdrop-blur-xl">
+        <aside className="hidden w-72 flex-col p-6 lg:flex">
+          <HoverBorderGradient
+            as="div"
+            duration={1}
+            containerClassName="h-full w-full rounded-3xl"
+            className="flex h-full w-full flex-col items-stretch rounded-[inherit] bg-neutral-900/30 p-4 backdrop-blur-xl"
+          >
             {/* Search */}
-            <div className="mb-5">
-              <div className="flex w-full items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)]/80 px-3 py-2">
-                <Search className="size-4 text-[var(--muted-foreground)]" />
+            <div className="group relative mb-8">
+              <HoverBorderGradient
+                as="div"
+                duration={1}
+                containerClassName="w-full rounded-xl group"
+                className="flex w-full items-center gap-2 rounded-[inherit] bg-neutral-950 px-3 py-3"
+              >
+                <Search className="size-4 text-[var(--muted-foreground)] transition-colors group-focus-within:text-[var(--brand)]" />
                 <input
                   type="text"
                   placeholder="بحث..."
                   className="w-full border-none bg-transparent text-[13px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none"
                 />
-                <kbd className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--secondary)]/50 px-1 py-0.5 text-[10px] text-[var(--muted-foreground)]">K</kbd>
-              </div>
+                <kbd className="hidden rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] text-neutral-400 group-hover:block">⌘K</kbd>
+              </HoverBorderGradient>
             </div>
 
             {/* Sections */}
-            <div className="space-y-0.5">
+            <div className="space-y-2">
               {SIDEBAR_SECTIONS.map((section) => {
                 const SIcon = section.icon
+                const isOpen = openSidebarItem === section.id
                 return (
-                  <div key={section.id}>
-                    <button
-                      className="group flex w-full items-center gap-2.5 rounded-[var(--radius-lg)] px-3 py-2.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]/50 hover:text-[var(--foreground)]"
+                  <div key={section.id} className="mb-2">
+                    <HoverBorderGradient
+                      as="button"
+                      duration={1}
+                      containerClassName="w-full rounded-xl"
+                      className={`group flex w-full items-center gap-3 rounded-[inherit] bg-neutral-900/50 p-3 transition-all duration-200 ${
+                        isOpen ? 'text-white' : 'text-neutral-500 hover:text-neutral-200'
+                      }`}
                       onClick={() => setOpenSidebarItem((prev) => (prev === section.id ? null : section.id))}
                     >
-                      <SIcon className="size-[18px] text-[var(--muted-foreground)] transition-colors group-hover:text-[var(--brand)]" />
-                      <span className="flex-1 text-right text-[13px] font-medium">{section.label}</span>
+                      <SIcon className={`size-[18px] transition-colors ${isOpen ? 'text-neutral-300' : 'text-neutral-500 group-hover:text-neutral-200'}`} />
+                      <span className="flex-1 text-right text-sm font-medium">{section.label}</span>
                       {section.items.length > 0 && (
-                        <ChevronLeft className={`size-4 text-[var(--muted-foreground)] transition-transform ${openSidebarItem === section.id ? '-rotate-90' : ''}`} />
+                        <ChevronLeft className={`size-4 text-neutral-600 transition-transform duration-300 ${isOpen ? '-rotate-90' : ''}`} />
                       )}
-                    </button>
-                    {openSidebarItem === section.id && section.items.length > 0 && (
-                      <div className="mt-0.5 space-y-0.5 pr-4">
+                    </HoverBorderGradient>
+                    {isOpen && section.items.length > 0 && (
+                      <div className="mt-2 space-y-1 pr-4">
                         {section.items.map((item) => (
                           <button
                             key={`${section.id}-${item}`}
-                            className="flex w-full items-center gap-2 rounded-[var(--radius-md)] px-3 py-1.5 text-[12px] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/50 hover:text-[var(--foreground)]"
+                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-neutral-400 transition-colors hover:bg-white/5 hover:text-white"
                           >
-                            <span className="h-1 w-1 rounded-full bg-[var(--muted-foreground)]" />
+                            <span className="h-1 w-1 rounded-full bg-neutral-600" />
                             {item}
                           </button>
                         ))}
@@ -543,12 +613,17 @@ export function App(): React.JSX.Element {
 
             {/* AI Focus card */}
             <div className="mt-auto">
-              <div className="flex w-full flex-col items-start rounded-[var(--radius-xl)] border border-[var(--brand)]/20 bg-gradient-to-br from-[var(--brand)]/[0.08] to-[var(--brand)]/[0.02] p-3.5">
-                <Sparkles className="mb-1.5 size-5 text-[var(--brand)]" />
-                <p className="text-[11px] font-light leading-relaxed text-[var(--muted-foreground)]">تم تفعيل وضع التركيز الذكي. استمتع بتجربة كتابة خالية من المشتتات.</p>
-              </div>
+              <HoverBorderGradient
+                as="div"
+                duration={1}
+                containerClassName="w-full rounded-2xl"
+                className="from-primary/10 to-accent/10 flex w-full flex-col items-start rounded-[inherit] bg-gradient-to-br p-4"
+              >
+                <Sparkles className="mb-2 size-5 text-primary" />
+                <p className="text-xs font-light leading-relaxed text-[var(--muted-foreground)]">تم تفعيل وضع التركيز الذكي. استمتع بتجربة كتابة خالية من المشتتات.</p>
+              </HoverBorderGradient>
             </div>
-          </div>
+          </HoverBorderGradient>
         </aside>
 
         {/* ── Editor + Toolbar ── */}
@@ -556,25 +631,27 @@ export function App(): React.JSX.Element {
           {/* Floating dock toolbar */}
           <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 flex justify-center pt-3">
             <div className="pointer-events-auto">
-              <div className="flex h-14 items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--card)]/90 px-3 shadow-[0_8px_30px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+              <HoverBorderGradient
+                as="div"
+                duration={1}
+                containerClassName="mx-auto rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.4)]"
+                className="flex h-16 items-end gap-3.5 rounded-[inherit] bg-neutral-900/80 px-5 pb-3 backdrop-blur-2xl"
+              >
                 {DOCK_BUTTONS.map((button, index) => {
-                  const BIcon = button.icon
                   return (
                     <React.Fragment key={`${button.title}-${index}`}>
-                      <button
-                        className="group relative flex size-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] transition-all hover:border-[var(--brand)]/50 hover:bg-[var(--accent)]/20 hover:text-[var(--brand)] active:scale-95"
-                        onClick={() => void handleMenuAction(button.actionId)}
+                      <DockIconButton
+                        icon={button.icon}
                         title={button.title}
-                      >
-                        <BIcon className="size-[16px]" strokeWidth={1.75} />
-                      </button>
-                      {(index === 0 || index === 3 || index === 5 || index === 7 || index === 9 || index === 11 || index === 13) && (
-                        <div className="mx-0.5 h-5 w-px bg-[var(--border)]" />
+                        onClick={() => void handleMenuAction(button.actionId)}
+                      />
+                      {(index === 1 || index === 3 || index === 7 || index === 13) && (
+                        <div className="mx-3 mb-4 h-5 w-px bg-gradient-to-b from-transparent via-neutral-600/50 to-transparent" />
                       )}
                     </React.Fragment>
                   )
                 })}
-              </div>
+              </HoverBorderGradient>
             </div>
           </div>
 
