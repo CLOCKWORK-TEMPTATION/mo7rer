@@ -21,7 +21,6 @@
   font-display: swap;
 }
 
-/* خط الواجهة الرئيسي: Cairo */
 @font-face {
   font-family: "Cairo";
   src: url("../../fonts/Cairo-VariableFont_slnt,wght.ttf") format("truetype");
@@ -31,67 +30,59 @@
 }
 
 /* ============================================
-   THEME VARIABLES - Jungle Green Theme
+   DESIGN SYSTEM "aminof" — Dark Only
    ============================================ */
 
 @layer base {
   :root {
-    /* === Core Colors (Jungle Green Theme) === */
-    --background: #ffffff;
-    --foreground: #070100;
-    --card: #ffffff;
-    --card-foreground: #070100;
-    --popover: #ffffff;
-    --popover-foreground: #070100;
-    --primary: #029784;
-    --primary-foreground: #ffffff;
-    --secondary: #f3f4f6;
-    --secondary-foreground: #070100;
-    --muted: #f3f4f6;
-    --muted-foreground: #746842;
-    --accent: #40a5b3;
-    --accent-foreground: #070100;
-    --destructive: #dc2626;
-    --destructive-foreground: #ffffff;
-    --border: rgba(0, 0, 0, 0.1);
-    --input: transparent;
-    --input-background: #f3f3f5;
-    --switch-background: #cbced4;
-    --ring: #029784;
+    /* === Core Color Tokens (Dark Only - oklch) === */
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.269 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.985 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.371 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --destructive-foreground: oklch(0.985 0 0);
+    --border: oklch(0.275 0 0);
+    --input: oklch(0.325 0 0);
+    --ring: oklch(0.556 0 0);
 
     /* === Sidebar Colors === */
-    --sidebar: #f9fafb;
-    --sidebar-foreground: #070100;
-    --sidebar-primary: #029784;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #eaf7f7;
-    --sidebar-accent-foreground: #070100;
-    --sidebar-border: rgba(0, 0, 0, 0.1);
-    --sidebar-ring: #029784;
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.985 0 0);
+    --sidebar-primary-foreground: oklch(0.205 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(0.275 0 0);
+    --sidebar-ring: oklch(0.556 0 0);
 
     /* === Chart Colors === */
-    --chart-1: #029784;
-    --chart-2: #40a5b3;
-    --chart-3: #746842;
-    --chart-4: #7aa7d6;
-    --chart-5: #8adfd9;
+    --chart-1: oklch(0.646 0.222 41.116);
+    --chart-2: oklch(0.6 0.118 184.714);
+    --chart-3: oklch(0.398 0 0);
+    --chart-4: oklch(0.828 0.189 84.429);
+    --chart-5: oklch(0.769 0.188 70.08);
 
-    /* === Contextual Accent Colors === */
-    --accent-creative: oklch(0.7 0.15 330);
-    --accent-technical: oklch(0.65 0.18 220);
-    --accent-success: oklch(0.7 0.15 140);
-    --accent-warning: oklch(0.75 0.15 80);
-    --accent-error: oklch(0.6 0.2 25);
+    /* === Brand Accent (Teal - for toolbar/UI highlights) === */
+    --brand: #029784;
+    --brand-foreground: #ffffff;
 
-    /* === Gradient Stops === */
-    --gradient-start: #029784;
-    --gradient-middle: #40a5b3;
-    --gradient-end: #746842;
-
-    /* === Layout Variables === */
+    /* === Border Radius === */
     --radius: 0.625rem;
-    --radius-lg: 1rem;
-    --radius-xl: 1.5rem;
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
 
     /* === Spacing Scale (8px base) === */
     --space-1: 0.25rem;
@@ -124,10 +115,6 @@
     --easing-default: cubic-bezier(0.4, 0, 0.2, 1);
     --easing-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
-    /* === Brand Colors === */
-    --brand: #029784;
-    --brand-foreground: #ffffff;
-
     /* === Font Families === */
     --font-family-ui: "Cairo", system-ui, -apple-system, sans-serif;
     --font-family-editor: "AzarMehrMonospaced-San", monospace;
@@ -139,50 +126,6 @@
     --page-footer-height: 0.8in;
     --page-margin-left: 1in;
     --page-margin-right: 1.25in;
-  }
-
-  .dark {
-    /* === Core Colors (Dark Mode) === */
-    --background: #0a0f0d;
-    --foreground: #f9fafb;
-    --card: #0d1210;
-    --card-foreground: #f9fafb;
-    --popover: #131a17;
-    --popover-foreground: #f9fafb;
-    --primary: #029784;
-    --primary-foreground: #ffffff;
-    --secondary: #1f2937;
-    --secondary-foreground: #f9fafb;
-    --muted: #1f2937;
-    --muted-foreground: #9ca3af;
-    --accent: #0b2a2e;
-    --accent-foreground: #e6fffb;
-    --destructive: #dc2626;
-    --destructive-foreground: #ffffff;
-    --border: rgba(255, 255, 255, 0.1);
-    --input: rgba(255, 255, 255, 0.1);
-    --ring: #029784;
-
-    /* === Sidebar Colors (Dark Mode) === */
-    --sidebar: #111827;
-    --sidebar-foreground: #f9fafb;
-    --sidebar-primary: #029784;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #0f1f24;
-    --sidebar-accent-foreground: #e5e7eb;
-    --sidebar-border: rgba(255, 255, 255, 0.1);
-    --sidebar-ring: #029784;
-
-    /* === Chart Colors (Dark Mode) === */
-    --chart-1: #029784;
-    --chart-2: #40a5b3;
-    --chart-3: #9ca3af;
-    --chart-4: #7aa7d6;
-    --chart-5: #8adfd9;
-
-    /* === Brand Colors (Dark Mode) === */
-    --brand: #029784;
-    --brand-foreground: #ffffff;
   }
 }
 
@@ -256,7 +199,6 @@
    ============================================ */
 
 @layer components {
-  /* Screenplay Formatting Classes */
   .format-scene-header-1 {
     font-weight: bold;
     text-transform: uppercase;
@@ -405,7 +347,6 @@
     margin-bottom: 0;
   }
 
-  /* Visual top-line composition for adjacent scene-header-1 + scene-header-2. */
   .screenplay-sheet__body
     .filmlane-prosemirror-root
     > .format-scene-header-1:has(+ .format-scene-header-2) {
@@ -507,13 +448,7 @@
     display: none;
   }
 
-  /* Modern UI Component Styles */
-  .glow-brand {
-    box-shadow:
-      0 0 20px var(--brand),
-      0 0 40px color-mix(in oklch, var(--brand) 50%, transparent);
-  }
-
+  /* Glass effects */
   .glass {
     background: color-mix(in oklch, var(--background) 80%, transparent);
     backdrop-filter: blur(12px);
@@ -526,7 +461,12 @@
     border: 1px solid color-mix(in oklch, var(--foreground) 20%, transparent);
   }
 
-  /* Container Queries */
+  .glow-brand {
+    box-shadow:
+      0 0 20px var(--brand),
+      0 0 40px color-mix(in oklch, var(--brand) 50%, transparent);
+  }
+
   .card-container {
     container-type: inline-size;
     container-name: card;
@@ -572,4 +512,3 @@
     background-clip: text;
   }
 }
-
