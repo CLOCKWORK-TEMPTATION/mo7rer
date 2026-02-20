@@ -65,17 +65,9 @@ export function HoverBorderGradient({
       )}
       {...props}
     >
-      <div
-        className={cn(
-          "z-10 w-auto rounded-[inherit] bg-black px-4 py-2 text-white",
-          className
-        )}
-      >
-        {children}
-      </div>
       <motion.div
         className={cn(
-          "absolute inset-0 z-0 flex-none overflow-hidden rounded-[inherit]"
+          "pointer-events-none absolute inset-0 z-0 flex-none overflow-hidden rounded-[inherit]"
         )}
         style={{
           filter: "blur(2px)",
@@ -94,7 +86,15 @@ export function HoverBorderGradient({
           duration: hovered ? duration : duration * 15,
         }}
       />
-      <div className="z-1 absolute inset-[2px] flex-none rounded-[inherit] bg-black" />
+      <div className="pointer-events-none absolute inset-[2px] z-[1] flex-none rounded-[inherit] bg-black" />
+      <div
+        className={cn(
+          "relative z-[2] w-auto rounded-[inherit] bg-black text-white",
+          className
+        )}
+      >
+        {children}
+      </div>
     </Tag>
   );
 }

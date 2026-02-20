@@ -457,19 +457,29 @@ export function App(): React.JSX.Element {
       <header className="relative z-40 flex h-[60px] flex-shrink-0 items-center justify-between bg-[var(--card)]/80 px-7 backdrop-blur-2xl">
         {/* Right side: Brand + Nav */}
         <div className="flex items-center gap-3">
-          <div className="flex h-11 items-center gap-1.5 rounded-full border border-white/5 bg-neutral-800/20 p-1.5 backdrop-blur-md">
+          <HoverBorderGradient
+            as="div"
+            duration={1}
+            containerClassName="h-11 rounded-full"
+            className="flex h-full items-center gap-1.5 rounded-[inherit] bg-neutral-950/80 p-1.5 backdrop-blur-2xl"
+          >
             <HoverBorderGradient
               as="div"
               duration={1}
               containerClassName="h-full rounded-full"
-              className="flex h-full items-center gap-2.5 rounded-[inherit] bg-neutral-950 px-5"
+              className="flex h-full items-center gap-2.5 rounded-[inherit] bg-neutral-900/90 px-5"
             >
               <span className="h-1.5 w-1.5 rounded-full bg-[#0F4C8A] shadow-[0_0_6px_rgba(15,76,138,0.5)]" />
               <span className="bg-gradient-to-r from-[#0F4C8A]/60 to-[#0F4C8A] bg-clip-text text-[15px] font-bold text-transparent transition-all duration-300 group-hover:to-accent">أفان تيتر</span>
             </HoverBorderGradient>
-          </div>
+          </HoverBorderGradient>
 
-          <div className="relative z-50 flex h-11 items-center gap-1.5 rounded-full border border-white/5 bg-neutral-800/20 p-1.5 backdrop-blur-md">
+          <HoverBorderGradient
+            as="div"
+            duration={1}
+            containerClassName="relative z-50 h-11 rounded-full"
+            className="flex h-full items-center gap-1.5 rounded-[inherit] bg-neutral-950/80 p-1.5 backdrop-blur-2xl"
+          >
             {MENU_SECTIONS.map((section) => (
               <div
                 key={section.label}
@@ -483,7 +493,7 @@ export function App(): React.JSX.Element {
                   className={`flex h-full min-w-[72px] justify-center items-center rounded-[inherit] px-4 text-[13px] font-medium transition-all ${
                     activeMenu === section.label
                       ? 'bg-neutral-800 text-white'
-                      : 'bg-neutral-950 text-neutral-400 hover:bg-neutral-800 group-hover:text-white'
+                      : 'bg-neutral-900/90 text-neutral-400 hover:bg-neutral-800 group-hover:text-white'
                   }`}
                   onClick={() => setActiveMenu((prev) => (prev === section.label ? null : section.label))}
                 >
@@ -505,16 +515,21 @@ export function App(): React.JSX.Element {
                 )}
               </div>
             ))}
-          </div>
+          </HoverBorderGradient>
         </div>
 
         {/* Left side: Status + User + Edition badge — shared container like nav */}
-        <div className="flex h-11 items-center gap-1.5 rounded-full border border-white/5 bg-neutral-800/20 p-1.5 backdrop-blur-md">
+        <HoverBorderGradient
+          as="div"
+          duration={1}
+          containerClassName="h-11 rounded-full"
+          className="flex h-full items-center gap-1.5 rounded-[inherit] bg-neutral-950/80 p-1.5 backdrop-blur-2xl"
+        >
           <HoverBorderGradient
             as="div"
             duration={1}
             containerClassName="h-full rounded-full"
-            className="bg-ring/10 flex h-full items-center gap-2 rounded-[inherit] px-4 text-[11px] font-bold uppercase tracking-wider text-ring"
+            className="flex h-full items-center gap-2 rounded-[inherit] bg-neutral-900/90 px-4 text-[11px] font-bold uppercase tracking-wider text-ring"
           >
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ring" />
             Online
@@ -524,7 +539,7 @@ export function App(): React.JSX.Element {
             as="div"
             duration={1}
             containerClassName="h-full w-8 cursor-pointer rounded-full"
-            className="flex h-full w-full items-center justify-center rounded-[inherit] bg-gradient-to-tr from-neutral-900 to-neutral-800 p-0"
+            className="flex h-full w-full items-center justify-center rounded-[inherit] bg-neutral-900/90 p-0"
           >
             <User className="size-4 text-neutral-300" />
           </HoverBorderGradient>
@@ -533,14 +548,14 @@ export function App(): React.JSX.Element {
             as="div"
             duration={1}
             containerClassName="group h-full cursor-pointer rounded-full"
-            className="flex h-full items-center gap-2.5 rounded-[inherit] bg-neutral-950 px-5 leading-none"
+            className="flex h-full items-center gap-2.5 rounded-[inherit] bg-neutral-900/90 px-5 leading-none"
           >
             <span className="bg-gradient-to-r from-[#029784]/60 to-[#029784] bg-clip-text text-[15px] font-bold text-transparent transition-all duration-300 group-hover:to-[#40A5B3]">النسخة</span>
             <span className="flex h-1.5 w-1.5">
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#029784]" />
             </span>
           </HoverBorderGradient>
-        </div>
+        </HoverBorderGradient>
       </header>
 
       {/* ── Main area ── */}
@@ -551,7 +566,7 @@ export function App(): React.JSX.Element {
             as="div"
             duration={1}
             containerClassName="h-full w-full rounded-3xl"
-            className="flex h-full w-full flex-col items-stretch rounded-[inherit] bg-neutral-900/30 p-4 backdrop-blur-xl"
+            className="flex h-full w-full flex-col items-stretch rounded-[inherit] bg-neutral-900/60 p-4 backdrop-blur-2xl"
           >
             {/* Search */}
             <div className="group relative mb-8">
@@ -559,7 +574,7 @@ export function App(): React.JSX.Element {
                 as="div"
                 duration={1}
                 containerClassName="w-full rounded-xl group"
-                className="flex w-full items-center gap-2 rounded-[inherit] bg-neutral-950 px-3 py-3"
+                className="flex w-full items-center gap-2 rounded-[inherit] bg-neutral-900/90 px-3 py-3"
               >
                 <Search className="size-4 text-[var(--muted-foreground)] transition-colors group-focus-within:text-[var(--brand)]" />
                 <input
@@ -582,7 +597,7 @@ export function App(): React.JSX.Element {
                       as="button"
                       duration={1}
                       containerClassName="w-full rounded-xl"
-                      className={`group flex w-full items-center gap-3 rounded-[inherit] bg-neutral-900/50 p-3 transition-all duration-200 ${
+                      className={`group flex w-full items-center gap-3 rounded-[inherit] bg-neutral-900/90 p-3 transition-all duration-200 ${
                         isOpen ? 'text-white' : 'text-neutral-500 hover:text-neutral-200'
                       }`}
                       onClick={() => setOpenSidebarItem((prev) => (prev === section.id ? null : section.id))}
@@ -617,7 +632,7 @@ export function App(): React.JSX.Element {
                 as="div"
                 duration={1}
                 containerClassName="w-full rounded-2xl"
-                className="from-primary/10 to-accent/10 flex w-full flex-col items-start rounded-[inherit] bg-gradient-to-br p-4"
+                className="flex w-full flex-col items-start rounded-[inherit] bg-neutral-900/90 p-4"
               >
                 <Sparkles className="mb-2 size-5 text-primary" />
                 <p className="text-xs font-light leading-relaxed text-[var(--muted-foreground)]">تم تفعيل وضع التركيز الذكي. استمتع بتجربة كتابة خالية من المشتتات.</p>
@@ -635,7 +650,7 @@ export function App(): React.JSX.Element {
                 as="div"
                 duration={1}
                 containerClassName="mx-auto rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.4)]"
-                className="flex h-16 items-end gap-3.5 rounded-[inherit] bg-neutral-900/80 px-5 pb-3 backdrop-blur-2xl"
+                className="flex h-16 items-end gap-3.5 rounded-[inherit] bg-neutral-950/80 px-5 pb-3 backdrop-blur-2xl"
               >
                 {DOCK_BUTTONS.map((button, index) => {
                   return (
@@ -665,7 +680,7 @@ export function App(): React.JSX.Element {
       </div>
 
       {/* ── Footer ── */}
-      <footer className="relative z-40 flex-shrink-0 border-t border-[var(--border)] bg-[var(--card)]/80 px-4 py-1 text-[11px] backdrop-blur-2xl" style={{ direction: 'rtl' }}>
+      <footer className="relative z-40 flex-shrink-0 border-t border-white/[0.04] bg-neutral-950/80 px-4 py-1 text-[11px] backdrop-blur-2xl" style={{ direction: 'rtl' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4 text-[var(--muted-foreground)]">
             <span>{stats.pages} صفحة</span>

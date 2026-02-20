@@ -31,9 +31,9 @@
 .filmlane-header {
   display: grid;
   grid-template-columns: auto 1fr auto auto;
-  gap: 0.9rem;
+  gap: 1.2rem;
   align-items: center;
-  padding: 0.9rem 1.4rem;
+  padding: 1.1rem 1.8rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(5, 9, 12, 0.82);
   backdrop-filter: blur(14px);
@@ -63,8 +63,8 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.35rem;
-  padding: 0.2rem;
+  gap: 0.5rem;
+  padding: 0.38rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(10, 14, 17, 0.7);
@@ -74,20 +74,20 @@
 .filmlane-header__controls {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.8rem;
 }
 
 .filmlane-header__status {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   font-size: 0.66rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #00d1b2;
   border: 1px solid rgba(0, 209, 178, 0.35);
   border-radius: 999px;
-  padding: 0.25rem 0.75rem;
+  padding: 0.38rem 0.9rem;
   background: rgba(0, 0, 0, 0.35);
 }
 
@@ -111,7 +111,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.02);
   border-radius: 999px;
-  padding: 0.28rem 0.95rem;
+  padding: 0.4rem 1.1rem;
   font-size: 0.9rem;
   color: #c5ccd2;
   transition: all 140ms ease;
@@ -129,8 +129,8 @@
 }
 
 .filmlane-header__user .ui-dropdown-menu__trigger {
-  width: 2.2rem;
-  height: 2.2rem;
+  width: 2.4rem;
+  height: 2.4rem;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -372,8 +372,8 @@
   pointer-events: auto;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.42rem 0.75rem;
+  gap: 0.55rem;
+  padding: 0.6rem 1rem;
   border-radius: 1.15rem;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(8, 12, 16, 0.86);
@@ -391,8 +391,8 @@
   background: rgba(255, 255, 255, 0.03);
   color: #f2f7f6;
   border-radius: 999px;
-  width: 2.15rem;
-  height: 2.15rem;
+  width: 2.4rem;
+  height: 2.4rem;
   padding: 0;
   font-size: 0.88rem;
   cursor: pointer;
@@ -436,7 +436,7 @@
   width: 1px;
   height: 1.5rem;
   background: rgba(255, 255, 255, 0.17);
-  margin-inline: 0.22rem;
+  margin-inline: 0.4rem;
 }
 
 .filmlane-toolbar__select--hidden {

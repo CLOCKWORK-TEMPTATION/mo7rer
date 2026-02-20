@@ -23,7 +23,7 @@ export class EditorHeader {
   constructor(onAction: (actionId: HeaderActionId) => void) {
     const menuSections: ReadonlyArray<{ label: string; actions: ReadonlyArray<{ id: HeaderActionId; label: string }> }> = [
       {
-        label: 'ملف',
+        label: 'مـلــــف',
         actions: [
           { id: 'new-file', label: 'جديد' },
           { id: 'open-file', label: 'فتح...' },
@@ -35,7 +35,7 @@ export class EditorHeader {
         ],
       },
       {
-        label: 'تعديل',
+        label: 'تعديـــل',
         actions: [
           { id: 'copy', label: 'نسخ' },
           { id: 'cut', label: 'قص' },
@@ -44,14 +44,14 @@ export class EditorHeader {
         ],
       },
       {
-        label: 'إدراج',
+        label: 'إضافـــــة',
         actions: [
-          { id: 'insert-file', label: 'إدراج ملف...' },
+          { id: 'insert-file', label: 'إضافة ملف...' },
           { id: 'open-file', label: 'فتح مرجع...' },
         ],
       },
       {
-        label: 'تنسيق',
+        label: 'تنسيـــق',
         actions: [
           { id: 'save-file', label: 'حفظ التنسيق الحالي' },
           { id: 'save-as-file', label: 'حفظ كقالب...' },
