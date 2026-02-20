@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
-  Film,
   Download,
   Upload,
   Save,
+  History,
   Info,
   Undo2,
   Redo2,
@@ -22,8 +22,7 @@ import {
   Settings,
   Sparkles,
   ChevronLeft,
-  Printer,
-  FileCode,
+  LayoutGrid,
 } from 'lucide-react'
 import { EditorArea } from './components/editor/EditorArea'
 import type { DocumentStats, FileImportMode } from './components/editor/editor-area.types'
@@ -162,24 +161,31 @@ interface DockButtonItem {
   actionId: MenuActionId
   icon: React.ElementType
   title: string
-  colorClass?: string
 }
 
 const DOCK_BUTTONS: readonly DockButtonItem[] = [
   { actionId: 'about', icon: Info, title: 'معلومات' },
-  { actionId: 'undo', icon: Undo2, title: 'تراجع' },
+  /* separator after 0 */
+  { actionId: 'about', icon: AlignRight, title: 'محاذاة يمين' },
+  { actionId: 'about', icon: AlignCenter, title: 'محاذاة وسط' },
+  /* separator after 3 */
+  { actionId: 'italic', icon: Italic, title: 'مائل' },
+  { actionId: 'bold', icon: Bold, title: 'عريض' },
+  /* separator after 5 */
   { actionId: 'redo', icon: Redo2, title: 'إعادة' },
-  { actionId: 'italic', icon: Italic, title: 'مائل', colorClass: 'text-violet-400' },
-  { actionId: 'bold', icon: Bold, title: 'عريض', colorClass: 'text-teal-400' },
-  { actionId: 'open-file', icon: Upload, title: 'فتح ملف', colorClass: 'text-amber-400' },
-  { actionId: 'insert-file', icon: Film, title: 'إدراج ملف', colorClass: 'text-rose-400' },
-  { actionId: 'save-file', icon: Save, title: 'حفظ', colorClass: 'text-sky-400' },
-  { actionId: 'print-file', icon: Printer, title: 'طباعة' },
-  { actionId: 'export-html', icon: Download, title: 'تصدير', colorClass: 'text-emerald-400' },
-  { actionId: 'about', icon: Stethoscope, title: 'فحص', colorClass: 'text-pink-400' },
-  { actionId: 'about', icon: Lightbulb, title: 'اقتراحات', colorClass: 'text-yellow-300' },
+  { actionId: 'undo', icon: Undo2, title: 'تراجع' },
+  /* separator after 7 */
+  { actionId: 'save-file', icon: Save, title: 'حفظ' },
+  { actionId: 'open-file', icon: Upload, title: 'فتح ملف' },
+  /* separator after 9 */
+  { actionId: 'about', icon: History, title: 'سجل' },
   { actionId: 'about', icon: MessageSquare, title: 'ملاحظات' },
-  { actionId: 'export-html', icon: FileCode, title: 'تصدير HTML', colorClass: 'text-cyan-400' },
+  /* separator after 11 */
+  { actionId: 'about', icon: Lightbulb, title: 'اقتراحات' },
+  { actionId: 'about', icon: Stethoscope, title: 'فحص' },
+  /* separator after 13 */
+  { actionId: 'export-html', icon: Download, title: 'تصدير' },
+  { actionId: 'about', icon: LayoutGrid, title: 'عرض شبكي' },
 ]
 
 /* ── Sidebar sections config ── */
@@ -551,20 +557,20 @@ export function App(): React.JSX.Element {
           {/* Floating dock toolbar */}
           <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 flex justify-center pt-3">
             <div className="pointer-events-auto">
-              <div className="flex h-12 items-center gap-1 rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--card)]/90 px-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+              <div className="flex h-14 items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--card)]/90 px-3 shadow-[0_8px_30px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
                 {DOCK_BUTTONS.map((button, index) => {
                   const BIcon = button.icon
                   return (
                     <React.Fragment key={`${button.title}-${index}`}>
                       <button
-                        className={`group flex size-8 items-center justify-center rounded-[var(--radius-md)] transition-all hover:bg-[var(--accent)]/50 active:scale-95 ${button.colorClass || 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}
+                        className="group flex size-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] transition-all hover:border-[var(--brand)]/40 hover:bg-[var(--accent)] hover:text-[var(--foreground)] active:scale-95"
                         title={button.title}
                         onClick={() => void handleMenuAction(button.actionId)}
                       >
-                        <BIcon className="size-4" strokeWidth={1.75} />
+                        <BIcon className="size-[16px]" strokeWidth={1.75} />
                       </button>
-                      {(index === 0 || index === 2 || index === 4 || index === 6 || index === 9 || index === 11) && (
-                        <div className="mx-0.5 h-4 w-px bg-[var(--border)]" />
+                      {(index === 0 || index === 3 || index === 5 || index === 7 || index === 9 || index === 11 || index === 13) && (
+                        <div className="mx-0.5 h-5 w-px bg-[var(--border)]" />
                       )}
                     </React.Fragment>
                   )

@@ -1,3 +1,4 @@
+/* Entry point */
 import './styles/globals.css'
 import './styles/ui-kit.css'
 import './styles/main.css'
