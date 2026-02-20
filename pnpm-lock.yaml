@@ -11,9 +11,6 @@ importers:
       '@mistralai/mistralai':
         specifier: ^1.14.0
         version: 1.14.0
-      '@tabler/icons-react':
-        specifier: ^3.31.0
-        version: 3.37.1(react@19.2.4)
       '@tiptap/core':
         specifier: ^3.0.0
         version: 3.20.0(@tiptap/pm@3.20.0)
@@ -564,14 +561,6 @@ packages:
     resolution: {integrity: sha512-mxRFDdHIWRxg3UfIIAwCm6NzvxG0jDX/wBN6KsQFTvKFqqg9vTrWUE68qEjHt19A5wwx5X5aUi2zuZT7YR0jrA==}
     cpu: [x64]
     os: [win32]
-
-  '@tabler/icons-react@3.37.1':
-    resolution: {integrity: sha512-R7UE71Jji7i4Su56Y9zU1uYEBakUejuDJvyuYVmBuUoqp/x3Pn4cv2huarexR3P0GJ2eHg4rUj9l5zccqS6K/Q==}
-    peerDependencies:
-      react: '>= 16'
-
-  '@tabler/icons@3.37.1':
-    resolution: {integrity: sha512-neLCWkuyNHEPXCyYu6nbN4S3g/59BTa4qyITAugYVpq1YzYNDOZooW7/vRWH98ZItXAudxdKU8muFT7y1PqzuA==}
 
   '@tiptap/core@3.20.0':
     resolution: {integrity: sha512-aC9aROgia/SpJqhsXFiX9TsligL8d+oeoI8W3u00WI45s0VfsqjgeKQLDLF7Tu7hC+7F02teC84SAHuup003VQ==}
@@ -1686,13 +1675,6 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.57.1':
     optional: true
-
-  '@tabler/icons-react@3.37.1(react@19.2.4)':
-    dependencies:
-      '@tabler/icons': 3.37.1
-      react: 19.2.4
-
-  '@tabler/icons@3.37.1': {}
 
   '@tiptap/core@3.20.0(@tiptap/pm@3.20.0)':
     dependencies:

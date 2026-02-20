@@ -143,11 +143,11 @@
 
   .dark {
     /* === Core Colors (Dark Mode) === */
-    --background: #070100;
+    --background: #0a0f0d;
     --foreground: #f9fafb;
-    --card: #070100;
+    --card: #0d1210;
     --card-foreground: #f9fafb;
-    --popover: #070100;
+    --popover: #131a17;
     --popover-foreground: #f9fafb;
     --primary: #029784;
     --primary-foreground: #ffffff;
