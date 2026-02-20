@@ -26,7 +26,6 @@ import {
 } from 'lucide-react'
 import { EditorArea } from './components/editor/EditorArea'
 import type { DocumentStats, FileImportMode } from './components/editor/editor-area.types'
-import { HoverBorderGradient } from './components/ui/hover-border-gradient'
 import { SCREENPLAY_ELEMENTS } from './editor'
 import { type ElementType, isElementType } from './extensions/classification-types'
 import { toast } from './hooks'
@@ -562,15 +561,13 @@ export function App(): React.JSX.Element {
                   const BIcon = button.icon
                   return (
                     <React.Fragment key={`${button.title}-${index}`}>
-                      <HoverBorderGradient
-                        as="button"
-                        containerClassName="rounded-full"
-                        className="flex size-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] transition-all hover:text-[var(--foreground)] active:scale-95"
+                      <button
+                        className="group relative flex size-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] transition-all hover:border-[var(--brand)]/50 hover:bg-[var(--accent)]/20 hover:text-[var(--brand)] active:scale-95"
                         onClick={() => void handleMenuAction(button.actionId)}
                         title={button.title}
                       >
                         <BIcon className="size-[16px]" strokeWidth={1.75} />
-                      </HoverBorderGradient>
+                      </button>
                       {(index === 0 || index === 3 || index === 5 || index === 7 || index === 9 || index === 11 || index === 13) && (
                         <div className="mx-0.5 h-5 w-px bg-[var(--border)]" />
                       )}
