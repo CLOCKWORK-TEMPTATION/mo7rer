@@ -1,7 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react'
+import {
+  Download,
+  Upload,
+  Save,
+  History,
+  Info,
+  Undo2,
+  Redo2,
+  Bold,
+  Italic,
+  AlignRight,
+  AlignCenter,
+  Stethoscope,
+  Lightbulb,
+  MessageSquare,
+  User,
+  Search,
+  FileText,
+  List,
+  BookOpen,
+  Settings,
+  Sparkles,
+  ChevronLeft,
+  LayoutGrid,
+} from 'lucide-react'
 import { EditorArea } from './components/editor/EditorArea'
 import type { DocumentStats, FileImportMode } from './components/editor/editor-area.types'
-import { HoverBorderGradient } from './components/ui/hover-border-gradient'
 import { SCREENPLAY_ELEMENTS } from './editor'
 import { type ElementType, isElementType } from './extensions/classification-types'
 import { toast } from './hooks'
@@ -131,30 +155,44 @@ const MENU_SECTIONS: readonly MenuSection[] = [
   },
 ]
 
+/* ── Toolbar button config ── */
 interface DockButtonItem {
   actionId: MenuActionId
-  icon: string
+  icon: React.ElementType
   title: string
 }
 
 const DOCK_BUTTONS: readonly DockButtonItem[] = [
-  { actionId: 'about', icon: 'ⓘ', title: 'معلومات' },
-  { actionId: 'undo', icon: '↶', title: 'تراجع' },
-  { actionId: 'redo', icon: '↷', title: 'إعادة' },
-  { actionId: 'italic', icon: 'I', title: 'مائل' },
-  { actionId: 'bold', icon: 'B', title: 'عريض' },
-  { actionId: 'open-file', icon: '📂', title: 'فتح' },
-  { actionId: 'insert-file', icon: '⤴', title: 'إدراج' },
-  { actionId: 'save-file', icon: '💾', title: 'حفظ' },
-  { actionId: 'print-file', icon: '🖨', title: 'طباعة' },
-  { actionId: 'export-html', icon: '⬇', title: 'تصدير' },
+  { actionId: 'about', icon: Info, title: 'معلومات' },
+  /* separator after 0 */
+  { actionId: 'about', icon: AlignRight, title: 'محاذاة يمين' },
+  { actionId: 'about', icon: AlignCenter, title: 'محاذاة وسط' },
+  /* separator after 3 */
+  { actionId: 'italic', icon: Italic, title: 'مائل' },
+  { actionId: 'bold', icon: Bold, title: 'عريض' },
+  /* separator after 5 */
+  { actionId: 'redo', icon: Redo2, title: 'إعادة' },
+  { actionId: 'undo', icon: Undo2, title: 'تراجع' },
+  /* separator after 7 */
+  { actionId: 'save-file', icon: Save, title: 'حفظ' },
+  { actionId: 'open-file', icon: Upload, title: 'فتح ملف' },
+  /* separator after 9 */
+  { actionId: 'about', icon: History, title: 'سجل' },
+  { actionId: 'about', icon: MessageSquare, title: 'ملاحظات' },
+  /* separator after 11 */
+  { actionId: 'about', icon: Lightbulb, title: 'اقتراحات' },
+  { actionId: 'about', icon: Stethoscope, title: 'فحص' },
+  /* separator after 13 */
+  { actionId: 'export-html', icon: Download, title: 'تصدير' },
+  { actionId: 'about', icon: LayoutGrid, title: 'عرض شبكي' },
 ]
 
+/* ── Sidebar sections config ── */
 const SIDEBAR_SECTIONS = [
-  { id: 'docs', label: 'المستندات الأخيرة', icon: '📄', items: ['سيناريو فيلم.docx', 'مسودة الحلقة الأولى.docx', 'مشاهد مُصنفة.txt'] },
-  { id: 'projects', label: 'المشاريع', icon: '☰', items: ['فيلم الرحلة', 'مسلسل الحارة', 'ورشة أفان تيتر'] },
-  { id: 'library', label: 'المكتبة', icon: '↥', items: ['قوالب المشاهد', 'الشخصيات', 'الملاحظات'] },
-  { id: 'settings', label: 'الإعدادات', icon: '⚙', items: [] },
+  { id: 'docs', label: 'المستندات الأخيرة', icon: FileText, items: ['سيناريو فيلم.docx', 'مسودة الحلقة الأولى.docx', 'مشاهد مُصنفة.txt'] },
+  { id: 'projects', label: 'المشاريع', icon: List, items: ['فيلم الرحلة', 'مسلسل الحارة', 'ورشة أفان تيتر'] },
+  { id: 'library', label: 'المكتبة', icon: BookOpen, items: ['قوالب المشاهد', 'الشخصيات', 'الملاحظات'] },
+  { id: 'settings', label: 'الإعدادات', icon: Settings, items: [] },
 ] as const
 
 export function App(): React.JSX.Element {
@@ -166,6 +204,7 @@ export function App(): React.JSX.Element {
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [openSidebarItem, setOpenSidebarItem] = useState<string | null>(null)
 
+  /* ── Mount/destroy the EditorArea exactly once ── */
   useEffect(() => {
     const mount = editorMountRef.current
     if (!mount) return
@@ -183,12 +222,14 @@ export function App(): React.JSX.Element {
     }
   }, [])
 
+  /* ── Close menus on outside click ── */
   useEffect(() => {
     const closeMenus = (): void => setActiveMenu(null)
     document.addEventListener('click', closeMenus)
     return () => document.removeEventListener('click', closeMenus)
   }, [])
 
+  /* ── Global keyboard shortcuts ── */
   useEffect(() => {
     const handleGlobalShortcut = (event: KeyboardEvent): void => {
       if (!(event.ctrlKey || event.metaKey)) return
@@ -245,6 +286,7 @@ export function App(): React.JSX.Element {
     return () => document.removeEventListener('keydown', handleGlobalShortcut)
   }, [])
 
+  /* ── File operations ── */
   const openFile = async (mode: FileImportMode): Promise<void> => {
     const area = editorAreaRef.current
     if (!area) return
@@ -300,6 +342,7 @@ export function App(): React.JSX.Element {
     toast({ title: 'تم الحفظ', description: `تم تصدير الملف ${fileName}.` })
   }
 
+  /* ── Menu action dispatcher ── */
   const handleMenuAction = async (actionId: MenuActionId): Promise<void> => {
     const area = editorAreaRef.current
     if (!area) return
@@ -375,48 +418,52 @@ export function App(): React.JSX.Element {
     }
   }
 
+  /* ──────────────────────── JSX ──────────────────────── */
   return (
-    <div className="selection:bg-primary/30 flex h-screen flex-col overflow-hidden bg-neutral-950 font-['Cairo'] text-neutral-200 selection:text-primary-foreground" dir="rtl">
+    <div className="flex h-screen flex-col overflow-hidden bg-[var(--background)] font-['Cairo'] text-[var(--foreground)] selection:bg-[var(--brand)]/30" dir="rtl">
+      {/* Background effects */}
       <div className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-neutral-950 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
-        <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-primary opacity-20 blur-[100px]" />
-        <div className="absolute bottom-0 right-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-accent opacity-20 blur-[100px]" />
+        <div className="absolute inset-0 bg-[var(--background)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,oklch(0.4_0_0/0.03)_1px,transparent_1px),linear-gradient(to_bottom,oklch(0.4_0_0/0.03)_1px,transparent_1px)] bg-[size:24px_24px]" />
+        <div className="absolute left-1/2 top-[10%] -translate-x-1/2 h-[600px] w-[600px] rounded-full bg-[var(--brand)] opacity-[0.06] blur-[150px]" />
       </div>
 
-      <header className="relative z-40 flex h-20 flex-shrink-0 items-center justify-between bg-neutral-950/80 px-6 backdrop-blur-md">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-neutral-900/80 px-4 py-2">
-            <span className="h-2 w-2 rounded-full bg-[#0F4C8A]" />
-            <span className="bg-gradient-to-r from-[#0F4C8A]/60 to-[#0F4C8A] bg-clip-text text-2xl font-bold text-transparent">أفان تيتر</span>
+      {/* ── Header ── */}
+      <header className="relative z-40 flex h-[52px] flex-shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--card)]/80 px-5 backdrop-blur-2xl">
+        {/* Right side: Brand + Nav */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--secondary)]/50 px-3.5 py-1.5">
+            <span className="h-2 w-2 rounded-full bg-[var(--brand)] shadow-[0_0_6px_rgba(2,151,132,0.5)]" />
+            <span className="bg-gradient-to-l from-[var(--brand)] to-[#5eead4] bg-clip-text text-lg font-bold text-transparent">أفان تيتر</span>
           </div>
 
-          <nav className="relative flex items-center gap-2 rounded-full border border-white/5 bg-neutral-900/50 p-1.5 backdrop-blur-md">
+          <nav className="relative flex items-center gap-0.5 rounded-full border border-[var(--border)] bg-[var(--secondary)]/30 p-1 backdrop-blur-md">
             {MENU_SECTIONS.map((section) => (
               <div
                 key={section.label}
                 className="relative"
-                onClick={(event) => {
-                  event.stopPropagation()
-                }}
+                onClick={(event) => { event.stopPropagation() }}
               >
-                <HoverBorderGradient
-                  as="button"
-                  containerClassName="rounded-full"
-                  className="bg-neutral-900/80 px-4 py-1.5 text-sm font-medium text-neutral-300 hover:text-white"
+                <button
+                  className={`rounded-full px-3.5 py-1 text-[13px] font-medium transition-all ${
+                    activeMenu === section.label
+                      ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
+                      : 'text-[var(--muted-foreground)] hover:bg-[var(--accent)]/50 hover:text-[var(--foreground)]'
+                  }`}
                   onClick={() => setActiveMenu((prev) => (prev === section.label ? null : section.label))}
                 >
                   {section.label}
-                </HoverBorderGradient>
+                </button>
 
                 {activeMenu === section.label && (
-                  <div className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl border border-white/10 bg-[#111] p-1.5 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
+                  <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--popover)]/95 p-1 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
                     {section.items.map((item) => (
                       <button
                         key={`${section.label}-${item.label}`}
                         onClick={() => void handleMenuAction(item.actionId)}
-                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-right text-sm text-neutral-400 transition-all hover:bg-white/10 hover:text-white"
+                        className="flex w-full items-center rounded-[var(--radius-md)] px-3 py-2 text-right text-[13px] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/50 hover:text-[var(--foreground)]"
                       >
-                        <span className="flex-1">{item.label}</span>
+                        {item.label}
                       </button>
                     ))}
                   </div>
@@ -426,117 +473,136 @@ export function App(): React.JSX.Element {
           </nav>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="bg-ring/10 flex items-center gap-2 rounded-full border border-ring/30 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-ring">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ring" />
+        {/* Left side: Status + User + Edition badge */}
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 rounded-full border border-[var(--brand)]/25 bg-[var(--brand)]/[0.08] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--brand)]">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--brand)]" />
             Online
           </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-gradient-to-tr from-neutral-800 to-neutral-700 p-0">
-            <span>👤</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--secondary)]">
+            <User className="size-4 text-[var(--muted-foreground)]" />
           </div>
-          <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-neutral-900/80 px-4 py-2">
-            <span className="bg-gradient-to-r from-[#029784]/60 to-[#029784] bg-clip-text text-2xl font-bold text-transparent">النسخة</span>
-            <span className="h-2 w-2 rounded-full bg-[#029784]" />
+          <div className="flex items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--secondary)]/50 px-3 py-1.5">
+            <span className="bg-gradient-to-l from-[var(--brand)] to-[#5eead4] bg-clip-text text-lg font-bold text-transparent">النسخة</span>
+            <span className="h-2 w-2 rounded-full bg-[var(--brand)] shadow-[0_0_6px_rgba(2,151,132,0.5)]" />
           </div>
         </div>
       </header>
 
+      {/* ── Main area ── */}
       <div className="relative z-10 flex flex-1 overflow-hidden">
-        <aside className="hidden w-72 flex-col p-6 xl:flex">
-          <div className="flex h-full w-full flex-col items-stretch rounded-3xl border border-white/10 bg-neutral-900/35 p-4 backdrop-blur-xl">
-            <div className="mb-8">
-              <div className="flex w-full items-center rounded-xl border border-white/10 bg-neutral-950 px-3 py-3">
-                <span className="text-neutral-500">⌕</span>
+        {/* ── Sidebar ── */}
+        <aside className="hidden w-64 flex-col p-4 xl:flex">
+          <div className="flex h-full w-full flex-col items-stretch rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--card)]/60 p-3.5 backdrop-blur-xl">
+            {/* Search */}
+            <div className="mb-5">
+              <div className="flex w-full items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)]/80 px-3 py-2">
+                <Search className="size-4 text-[var(--muted-foreground)]" />
                 <input
                   type="text"
                   placeholder="بحث..."
-                  className="w-full border-none bg-transparent px-3 text-sm text-white placeholder:text-neutral-600 focus:outline-none"
+                  className="w-full border-none bg-transparent text-[13px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none"
                 />
+                <kbd className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--secondary)]/50 px-1 py-0.5 text-[10px] text-[var(--muted-foreground)]">K</kbd>
               </div>
             </div>
 
-            <div className="space-y-2">
-              {SIDEBAR_SECTIONS.map((section) => (
-                <div key={section.id}>
-                  <HoverBorderGradient
-                    as="button"
-                    containerClassName="w-full rounded-xl"
-                    className="flex w-full items-center gap-3 bg-neutral-900/50 p-3 text-neutral-400 hover:text-white"
-                    onClick={() => setOpenSidebarItem((prev) => (prev === section.id ? null : section.id))}
-                  >
-                    <span>{section.icon}</span>
-                    <span className="flex-1 text-right text-sm font-medium">{section.label}</span>
-                  </HoverBorderGradient>
-                  {openSidebarItem === section.id && section.items.length > 0 && (
-                    <div className="mt-2 space-y-1 pr-4">
-                      {section.items.map((item) => (
-                        <button
-                          key={`${section.id}-${item}`}
-                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-neutral-400 transition-colors hover:bg-white/5 hover:text-white"
-                        >
-                          <span className="h-1 w-1 rounded-full bg-neutral-600" />
-                          {item}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+            {/* Sections */}
+            <div className="space-y-0.5">
+              {SIDEBAR_SECTIONS.map((section) => {
+                const SIcon = section.icon
+                return (
+                  <div key={section.id}>
+                    <button
+                      className="group flex w-full items-center gap-2.5 rounded-[var(--radius-lg)] px-3 py-2.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]/50 hover:text-[var(--foreground)]"
+                      onClick={() => setOpenSidebarItem((prev) => (prev === section.id ? null : section.id))}
+                    >
+                      <SIcon className="size-[18px] text-[var(--muted-foreground)] transition-colors group-hover:text-[var(--brand)]" />
+                      <span className="flex-1 text-right text-[13px] font-medium">{section.label}</span>
+                      {section.items.length > 0 && (
+                        <ChevronLeft className={`size-4 text-[var(--muted-foreground)] transition-transform ${openSidebarItem === section.id ? '-rotate-90' : ''}`} />
+                      )}
+                    </button>
+                    {openSidebarItem === section.id && section.items.length > 0 && (
+                      <div className="mt-0.5 space-y-0.5 pr-4">
+                        {section.items.map((item) => (
+                          <button
+                            key={`${section.id}-${item}`}
+                            className="flex w-full items-center gap-2 rounded-[var(--radius-md)] px-3 py-1.5 text-[12px] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/50 hover:text-[var(--foreground)]"
+                          >
+                            <span className="h-1 w-1 rounded-full bg-[var(--muted-foreground)]" />
+                            {item}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
+            {/* AI Focus card */}
             <div className="mt-auto">
-              <div className="from-primary/10 to-accent/10 flex w-full flex-col items-start rounded-2xl border border-primary/25 bg-gradient-to-br p-4">
-                <span className="mb-2 text-primary">✦</span>
-                <p className="text-xs font-light leading-relaxed text-muted-foreground">تم تفعيل وضع التركيز الذكي. استمتع بتجربة كتابة خالية من المشتتات.</p>
+              <div className="flex w-full flex-col items-start rounded-[var(--radius-xl)] border border-[var(--brand)]/20 bg-gradient-to-br from-[var(--brand)]/[0.08] to-[var(--brand)]/[0.02] p-3.5">
+                <Sparkles className="mb-1.5 size-5 text-[var(--brand)]" />
+                <p className="text-[11px] font-light leading-relaxed text-[var(--muted-foreground)]">تم تفعيل وضع التركيز الذكي. استمتع بتجربة كتابة خالية من المشتتات.</p>
               </div>
             </div>
           </div>
         </aside>
 
+        {/* ── Editor + Toolbar ── */}
         <main className="relative flex flex-1 flex-col overflow-hidden">
-          <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 flex justify-center pt-2">
+          {/* Floating dock toolbar */}
+          <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 flex justify-center pt-3">
             <div className="pointer-events-auto">
-              <div className="flex h-16 items-end gap-2 rounded-2xl border border-white/10 bg-neutral-900/85 px-4 pb-3 shadow-[0_10px_35px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-                {DOCK_BUTTONS.map((button, index) => (
-                  <React.Fragment key={button.title}>
-                    <HoverBorderGradient
-                      as="button"
-                      containerClassName="rounded-full"
-                      className="flex h-10 w-10 items-center justify-center bg-neutral-900 p-0 text-neutral-300 transition-colors hover:bg-neutral-800 hover:text-white"
-                      title={button.title}
-                      onClick={() => void handleMenuAction(button.actionId)}
-                    >
-                      {button.icon}
-                    </HoverBorderGradient>
-                    {(index === 1 || index === 4 || index === 7) && <div className="mx-1 mb-4 h-5 w-[1px] bg-gradient-to-b from-transparent via-neutral-600/50 to-transparent" />}
-                  </React.Fragment>
-                ))}
+              <div className="flex h-14 items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--card)]/90 px-3 shadow-[0_8px_30px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+                {DOCK_BUTTONS.map((button, index) => {
+                  const BIcon = button.icon
+                  return (
+                    <React.Fragment key={`${button.title}-${index}`}>
+                      <button
+                        className="group relative flex size-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] transition-all hover:border-[var(--brand)]/50 hover:bg-[var(--accent)]/20 hover:text-[var(--brand)] active:scale-95"
+                        onClick={() => void handleMenuAction(button.actionId)}
+                        title={button.title}
+                      >
+                        <BIcon className="size-[16px]" strokeWidth={1.75} />
+                      </button>
+                      {(index === 0 || index === 3 || index === 5 || index === 7 || index === 9 || index === 11 || index === 13) && (
+                        <div className="mx-0.5 h-5 w-px bg-[var(--border)]" />
+                      )}
+                    </React.Fragment>
+                  )
+                })}
               </div>
             </div>
           </div>
 
-          <div className="scrollbar-hide flex flex-1 justify-center overflow-y-auto p-8 pt-24">
-            <div className="relative -mt-8 w-full max-w-[850px] pb-20">
+          {/* Editor content area */}
+          <div className="scrollbar-none flex flex-1 justify-center overflow-y-auto p-8 pt-20">
+            <div className="relative -mt-4 w-full max-w-[850px] pb-20">
               <div ref={editorMountRef} className="editor-area screenplay-container" />
             </div>
           </div>
         </main>
       </div>
 
-      <footer className="relative z-40 flex-shrink-0 border-t bg-card px-4 py-1.5 text-xs" style={{ direction: 'rtl' }}>
+      {/* ── Footer ── */}
+      <footer className="relative z-40 flex-shrink-0 border-t border-[var(--border)] bg-[var(--card)]/80 px-4 py-1 text-[11px] backdrop-blur-2xl" style={{ direction: 'rtl' }}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4 text-muted-foreground">
+          <div className="flex items-center gap-4 text-[var(--muted-foreground)]">
             <span>{stats.pages} صفحة</span>
             <span className="hidden sm:inline">{stats.words} كلمة</span>
             <span className="hidden md:inline">{stats.characters} حرف</span>
             <span className="hidden sm:inline">{stats.scenes} مشهد</span>
           </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
             <span>{currentFormat ? FORMAT_LABEL_BY_TYPE[currentFormat] : '—'}</span>
           </div>
         </div>
       </footer>
 
+      {/* Screen reader content */}
       <div className="sr-only">
         {SCREENPLAY_ELEMENTS.map((element) => (
           <span key={element.name}>{element.label}</span>
