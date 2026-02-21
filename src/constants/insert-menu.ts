@@ -1,16 +1,7 @@
-export type InsertBehavior = 'insert-template' | 'photo-montage'
+import type { EditorStyleFormatId } from './editor-format-styles'
 
-export type EditorStyleFormatId =
-  | 'basmala'
-  | 'scene-header-1'
-  | 'scene-header-2'
-  | 'scene-header-3'
-  | 'action'
-  | 'character'
-  | 'dialogue'
-  | 'parenthetical'
-  | 'transition'
-  | 'scene-header-top-line'
+export type InsertBehavior = 'insert-template' | 'photo-montage'
+export type { EditorStyleFormatId } from './editor-format-styles'
 
 export interface InsertMenuItemDefinition {
   id: EditorStyleFormatId

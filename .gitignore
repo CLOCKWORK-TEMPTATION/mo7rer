@@ -144,3 +144,6 @@ build/
 
 # Ignore Gemini temporary directory
 .gemini/tmp/
+
+# Ignore npmrc (contains private registry configuration)
+.npmrc

@@ -3,6 +3,7 @@ export const PAGE_HEIGHT_PX = 1123
 export const PAGE_WIDTH_PX = 794
 export const HEADER_HEIGHT_PX = 96
 export const FOOTER_HEIGHT_PX = 96
+export const PAGE_GAP_PX = 24
 export const PAGE_MARGIN_TOP_PX = 77
 export const PAGE_MARGIN_BOTTOM_PX = 77
 export const PAGE_MARGIN_LEFT_PX = 96

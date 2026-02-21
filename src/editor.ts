@@ -11,6 +11,15 @@ import { Parenthetical } from './extensions/parenthetical'
 import { Transition } from './extensions/transition'
 import { ScreenplayCommands } from './extensions/screenplay-commands'
 import { PasteClassifier } from './extensions/paste-classifier'
+import { Pages } from '@tiptap-pro/extension-pages'
+import {
+  FOOTER_HEIGHT_PX,
+  PAGE_GAP_PX,
+  PAGE_HEIGHT_PX,
+  PAGE_MARGIN_LEFT_PX,
+  PAGE_MARGIN_RIGHT_PX,
+  PAGE_WIDTH_PX,
+} from './constants/page'
 
 // الامتدادات الأساسية من Tiptap
 import Document from '@tiptap/extension-document'
@@ -33,6 +42,23 @@ export const SCREENPLAY_ELEMENTS = [
   { name: 'transition', label: 'انتقال (Transition)', shortcut: 'Ctrl+7', icon: '🔀' },
 ] as const
 
+const SCREENPLAY_PAGE_FORMAT = {
+  id: 'FilmlaneA4',
+  width: PAGE_WIDTH_PX,
+  height: PAGE_HEIGHT_PX,
+  margins: {
+    // Vertical reservation is handled by Pages header/footer blocks.
+    top: 0,
+    right: PAGE_MARGIN_RIGHT_PX,
+    bottom: 0,
+    left: PAGE_MARGIN_LEFT_PX,
+  },
+} as const
+
+const PAGES_HEADER_HEIGHT_PX = 77
+const PAGES_HEADER_TEMPLATE_V2 = `<div class="filmlane-pages-header-spacer-v2" style="min-height:${PAGES_HEADER_HEIGHT_PX}px;"></div>`
+const PAGES_FOOTER_TEMPLATE = `<div class="filmlane-pages-footer-spacer" style="min-height:${FOOTER_HEIGHT_PX}px;"><span class="filmlane-pages-footer-number">{page}.</span></div>`
+
 /**
  * إنشاء محرر السيناريو
  */
@@ -50,6 +76,15 @@ export function createScreenplayEditor(element: HTMLElement): Editor {
       Bold,
       Italic,
       Underline,
+      Pages.configure({
+        pageFormat: SCREENPLAY_PAGE_FORMAT,
+        pageGap: PAGE_GAP_PX,
+        headerTopMargin: 0,
+        footerBottomMargin: 0,
+        pageBreakBackground: '#060808',
+        header: PAGES_HEADER_TEMPLATE_V2,
+        footer: PAGES_FOOTER_TEMPLATE,
+      }),
       // عناصر السيناريو المخصصة
       Basmala,
       SceneHeaderTopLine,
@@ -97,5 +132,5 @@ function getDefaultContent(): string {
     <div data-type="scene-header-top-line"><div data-type="scene-header-1">مشهد 2</div><div data-type="scene-header-2">ليل - خارجي</div></div>
     <div data-type="scene-header-3">أمام المنزل - الباب الرئيسي</div>
     <div data-type="action">سارة تقف أمام الباب، تحمل حقيبة سفر. تبدو مرهقة.</div>
-  `
+  `.trim()
 }

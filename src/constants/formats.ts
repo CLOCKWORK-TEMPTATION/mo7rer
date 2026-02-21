@@ -1,14 +1,6 @@
-export type ScreenplayFormatId =
-  | 'basmala'
-  | 'scene-header-top-line'
-  | 'scene-header-1'
-  | 'scene-header-2'
-  | 'scene-header-3'
-  | 'action'
-  | 'character'
-  | 'parenthetical'
-  | 'dialogue'
-  | 'transition'
+import type { EditorStyleFormatId } from './editor-format-styles'
+
+export type ScreenplayFormatId = EditorStyleFormatId
 
 export interface ScreenplayFormat {
   id: ScreenplayFormatId

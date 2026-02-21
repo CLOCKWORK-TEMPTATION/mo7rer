@@ -110,7 +110,7 @@ export class ScreenplayEditor {
     dock.className = 'filmlane-toolbar-dock'
 
     const editorHost = document.createElement('div')
-    editorHost.className = 'editor-area screenplay-container'
+    editorHost.className = 'editor-area app-editor-host'
 
     this.editorArea = new EditorArea({
       mount: editorHost,

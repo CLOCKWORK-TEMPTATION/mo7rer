@@ -100,7 +100,7 @@ const downloadTextFile = (fileName: string, content: string, mimeType: string): 
 }
 
 const BackgroundGrid = (): React.JSX.Element => (
-  <div className="pointer-events-none fixed inset-0 z-0">
+  <div className="app-bg-grid pointer-events-none fixed inset-0 z-0">
     <div className="absolute inset-0 bg-neutral-950 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
     <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-[#0F4C8A] opacity-20 blur-[100px]" />
     <div className="absolute bottom-0 right-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-[#029784] opacity-20 blur-[100px]" />
@@ -450,11 +450,11 @@ export function App(): React.JSX.Element {
 
   /* ──────────────────────── JSX ──────────────────────── */
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[var(--background)] font-['Cairo'] text-[var(--foreground)] selection:bg-[var(--brand)]/30" dir="rtl">
+    <div className="app-root flex h-screen flex-col overflow-hidden bg-[var(--background)] font-['Cairo'] text-[var(--foreground)] selection:bg-[var(--brand)]/30" dir="rtl">
       <BackgroundGrid />
 
       {/* ── Header ── */}
-      <header className="relative z-40 flex h-[60px] flex-shrink-0 items-center justify-between bg-[var(--card)]/80 px-7 backdrop-blur-2xl">
+      <header className="app-header relative z-40 flex h-[60px] flex-shrink-0 items-center justify-between bg-[var(--card)]/80 px-7 backdrop-blur-2xl">
         {/* Right side: Brand + Nav */}
         <div className="flex items-center gap-3">
           <HoverBorderGradient
@@ -559,9 +559,9 @@ export function App(): React.JSX.Element {
       </header>
 
       {/* ── Main area ── */}
-      <div className="relative z-10 flex flex-1 overflow-hidden">
+      <div className="app-main relative z-10 flex flex-1 overflow-hidden">
         {/* ── Sidebar ── */}
-        <aside className="hidden w-72 flex-col p-6 lg:flex">
+        <aside className="app-sidebar hidden w-72 flex-col p-6 lg:flex">
           <HoverBorderGradient
             as="div"
             duration={1}
@@ -642,9 +642,9 @@ export function App(): React.JSX.Element {
         </aside>
 
         {/* ── Editor + Toolbar ── */}
-        <main className="relative flex flex-1 flex-col overflow-hidden">
+        <main className="app-editor-main relative flex flex-1 flex-col overflow-hidden">
           {/* Floating dock toolbar */}
-          <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 flex justify-center pt-3">
+          <div className="app-dock pointer-events-none absolute left-0 right-0 top-0 z-40 flex justify-center pt-3">
             <div className="pointer-events-auto">
               <HoverBorderGradient
                 as="div"
@@ -671,16 +671,16 @@ export function App(): React.JSX.Element {
           </div>
 
           {/* Editor content area */}
-          <div className="scrollbar-none flex flex-1 justify-center overflow-y-auto p-8 pt-20">
-            <div className="relative -mt-4 w-full max-w-[850px] pb-20">
-              <div ref={editorMountRef} className="editor-area screenplay-container" />
+          <div className="app-editor-scroll scrollbar-none flex flex-1 justify-center overflow-y-auto p-8 pt-20">
+            <div className="app-editor-shell relative -mt-4 w-full max-w-[850px] pb-20">
+              <div ref={editorMountRef} className="editor-area app-editor-host" />
             </div>
           </div>
         </main>
       </div>
 
       {/* ── Footer ── */}
-      <footer className="relative z-40 flex-shrink-0 border-t border-white/[0.04] bg-neutral-950/80 px-4 py-1 text-[11px] backdrop-blur-2xl" style={{ direction: 'rtl' }}>
+      <footer className="app-footer relative z-40 flex-shrink-0 border-t border-white/[0.04] bg-neutral-950/80 px-4 py-1 text-[11px] backdrop-blur-2xl" style={{ direction: 'rtl' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4 text-[var(--muted-foreground)]">
             <span>{stats.pages} صفحة</span>

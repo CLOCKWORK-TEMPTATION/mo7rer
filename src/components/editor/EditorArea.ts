@@ -2,7 +2,22 @@ import { createScreenplayEditor, SCREENPLAY_ELEMENTS } from '../../editor'
 import { ensureCharacterTrailingColon } from '../../extensions/character'
 import { classifyText, classifyTextWithAgentReview } from '../../extensions/paste-classifier'
 import { isElementType, type ClassifiedDraft, type ElementType } from '../../extensions/classification-types'
-import { CONTENT_HEIGHT_PX, FOOTER_HEIGHT_PX, HEADER_HEIGHT_PX, PAGE_HEIGHT_PX } from '../../constants/page'
+import {
+  CONTENT_HEIGHT_PX,
+  FOOTER_HEIGHT_PX,
+  PAGE_HEIGHT_PX,
+  PAGE_MARGIN_BOTTOM_PX,
+  PAGE_MARGIN_LEFT_PX,
+  PAGE_MARGIN_RIGHT_PX,
+  PAGE_MARGIN_TOP_PX,
+  PAGE_WIDTH_PX,
+} from '../../constants/page'
+import {
+  applyEditorFormatStyleVariables,
+  LOCKED_EDITOR_FONT_FAMILY,
+  LOCKED_EDITOR_FONT_SIZE,
+  LOCKED_EDITOR_LINE_HEIGHT,
+} from '../../constants/editor-format-styles'
 import { screenplayBlocksToHtml, type ScreenplayBlock } from '../../utils/file-import'
 import type { DocumentStats, EditorAreaProps, EditorCommand, EditorHandle, FileImportMode } from './editor-area.types'
 
@@ -76,11 +91,12 @@ export class EditorArea implements EditorHandle {
   readonly editor
 
   private readonly props: EditorAreaProps
-  private readonly sheet: HTMLDivElement
   private readonly body: HTMLDivElement
-  private readonly overlays: HTMLDivElement
-  private readonly pageNumber: HTMLDivElement
+  private readonly hasPagesExtension: boolean
   private resizeObserver: ResizeObserver | null = null
+  private paginationObserver: MutationObserver | null = null
+  private characterWidowFixRaf: number | null = null
+  private applyingCharacterWidowFix = false
   private estimatedPages = 1
 
   constructor(props: EditorAreaProps) {
@@ -92,38 +108,20 @@ export class EditorArea implements EditorHandle {
     sheet.style.overflow = 'hidden'
     sheet.style.minHeight = 'var(--page-height)'
 
-    const overlays = document.createElement('div')
-    overlays.className = 'filmlane-page-overlays'
-    overlays.setAttribute('aria-hidden', 'true')
-
-    const header = document.createElement('div')
-    header.className = 'screenplay-sheet__header'
-
     const body = document.createElement('div')
     body.className = 'screenplay-sheet__body'
 
-    const footer = document.createElement('div')
-    footer.className = 'screenplay-sheet__footer'
-
-    const pageNumber = document.createElement('div')
-    pageNumber.className = 'screenplay-page-number'
-    pageNumber.textContent = '1.'
-
-    footer.appendChild(pageNumber)
-    sheet.appendChild(overlays)
-    sheet.appendChild(header)
+    this.applyLockedLayoutMetrics(sheet)
+    this.applyLockedEditorTypography(body)
     sheet.appendChild(body)
-    sheet.appendChild(footer)
 
     props.mount.innerHTML = ''
     props.mount.appendChild(sheet)
 
-    this.sheet = sheet
     this.body = body
-    this.overlays = overlays
-    this.pageNumber = pageNumber
 
     this.editor = createScreenplayEditor(body)
+    this.hasPagesExtension = this.editor.extensionManager.extensions.some((extension) => extension.name === 'pages')
 
     this.editor.on('update', this.handleEditorUpdate)
     this.editor.on('selectionUpdate', this.handleSelectionUpdate)
@@ -237,11 +235,18 @@ export class EditorArea implements EditorHandle {
     }
     this.resizeObserver?.disconnect()
     this.resizeObserver = null
+    this.paginationObserver?.disconnect()
+    this.paginationObserver = null
+    if (typeof window !== 'undefined' && this.characterWidowFixRaf !== null) {
+      window.cancelAnimationFrame(this.characterWidowFixRaf)
+      this.characterWidowFixRaf = null
+    }
     this.editor.destroy()
   }
 
   private readonly handleEditorUpdate = (): void => {
     this.refreshPageModel()
+    this.scheduleCharacterWidowFix()
     this.emitState()
     this.props.onContentChange?.(this.getAllText())
   }
@@ -253,6 +258,7 @@ export class EditorArea implements EditorHandle {
 
   private readonly handleWindowResize = (): void => {
     this.refreshPageModel()
+    this.scheduleCharacterWidowFix()
     this.emitState()
   }
 
@@ -267,9 +273,11 @@ export class EditorArea implements EditorHandle {
       const editorRoot = this.body.querySelector<HTMLElement>('.filmlane-prosemirror-root, .ProseMirror')
       if (!editorRoot) return
 
+      this.applyLockedEditorTypography(editorRoot)
       this.resizeObserver?.disconnect()
       this.resizeObserver = new ResizeObserver(() => {
         this.refreshPageModel()
+        this.scheduleCharacterWidowFix()
         this.emitState()
       })
       this.resizeObserver.observe(editorRoot)
@@ -277,62 +285,176 @@ export class EditorArea implements EditorHandle {
 
     attachObserver()
     window.setTimeout(attachObserver, 0)
+
+    if (typeof MutationObserver === 'undefined') return
+
+    this.paginationObserver?.disconnect()
+    this.paginationObserver = new MutationObserver(() => {
+      if (this.applyingCharacterWidowFix) return
+      const editorRoot = this.body.querySelector<HTMLElement>('.filmlane-prosemirror-root, .ProseMirror')
+      if (editorRoot) {
+        this.applyLockedEditorTypography(editorRoot)
+      }
+      this.refreshPageModel()
+      this.scheduleCharacterWidowFix()
+      this.emitState()
+    })
+    this.paginationObserver.observe(this.body, {
+      childList: true,
+      subtree: true,
+    })
+  }
+
+  private applyLockedLayoutMetrics(sheet: HTMLDivElement): void {
+    sheet.style.setProperty('--page-width', `${PAGE_WIDTH_PX}px`)
+    sheet.style.setProperty('--page-height', `${PAGE_HEIGHT_PX}px`)
+    sheet.style.setProperty('--page-header-height', '77px')
+    sheet.style.setProperty('--page-footer-height', `${FOOTER_HEIGHT_PX}px`)
+    sheet.style.setProperty('--page-margin-top', `${PAGE_MARGIN_TOP_PX}px`)
+    sheet.style.setProperty('--page-margin-bottom', `${PAGE_MARGIN_BOTTOM_PX}px`)
+    sheet.style.setProperty('--page-margin-left', `${PAGE_MARGIN_LEFT_PX}px`)
+    sheet.style.setProperty('--page-margin-right', `${PAGE_MARGIN_RIGHT_PX}px`)
+    applyEditorFormatStyleVariables(sheet.style)
+  }
+
+  private applyLockedEditorTypography(target: HTMLElement): void {
+    target.style.setProperty('font-family', LOCKED_EDITOR_FONT_FAMILY, 'important')
+    target.style.setProperty('font-size', LOCKED_EDITOR_FONT_SIZE, 'important')
+    target.style.setProperty('line-height', LOCKED_EDITOR_LINE_HEIGHT, 'important')
+    target.style.setProperty('direction', 'rtl')
+    target.style.setProperty('font-weight', '700')
   }
 
   private measurePageEstimate(): number {
     const editorRoot = this.body.querySelector<HTMLElement>('.filmlane-prosemirror-root, .ProseMirror')
     if (!editorRoot) return 1
 
-    const pageBodyHeight = Math.max(1, CONTENT_HEIGHT_PX - 20)
+    const pageBodyHeight = Math.max(1, CONTENT_HEIGHT_PX)
     const contentHeight = Math.max(1, editorRoot.scrollHeight)
     return Math.max(1, Math.ceil(contentHeight / pageBodyHeight))
   }
 
-  private renderPageOverlays(totalPages: number): void {
-    this.overlays.innerHTML = ''
-    const fragment = document.createDocumentFragment()
-
-    for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
-      const pageTop = PAGE_HEIGHT_PX * (pageNumber - 1)
-      const pageBottom = PAGE_HEIGHT_PX * pageNumber
-
-      if (pageNumber > 1) {
-        const divider = document.createElement('div')
-        divider.className = 'filmlane-page-divider'
-        divider.style.top = `${pageTop}px`
-        fragment.appendChild(divider)
-
-        const headerBand = document.createElement('div')
-        headerBand.className = 'filmlane-page-header-band'
-        headerBand.style.top = `${pageTop}px`
-        headerBand.style.height = `${HEADER_HEIGHT_PX}px`
-        fragment.appendChild(headerBand)
-      }
-
-      const footerBand = document.createElement('div')
-      footerBand.className = 'filmlane-page-footer-band'
-      footerBand.style.top = `${pageBottom - FOOTER_HEIGHT_PX}px`
-      footerBand.style.height = `${FOOTER_HEIGHT_PX}px`
-      fragment.appendChild(footerBand)
-
-      const marker = document.createElement('div')
-      marker.className = 'filmlane-page-number-marker'
-      marker.style.top = `${pageBottom - 58}px`
-      marker.textContent = `${pageNumber}.`
-      fragment.appendChild(marker)
-    }
-
-    this.overlays.appendChild(fragment)
+  private getPagesFromExtensionStorage(): number | null {
+    const storage = this.editor.storage as { pages?: { getPageCount?: () => number } }
+    const pages = storage.pages?.getPageCount?.()
+    if (typeof pages !== 'number' || !Number.isFinite(pages)) return null
+    return Math.max(1, Math.floor(pages))
   }
 
   private refreshPageModel(force = false): void {
-    const nextPages = this.measurePageEstimate()
+    const pagesFromStorage = this.getPagesFromExtensionStorage()
+    const nextPages =
+      pagesFromStorage ??
+      (this.hasPagesExtension ? this.estimatedPages : this.measurePageEstimate())
+
     if (!force && nextPages === this.estimatedPages) return
 
     this.estimatedPages = nextPages
-    this.sheet.style.minHeight = `calc(var(--page-height) * ${this.estimatedPages})`
-    this.renderPageOverlays(this.estimatedPages)
-    this.pageNumber.textContent = `${this.estimatedPages}.`
+  }
+
+  private scheduleCharacterWidowFix(): void {
+    if (typeof window === 'undefined') return
+    if (this.characterWidowFixRaf !== null) {
+      window.cancelAnimationFrame(this.characterWidowFixRaf)
+    }
+
+    this.characterWidowFixRaf = window.requestAnimationFrame(() => {
+      this.characterWidowFixRaf = null
+      this.applyCharacterWidowFix()
+    })
+  }
+
+  private applyCharacterWidowFix(): void {
+    if (this.applyingCharacterWidowFix) return
+
+    const editorRoot = this.body.querySelector<HTMLElement>('.filmlane-prosemirror-root, .ProseMirror')
+    if (!editorRoot) return
+
+    // ── 1. Clear all previous fixes so layout returns to its "natural" state ──
+    const previouslyFixed = editorRoot.querySelectorAll<HTMLElement>('[data-character-widow-fix]')
+    for (const el of previouslyFixed) {
+      el.style.removeProperty('margin-top')
+      el.removeAttribute('data-character-widow-fix')
+    }
+
+    // Force synchronous reflow so bounding-rects are accurate after clearing
+    void editorRoot.offsetHeight
+
+    // ── 2. Collect all content block elements (nested inside .tiptap-page containers) ──
+    const allBlocks = Array.from(
+      editorRoot.querySelectorAll<HTMLElement>('[data-type]')
+    )
+    if (allBlocks.length < 2) return
+
+    // ── 3. Detect character elements split from their dialogue/parenthetical ──
+    const pagesStorage = this.editor.storage as {
+      pages?: { getPageForPosition?: (pos: number) => number }
+    }
+    const getPageFn = pagesStorage.pages?.getPageForPosition
+
+    let hasAdjustment = false
+
+    for (let i = 0; i < allBlocks.length - 1; i += 1) {
+      const current = allBlocks[i]
+      const next = allBlocks[i + 1]
+
+      if (current.getAttribute('data-type') !== 'character') continue
+      const nextType = next.getAttribute('data-type')
+      if (nextType !== 'dialogue' && nextType !== 'parenthetical') continue
+
+      // ── 3a. Check if they sit on different pages ──
+      let isSplit = false
+
+      // Method A: Pages extension API (most reliable)
+      if (!isSplit && typeof getPageFn === 'function') {
+        try {
+          const p1 = getPageFn(this.editor.view.posAtDOM(current, 0))
+          const p2 = getPageFn(this.editor.view.posAtDOM(next, 0))
+          isSplit = p1 !== p2
+        } catch { /* fall through to DOM method */ }
+      }
+
+      // Method B: DOM page containers
+      if (!isSplit) {
+        const currentPage = current.closest('.tiptap-page')
+        const nextPage = next.closest('.tiptap-page')
+        isSplit = !!(currentPage && nextPage && currentPage !== nextPage)
+      }
+
+      if (!isSplit) continue
+
+      // ── 4. Calculate the push needed to move the character off its current page ──
+      const page = current.closest('.tiptap-page')
+      if (!page) continue
+
+      const charRect = current.getBoundingClientRect()
+      const footer = page.querySelector('.tiptap-page-footer')
+      const contentBottom = footer
+        ? footer.getBoundingClientRect().top
+        : page.getBoundingClientRect().bottom
+      const spaceBelow = contentBottom - charRect.bottom
+
+      if (spaceBelow < 0) continue
+
+      const pushAmount = Math.ceil(spaceBelow) + 2
+      current.style.setProperty('margin-top', `${pushAmount}px`)
+      current.setAttribute('data-character-widow-fix', '1')
+      hasAdjustment = true
+    }
+
+    if (!hasAdjustment) return
+
+    // ── 5. Guard: double-RAF so Pages extension reflow completes before we re-check ──
+    this.applyingCharacterWidowFix = true
+    if (typeof window !== 'undefined') {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          this.applyingCharacterWidowFix = false
+        })
+      })
+    } else {
+      this.applyingCharacterWidowFix = false
+    }
   }
 
   private emitState(): void {

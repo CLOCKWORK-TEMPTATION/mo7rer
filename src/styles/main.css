@@ -32,8 +32,8 @@
   /* أبعاد الصفحة */
   --page-height: 1123px;
   --page-width: 794px;
-  --page-header-height: 0.8in;
-  --page-footer-height: 0.8in;
+  --page-header-height: 96px;
+  --page-footer-height: 96px;
   --page-margin-left: 1in;
   --page-margin-right: 1.25in;
 
