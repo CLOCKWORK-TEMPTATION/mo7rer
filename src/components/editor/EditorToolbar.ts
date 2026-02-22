@@ -1,5 +1,8 @@
 import { SCREENPLAY_ELEMENTS } from '../../editor'
 
+/**
+ * @description مُعرفات أوامر وأفعال شريط الأدوات (Toolbar).
+ */
 export type ToolbarActionId =
   | 'open-file'
   | 'insert-file'
@@ -50,6 +53,18 @@ const makeIconButton = (onAction: (actionId: ToolbarActionId) => void, spec: Ico
   return button
 }
 
+/**
+ * @description مكون شريط الأدوات العائم أو المرفق (Toolbar) لتسهيل الوصول السريع للأوامر المتكررة والتنسيقات الخاصة بالسيناريو.
+ *
+ * @complexity الزمنية: O(a) لإنشائه، a أعداد الأزرار | المكانية: O(a)
+ *
+ * @sideEffects
+ *   - ينشئ عناصر DOM (أزرار وقائمة منسدلة).
+ *   - يربط عمليات استماع للأحداث (Event Listeners) بتمرير الفعل عبر المفوض المعطى.
+ *
+ * @usedBy
+ *   - `ScreenplayEditor` كدعم سريع خارج القوائم العلوية المخفية في المساحات الضيقة.
+ */
 export class EditorToolbar {
   readonly element: HTMLElement
 

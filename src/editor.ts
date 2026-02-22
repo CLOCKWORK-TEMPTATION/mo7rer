@@ -1,3 +1,26 @@
+/**
+ * @file editor.ts
+ * @description مصنع محرر السيناريو (Screenplay Editor Factory). يتولى:
+ *   1. تسجيل جميع امتدادات Tiptap المخصصة لعناصر السيناريو العربي.
+ *   2. تهيئة نظام الصفحات (A4 pagination) عبر `@tiptap-pro/extension-pages`.
+ *   3. تصدير قائمة عناصر السيناريو `SCREENPLAY_ELEMENTS` مع التسميات العربية والاختصارات.
+ *   4. توفير دالة إنشاء المحرر `createScreenplayEditor` لتوليد مثيل Tiptap Editor مهيّأ بالكامل.
+ *
+ * @exports
+ *   - `SCREENPLAY_ELEMENTS` — مصفوفة ثابتة (readonly) بثمانية عناصر سيناريو.
+ *   - `createScreenplayEditor` — دالة مصنع تُنشئ مثيل Editor مع كل الامتدادات.
+ *
+ * @dependencies
+ *   - `@tiptap/core` — محرك المحرر الأساسي.
+ *   - `@tiptap-pro/extension-pages` — نظام تقسيم الصفحات.
+ *   - `./extensions/*` — 10 امتدادات مخصصة لعناصر السيناريو + الأوامر + مصنف اللصق.
+ *   - `./constants/page` — ثوابت أبعاد الصفحة (A4 @ 96 PPI).
+ *
+ * @usedBy
+ *   - `components/editor/EditorArea.ts` — يستدعي `createScreenplayEditor` لتركيب المحرر.
+ *   - `toolbar.ts` — يستورد `SCREENPLAY_ELEMENTS` لبناء القائمة المنسدلة.
+ *   - `App.tsx` — يستورد `SCREENPLAY_ELEMENTS` لربط الاختصارات وعرض التسميات.
+ */
 import { Editor } from '@tiptap/core'
 import { Basmala } from './extensions/basmala'
 import { SceneHeaderTopLine } from './extensions/scene-header-top-line'
@@ -29,7 +52,33 @@ import Italic from '@tiptap/extension-italic'
 import Underline from '@tiptap/extension-underline'
 
 /**
- * عناصر السيناريو مع التسميات العربية
+ * @description قائمة عناصر السيناريو المتاحة مع البيانات الوصفية لكل عنصر.
+ *   تُستخدم لبناء واجهات اختيار العنصر (القائمة المنسدلة، شريط الأدوات، الذيل)
+ *   ولربط اختصارات لوحة المفاتيح بأوامر تحويل الفقرة.
+ *
+ * @remarks
+ *   - `name` — معرّف العنصر بصيغة camelCase، يطابق اسم امتداد Tiptap.
+ *   - `label` — التسمية العربية المعروضة للمستخدم.
+ *   - `shortcut` — اختصار لوحة المفاتيح (Ctrl+رقم).
+ *   - `icon` — رمز Unicode أو Emoji للعرض في الواجهة.
+ *
+ * @example
+ * // الوصول لعنصر بالاسم
+ * const actionEl = SCREENPLAY_ELEMENTS.find(el => el.name === 'action')
+ *
+ * @example
+ * // بناء قائمة منسدلة
+ * SCREENPLAY_ELEMENTS.forEach(el => {
+ *   const opt = document.createElement('option')
+ *   opt.value = el.name
+ *   opt.textContent = `${el.icon} ${el.label}`
+ * })
+ *
+ * @example
+ * // ربط اختصار لوحة المفاتيح
+ * if (editor.isActive(SCREENPLAY_ELEMENTS[3].name)) {
+ *   // العنصر النشط هو "حركة (Action)"
+ * }
  */
 export const SCREENPLAY_ELEMENTS = [
   { name: 'basmala', label: 'بسملة', shortcut: 'Ctrl+0', icon: '﷽' },
@@ -42,12 +91,20 @@ export const SCREENPLAY_ELEMENTS = [
   { name: 'transition', label: 'انتقال (Transition)', shortcut: 'Ctrl+7', icon: '🔀' },
 ] as const
 
+/**
+ * @description تنسيق الصفحة المخصص لسيناريوهات Filmlane بمقاس A4 عند 96 PPI.
+ *   الهوامش الرأسية (top/bottom) مضبوطة على صفر لأن كتل header/footer
+ *   في امتداد Pages تتولى الحجز الرأسي.
+ *
+ * @see PAGE_WIDTH_PX — عرض الصفحة (794px).
+ * @see PAGE_HEIGHT_PX — ارتفاع الصفحة (1123px).
+ */
 const SCREENPLAY_PAGE_FORMAT = {
   id: 'FilmlaneA4',
   width: PAGE_WIDTH_PX,
   height: PAGE_HEIGHT_PX,
   margins: {
-    // Vertical reservation is handled by Pages header/footer blocks.
+    // الحجز الرأسي تتولاه كتل header/footer في امتداد Pages.
     top: 0,
     right: PAGE_MARGIN_RIGHT_PX,
     bottom: 0,
@@ -55,8 +112,15 @@ const SCREENPLAY_PAGE_FORMAT = {
   },
 } as const
 
+/** ارتفاع كتلة رأس الصفحة بالبكسل — يوفر مساحة فارغة أعلى كل صفحة */
 const PAGES_HEADER_HEIGHT_PX = 77
+/** قالب HTML لرأس الصفحة — مساحة فارغة بارتفاع ثابت */
 const PAGES_HEADER_TEMPLATE_V2 = `<div class="filmlane-pages-header-spacer-v2" style="min-height:${PAGES_HEADER_HEIGHT_PX}px;"></div>`
+
+/**
+ * قالب HTML لذيل الصفحة — يعرض رقم الصفحة.
+ * العنصر النائب `{page}` يُستبدل تلقائياً بواسطة امتداد Pages.
+ */
 const PAGES_FOOTER_TEMPLATE = `<div class="filmlane-pages-footer-spacer" style="min-height:${FOOTER_HEIGHT_PX}px;"><span class="filmlane-pages-footer-number">{page}.</span></div>`
 
 /**
@@ -116,7 +180,11 @@ export function createScreenplayEditor(element: HTMLElement): Editor {
 }
 
 /**
- * المحتوى الافتراضي عند فتح المحرر
+ * @description المحتوى الافتراضي عند فتح المحرر — سيناريو تجريبي قصير يتضمن
+ *   نماذج لجميع عناصر السيناريو الأساسية (بسملة، رأس مشهد، حدث، شخصية، حوار، انتقال).
+ *   يُستخدم كقيمة أولية لخاصية `content` في مثيل Tiptap Editor.
+ *
+ * @returns {string} سلسلة HTML تمثل محتوى السيناريو الافتراضي مع `data-type` attributes.
  */
 function getDefaultContent(): string {
   return `

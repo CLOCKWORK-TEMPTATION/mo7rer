@@ -1,3 +1,16 @@
+/**
+ * @module extensions/action
+ * @description
+ * عنصر الوصف/الحدث (Action) — يصف ما يحدث في المشهد.
+ *
+ * يُصدّر:
+ * - {@link ActionEvidence} — واجهة أدلة الوصف (9 أعلام منطقية)
+ * - {@link collectActionEvidence} — جامع أدلة الوصف من النص
+ * - {@link isActionLine} — المُصنّف النهائي للوصف (score-based، عتبة ≥ 2)
+ * - {@link Action} — عقدة Tiptap للوصف
+ *
+ * سلوك Enter: الانتقال إلى {@link Action} آخر (استمرار الوصف).
+ */
 import { Node, mergeAttributes } from '@tiptap/core'
 import type { ClassificationContext } from './classification-types'
 import {
@@ -16,6 +29,12 @@ import {
   normalizeLine,
 } from './text-utils'
 
+/**
+ * أدلة تصنيف سطر كوصف/حدث — 9 أعلام منطقية مستقلة.
+ *
+ * يُستخدم في {@link collectActionEvidence} ويُستهلك في
+ * {@link isActionLine} و {@link isDialogueLine} لحساب النقاط.
+ */
 export interface ActionEvidence {
   byDash: boolean
   byCue: boolean
@@ -28,9 +47,41 @@ export interface ActionEvidence {
   byAudioNarrative: boolean
 }
 
+/**
+ * نمط regex للإشارات الصوتية السردية — أفعال سمع وأسماء أصوات.
+ *
+ * يتطابق مع أسطر تبدأ بكلمة صوتية مثل:
+ * `نسمع`، `صوت`، `أصوات`، `دوي`، `طلقات`، `انفجار`، `صراخ`، `همس`، `بكاء`، `ضحك`...
+ * متبوعة بمسافة وكلمة أخرى أو نهاية السطر.
+ *
+ * يُستخدم في {@link collectActionEvidence} لحساب `byAudioNarrative`.
+ */
 const NARRATIVE_AUDIO_CUE_RE =
   /^(?:نسمع|يسمع|تسمع|يُسمع|صوت|أصوات|دوي|ضجيج|طرق(?:ات)?|طلقات|انفجار|رنين|صفير|صراخ|صرخة|همس|أنين|بكاء|ضحك)(?:\s+\S|$)/
 
+/**
+ * يجمع أدلة تصنيف السطر كوصف/حدث من 9 مصادر مستقلة.
+ *
+ * كل علم يُحسب من دالة فحص منفصلة:
+ * - `byDash` — يبدأ بشرطة ({@link isActionWithDash})
+ * - `byCue` — يتطابق مع إشارة وصف ({@link isActionCueLine})
+ * - `byPattern` — يتطابق مع نمط بداية وصف ({@link matchesActionStartPattern})
+ * - `byVerb` — يبدأ بفعل وصفي ({@link isActionVerbStart})
+ * - `byStructure` — بنية فعل + ضمير ({@link hasActionVerbStructure})
+ * - `byNarrativeSyntax` — تركيب سردي كامل ({@link looksLikeNarrativeActionSyntax})
+ * - `byPronounAction` — فعل + ضمير متصل ({@link PRONOUN_ACTION_RE})
+ * - `byThenAction` — "ثم" + فعل ({@link THEN_ACTION_RE})
+ * - `byAudioNarrative` — إشارة صوتية سردية ({@link NARRATIVE_AUDIO_CUE_RE})
+ *
+ * @param text - النص الخام
+ * @returns كائن {@link ActionEvidence} بـ 9 أعلام
+ *
+ * @example
+ * ```ts
+ * collectActionEvidence('- يفتح الباب')
+ * // { byDash: true, byCue: false, byPattern: false, ... }
+ * ```
+ */
 export const collectActionEvidence = (text: string): ActionEvidence => {
   const normalized = normalizeLine(text)
 
@@ -47,6 +98,36 @@ export const collectActionEvidence = (text: string): ActionEvidence => {
   }
 }
 
+/**
+ * المُصنّف النهائي للوصف/الحدث — يجمع الأدلة ويحسب النقاط.
+ *
+ * الاستبعادات الأولية:
+ * - أسطر الانتقال ({@link TRANSITION_RE}) → `false`
+ * - أسطر رقم المشهد ({@link SCENE_NUMBER_EXACT_RE}) → `false`
+ * - سطر قصير (≤ 3 كلمات) منتهٍ بنقطتين (اسم شخصية محتمل) → `false`
+ *
+ * جدول النقاط:
+ * | الدليل | النقاط |
+ * |--------|--------|
+ * | `byDash` (شرطة) | عودة فورية `true` |
+ * | `byCue` | +2 |
+ * | `byPattern` | +2 |
+ * | `byVerb` | +2 |
+ * | `byStructure` | +1 |
+ * | `byNarrativeSyntax` | +1 |
+ * | `byPronounAction` | +1 |
+ * | `byThenAction` | +1 |
+ * | `byAudioNarrative` | +2 |
+ *
+ * قواعد السياق:
+ * - داخل كتلة حوار (`isInDialogueBlock`) → يتطلب ≥ 3
+ * - بعد وصف سابق (`previousType === 'action'`) → يكفي ≥ 1
+ * - الحالة الافتراضية → يتطلب ≥ 2
+ *
+ * @param text - النص الخام
+ * @param context - سياق التصنيف (اختياري)
+ * @returns `true` إذا صُنّف كوصف/حدث
+ */
 export const isActionLine = (
   text: string,
   context?: Partial<ClassificationContext>

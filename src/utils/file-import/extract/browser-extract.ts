@@ -1,3 +1,16 @@
+/**
+ * @module utils/file-import/extract/browser-extract
+ * @description استخراج النصوص من الملفات داخل المتصفح بدون Backend.
+ *
+ * الأنواع المدعومة:
+ * - `txt` / `fountain` / `fdx` — قراءة نصية مباشرة مع كشف ترميز ذكي
+ *   (UTF-8 → windows-1256 → ISO-8859-1) للنصوص العربية
+ * - `docx` — عبر مكتبة mammoth (extractRawText)
+ * - `pdf` — عبر pdfjs-dist (text layer فقط، بدون OCR)
+ * - `doc` — غير مدعوم في المتصفح (يحتاج Backend)
+ *
+ * كل مسار يفحص وجود Filmlane Payload Marker قبل إرجاع النص الخام.
+ */
 import type {
   FileExtractionResult,
   ImportedFileType,
@@ -6,9 +19,14 @@ import {
   extractPayloadFromText,
 } from '../document-model'
 
+/** يوحّد فواصل الأسطر إلى `\n` */
 const normalizeNewlines = (value: string): string =>
   (value ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
+/**
+ * يحاول فكّ ترميز مصفوفة بايت بترميز محدد.
+ * @returns النص المفكوك أو `null` عند الفشل
+ */
 const decodeWithEncoding = (buffer: Uint8Array, encoding: string): string | null => {
   try {
     return new TextDecoder(encoding).decode(buffer)
@@ -17,6 +35,11 @@ const decodeWithEncoding = (buffer: Uint8Array, encoding: string): string | null
   }
 }
 
+/**
+ * يفكّ ترميز ArrayBuffer إلى نص باستخدام تسلسل ترميزات:
+ * UTF-8 → windows-1256 → ISO-8859-1.
+ * مصمّم للتعامل مع النصوص العربية المشفّرة بترميزات مختلفة.
+ */
 const decodeTextBuffer = (arrayBuffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(arrayBuffer)
   const utf8Text = decodeWithEncoding(bytes, 'utf-8') ?? ''
@@ -35,6 +58,10 @@ const decodeTextBuffer = (arrayBuffer: ArrayBuffer): string => {
   return utf8Text
 }
 
+/**
+ * يبني نتيجة استخراج من نوع `app-payload` عند اكتشاف
+ * Filmlane Payload Marker في النص المستخرج.
+ */
 const toPayloadResult = (
   payload: NonNullable<ReturnType<typeof extractPayloadFromText>>,
   fileType: ImportedFileType,
@@ -52,6 +79,10 @@ const toPayloadResult = (
   payloadVersion: payload.version,
 })
 
+/**
+ * يستخرج النص الخام من ملف DOCX عبر مكتبة mammoth (extractRawText).
+ * @throws {Error} إذا تعذّر تحميل الدالة من المكتبة
+ */
 async function extractDocxText(file: File): Promise<{ text: string; attempts: string[] }> {
   const mammoth = (await import('mammoth')) as {
     extractRawText?: (input: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }>
@@ -73,6 +104,11 @@ async function extractDocxText(file: File): Promise<{ text: string; attempts: st
   }
 }
 
+/**
+ * يستخرج طبقة النصوص من ملف PDF عبر pdfjs-dist (بدون OCR).
+ * يعمل بوضع `disableWorker: true` لتجنب الحاجة لـ Web Worker.
+ * @throws {Error} إذا تعذّر تحميل `getDocument` من المكتبة
+ */
 async function extractPdfTextLayer(file: File): Promise<{ text: string; attempts: string[] }> {
   const pdfjs = (await import('pdfjs-dist/legacy/build/pdf.mjs')) as {
     getDocument?: (options: { data: Uint8Array; disableWorker?: boolean }) => {
@@ -123,9 +159,26 @@ async function extractPdfTextLayer(file: File): Promise<{ text: string; attempts
   }
 }
 
+/**
+ * يتحقق ممّا إذا كان نوع الملف مدعوماً للاستخراج في المتصفح.
+ * ملفات DOC غير مدعومة (تحتاج Backend).
+ */
 export const isBrowserExtractionSupported = (fileType: ImportedFileType): boolean =>
   fileType !== 'doc'
 
+/**
+ * يستخرج نص الملف داخل المتصفح حسب نوعه:
+ * - `txt`/`fountain`/`fdx` → قراءة نصية مع كشف ترميز
+ * - `docx` → mammoth
+ * - `pdf` → pdfjs-dist text layer
+ *
+ * يفحص وجود Filmlane Payload Marker قبل إرجاع النص الخام.
+ *
+ * @param file - كائن الملف
+ * @param fileType - نوع الملف المُحدد
+ * @returns نتيجة الاستخراج
+ * @throws {Error} للأنواع غير المدعومة (doc) أو أخطاء المكتبات
+ */
 export const extractFileInBrowser = async (
   file: File,
   fileType: ImportedFileType,

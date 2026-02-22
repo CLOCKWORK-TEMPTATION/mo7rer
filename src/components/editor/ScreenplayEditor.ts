@@ -79,6 +79,24 @@ const downloadTextFile = (fileName: string, content: string, mimeType: string): 
   URL.revokeObjectURL(url)
 }
 
+/**
+ * @description المجمع الأساسي (Orchestrator) لمحرر السيناريو. يربط عناصر الواجهة المختلفة (منطقة التحرير، الترويسة، الشريط الجانبي) ويدير اختصارات لوحة المفاتيح والعمليات العامة (حفظ، فتح، تصدير).
+ *
+ * @complexity الزمنية: O(1) للتهيئة وترتيب العناصر | المكانية: O(1) لحفظ كائنات المكونات الفرعية.
+ *
+ * @sideEffects
+ *   - يبني الواجهة الكاملة ويحقنها في عنصر الـ DOM الجذر.
+ *   - يربط مستمع أحداث عالمي (`keydown`) على مستوى `document`.
+ *
+ * @usedBy
+ *   - نقطة بدء التطبيق (`main.tsx` أو مكونات التغليف) لإنشاء واجهة المحرر وتشغيلها.
+ *
+ * @example إنشــاء المحــرر
+ * ```typescript
+ * const root = document.getElementById('root');
+ * const editor = new ScreenplayEditor(root);
+ * ```
+ */
 export class ScreenplayEditor {
   private readonly editorArea: EditorArea
   private readonly toolbar: EditorToolbar
@@ -404,4 +422,10 @@ export class ScreenplayEditor {
 
 }
 
+/**
+ * @description دالة مساعدة سريعة لإنشاء وإرفاق المحرر בעنصر الجذر في خطوة واحدة.
+ *
+ * @param {HTMLElement} root - عنصر HTML ليحتوي المحرر بأكمله.
+ * @returns {ScreenplayEditor} كائن المحرر المنشأ للتفاعل معه.
+ */
 export const mountScreenplayEditor = (root: HTMLElement): ScreenplayEditor => new ScreenplayEditor(root)

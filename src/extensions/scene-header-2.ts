@@ -1,9 +1,25 @@
+/**
+ * @module extensions/scene-header-2
+ * @description
+ * رأس المشهد — المستوى الثاني (Scene Header 2): الزمان والنوع (داخلي/خارجي).
+ *
+ * يُصدّر:
+ * - {@link isSceneHeader2Line} — كاشف أسطر الزمن+الموقع (نهار/ليل + داخلي/خارجي)
+ * - {@link SceneHeader2} — عقدة Tiptap ابن (child) داخل {@link SceneHeaderTopLine}
+ *
+ * لا يُعرض مستقلاً — يظهر فقط داخل {@link SceneHeaderTopLine}.
+ * التنقل بالمفاتيح يُدار من العقدة الأب.
+ */
 import { Node, mergeAttributes } from '@tiptap/core'
 import { SCENE_LOCATION_RE, SCENE_NUMBER_EXACT_RE, SCENE_TIME_RE } from './arabic-patterns'
 import { normalizeLine } from './text-utils'
 
 /**
- * مطابقة سطر scene-header-2 (الزمن + داخلي/خارجي).
+ * يفحص ما إذا كان السطر يحتوي زمن المشهد + نوع الموقع.
+ * يستبعد أرقام المشاهد. يتطلب مطابقة {@link SCENE_TIME_RE} و {@link SCENE_LOCATION_RE} معاً.
+ *
+ * @param text - النص الخام
+ * @returns `true` إذا احتوى على زمن + موقع
  */
 export const isSceneHeader2Line = (text: string): boolean => {
   const normalized = normalizeLine(text)

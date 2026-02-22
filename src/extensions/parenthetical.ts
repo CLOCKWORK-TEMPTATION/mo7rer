@@ -1,9 +1,23 @@
+/**
+ * @module extensions/parenthetical
+ * @description
+ * عنصر الإرشاد التمثيلي (Parenthetical) — توجيهات أداء الممثل داخل الحوار.
+ *
+ * يُصدّر:
+ * - {@link isParentheticalLine} — كاشف أسطر الإرشاد التمثيلي (أقواس عربية/لاتينية)
+ * - {@link Parenthetical} — عقدة Tiptap للإرشاد التمثيلي
+ *
+ * سلوك Enter: الانتقال إلى {@link Dialogue} (حوار).
+ */
 import { Node, mergeAttributes } from '@tiptap/core'
 import { PARENTHETICAL_RE } from './arabic-patterns'
 import { normalizeLine } from './text-utils'
 
 /**
- * مطابقة سطر parenthetical بين أقواس.
+ * يفحص ما إذا كان السطر إرشاداً تمثيلياً محاطاً بأقواس.
+ *
+ * @param text - النص الخام للسطر
+ * @returns `true` إذا طابق {@link PARENTHETICAL_RE}
  */
 export const isParentheticalLine = (text: string): boolean => {
   const normalized = normalizeLine(text)

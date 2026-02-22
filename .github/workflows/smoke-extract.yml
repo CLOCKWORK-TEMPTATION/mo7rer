@@ -1,0 +1,88 @@
+name: Smoke Extract
+
+on:
+  push:
+    paths:
+      - "server/**"
+      - "scripts/smoke-extract.ps1"
+      - "tests/fixtures/regression/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/smoke-extract.yml"
+  pull_request:
+    paths:
+      - "server/**"
+      - "scripts/smoke-extract.ps1"
+      - "tests/fixtures/regression/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/smoke-extract.yml"
+
+jobs:
+  smoke-extract:
+    runs-on: ubuntu-latest
+    env:
+      FILE_IMPORT_HOST: 127.0.0.1
+      FILE_IMPORT_PORT: 8787
+      ANTIWORD_PATH: /usr/bin/antiword
+      ANTIWORDHOME: /usr/share/antiword
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install antiword runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y antiword
+          antiword -h >/dev/null 2>&1 || true
+
+      - name: Start file-import backend
+        run: |
+          pnpm run file-import:server > smoke-server.log 2>&1 &
+          echo $! > smoke-server.pid
+
+      - name: Wait for health endpoint
+        run: |
+          for i in {1..30}; do
+            if curl -fsS "http://127.0.0.1:8787/health" >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend did not become healthy in time."
+          exit 1
+
+      - name: Run smoke extract
+        shell: pwsh
+        run: |
+          ./scripts/smoke-extract.ps1 -BaseUrl "http://127.0.0.1:8787" -EndpointPath "/api/file-extract"
+
+      - name: Show backend log (always)
+        if: always()
+        run: |
+          echo "==== smoke-server.log ===="
+          cat smoke-server.log || true
+
+      - name: Stop backend (always)
+        if: always()
+        run: |
+          if [ -f smoke-server.pid ]; then
+            kill "$(cat smoke-server.pid)" || true
+          fi

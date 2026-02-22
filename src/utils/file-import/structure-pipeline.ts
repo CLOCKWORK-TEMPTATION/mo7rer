@@ -1,3 +1,17 @@
+/**
+ * @module utils/file-import/structure-pipeline
+ * @description خط أنابيب تحويل النص الخام إلى كتل سيناريو مُصنَّفة.
+ *
+ * يستخدم آلة حالة ({@link ClassificationState}) مع مُصنّف قائم على القواعد
+ * ({@link classifyLineLabelOnly}) يمرّ بسلسلة أولويات:
+ *
+ * 1. بسملة → 2. ترويسات مشاهد متوقعة → 3. top-line → 4. header-1
+ * → 5. header-2 → 6. header-3 → 7. انتقال → 8. إشارة متحدث
+ * → 9. متحدث مُدمج → 10. حوار → 11. فعل (action) كبديل افتراضي
+ *
+ * يتضمن حارس إسقاط ({@link buildProjectionGuardReport}) لمنع
+ * الكتابة التدميرية عند انهيار حاد في عدد الكتل.
+ */
 import type { ScreenplayBlock } from './document-model'
 import {
   DEFAULT_STRUCTURE_PIPELINE_POLICY,
@@ -25,6 +39,12 @@ import {
 
 type BlockFormatId = ScreenplayBlock['formatId']
 
+/**
+ * حالة آلة التصنيف المُتبادَلة بين استدعاءات {@link classifyLineLabelOnly}.
+ * @property expectedSceneHeader - ترويسة المشهد المتوقعة في السطر التالي
+ * @property expectingDialogueAfterCue - هل السطر التالي يُتوقع أن يكون حواراً بعد إشارة متحدث
+ * @property previousFormat - تنسيق السطر السابق (لتحديد استمرار الحوار)
+ */
 type ClassificationState = {
   expectedSceneHeader: 'scene-header-2' | 'scene-header-3' | null
   expectingDialogueAfterCue: boolean
@@ -121,6 +141,16 @@ const resolvePolicy = (
     policy?.classifierRole ?? DEFAULT_STRUCTURE_PIPELINE_POLICY.classifierRole,
 })
 
+/**
+ * يُصنّف سطراً واحداً إلى نوع عنصر سيناريو عبر سلسلة أولويات ثابتة.
+ *
+ * يُعدّل {@link ClassificationState} كأثر جانبي لتتبع التوقعات
+ * بين الأسطر (مثل توقع ترويسة مشهد بعد رقم المشهد).
+ *
+ * @param line - السطر المُطبَّع
+ * @param state - حالة آلة التصنيف (مُعدَّلة بالمرجع)
+ * @returns معرّف تنسيق الكتلة ({@link BlockFormatId})
+ */
 const classifyLineLabelOnly = (
   line: string,
   state: ClassificationState,
@@ -217,6 +247,13 @@ const classifyLineLabelOnly = (
 const countNonActionBlocks = (blocks: ScreenplayBlock[]): number =>
   blocks.filter((block) => block.formatId !== 'action').length
 
+/**
+ * يُطبّع النص لمعالجة البنية: يوحّد فواصل الأسطر ويزيل أحرف التحكم
+ * (NULL, VT, FF, BOM) وفواصل الفقرات/الأسطر في Unicode.
+ *
+ * @param text - النص الخام
+ * @returns النص المُطبَّع
+ */
 export const normalizeTextForStructure = (text: string): string =>
   (text ?? '')
     .replace(/\r\n/g, '\n')
@@ -227,12 +264,35 @@ export const normalizeTextForStructure = (text: string): string =>
     .replace(/\f/g, '\n')
     .replace(/^\uFEFF/, '')
 
+/**
+ * يُقسّم النص إلى أسطر مُطبَّعة مع حذف الأسطر الفارغة.
+ * يُطبّق {@link normalizeTextForStructure} ثم تطبيع المسافات لكل سطر.
+ *
+ * @param text - النص الخام
+ * @returns مصفوفة الأسطر غير الفارغة
+ */
 export const segmentLinesStrict = (text: string): string[] =>
   normalizeTextForStructure(text)
     .split('\n')
     .map(normalizeLineForStructure)
     .filter((line) => line.length > 0)
 
+/**
+ * يبني كتل سيناريو مُصنَّفة من نص خام عبر خط الأنابيب الكامل.
+ *
+ * التسلسل: تطبيع النص → تقسيم الأسطر → تصنيف كل سطر عبر
+ * {@link classifyLineLabelOnly} مع حالة آلة مشتركة.
+ *
+ * @param text - النص الخام المراد تصنيفه
+ * @param policy - سياسة خط الأنابيب الجزئية (اختياري)
+ * @returns نتيجة تحتوي النص المُطبَّع والأسطر والكتل المُصنَّفة والسياسة المُطبَّقة
+ *
+ * @example
+ * ```ts
+ * const result = buildStructuredBlocksFromText('مشهد 1\nداخلي - ليل\nغرفة المعيشة')
+ * // result.blocks → [{ formatId: 'scene-header-1', text: '...' }, ...]
+ * ```
+ */
 export const buildStructuredBlocksFromText = (
   text: string,
   policy?: Partial<StructurePipelinePolicy>,
@@ -264,6 +324,21 @@ export const buildStructuredBlocksFromText = (
   }
 }
 
+/**
+ * يبني تقرير حارس الإسقاط لمنع الكتابة التدميرية عند انهيار حاد في عدد الكتل.
+ *
+ * يفحص أربعة أنماط انهيار:
+ * - `single-block-output-for-multiline-input` — مُدخل متعدد الأسطر أنتج كتلة واحدة فقط
+ * - `sharp-input-output-collapse` — ≥8 أسطر مُدخلة أنتجت ≤25% كتل
+ * - `sharp-document-collapse` — المستند الحالي ≥12 كتلة والمُخرج ≤20%
+ * - `non-action-structure-loss` — فقدان ≥85% من الكتل غير الفعلية (حوار/ترويسات)
+ *
+ * @param inputLineCount - عدد أسطر المُدخل الأصلي
+ * @param currentBlocks - الكتل الحالية في المستند (اختياري، للمقارنة)
+ * @param nextBlocks - الكتل الناتجة عن التصنيف الجديد
+ * @param policy - سياسة خط الأنابيب الجزئية (اختياري)
+ * @returns تقرير يحتوي `accepted` (مقبول/مرفوض) وأسباب الرفض
+ */
 export const buildProjectionGuardReport = ({
   inputLineCount,
   currentBlocks,

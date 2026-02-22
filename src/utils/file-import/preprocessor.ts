@@ -1,5 +1,23 @@
+/**
+ * @module utils/file-import/preprocessor
+ * @description معالجة مسبقة للنصوص المستوردة قبل تمريرها لمُصنّف البنية.
+ *
+ * يُطبّق سلسلة تحويلات حسب نوع الملف:
+ * - دمج الأسطر المكسورة (wrapped lines) عبر {@link mergeWrappedLines}
+ * - إزالة رموز التعداد النقطي عبر {@link stripBulletPrefix}
+ * - تطبيع مسافات ترويسات المشاهد عبر {@link normalizeSceneHeaderSpacing}
+ * - تطبيع أسطر الحوار المُعلَّمة بنقاط عبر {@link normalizeDialogueBulletLine}
+ * - حساب درجة جودة النص المستورد عبر {@link computeImportedTextQualityScore}
+ *
+ * كل دالة تُرجع {@link ImportPreprocessResult} مع قائمة الخطوات المُطبَّقة.
+ */
 import type { ImportedFileType } from '../../types/file-import'
 
+/**
+ * نتيجة المعالجة المسبقة للنص المستورد.
+ * @property text - النص بعد المعالجة
+ * @property applied - أسماء خطوات المعالجة المُطبَّقة (مثل `'pdf-bullet-line-split'`)
+ */
 export interface ImportPreprocessResult {
   text: string
   applied: string[]
@@ -11,6 +29,12 @@ const normalizeNewlines = (value: string): string =>
 const SCENE_STATUS_TOKENS =
   'نهار|ليل|صباح|مساء|فجر|داخلي|خارجي|داخل\\s*[-/]\\s*خارجي|خارج\\s*[-/]\\s*داخلي'
 
+/**
+ * يُطبّع مسافات ترويسات المشاهد لضمان وجود فاصلة ` - ` بين
+ * رقم المشهد وحالة الزمن/المكان (مثلاً: `مشهد 3 - نهار`).
+ *
+ * يعالج ثلاث حالات: أرقام ملتصقة، مسافة واحدة بدون فاصل، ومسافات متعددة.
+ */
 const normalizeSceneHeaderSpacing = (line: string): string => {
   let normalized = line
 
@@ -43,6 +67,10 @@ const looksLikeCharacterCue = (line: string): boolean =>
 const BULLET_PREFIX_REGEX =
   /^[\s\u200E\u200F\u061C\uFEFF]*[•·∙⋅●○◦■□▪▫◆◇–—−‒―‣⁃*+\-]+\s*/u
 
+/**
+ * يزيل رمز التعداد النقطي من بداية السطر (•, ●, -, *, إلخ).
+ * @returns كائن يحتوي السطر بعد الإزالة وعلامة تُشير إلى حدوث الإزالة
+ */
 const stripBulletPrefix = (
   line: string,
 ): { line: string; stripped: boolean } => {
@@ -53,6 +81,10 @@ const stripBulletPrefix = (
   }
 }
 
+/**
+ * يتحقق ممّا إذا كانت القيمة تبدو كاسم شخصية (متحدث).
+ * الشروط: ≤28 حرفاً، ≤4 كلمات، أحرف وأرقام فقط، ليست كلمة مفتاحية محجوزة.
+ */
 const isLikelySpeakerName = (value: string): boolean => {
   const name = value.replace(/\s+/g, ' ').trim()
   if (!name || name.length > 28) return false
@@ -62,6 +94,11 @@ const isLikelySpeakerName = (value: string): boolean => {
   return true
 }
 
+/**
+ * يُطبّع سطر حوار مُعلَّم بنقطة (bullet) إلى صيغة `اسم : حوار`.
+ * يعالج حالتين: اسم فقط مع نقطتين، واسم + حوار في نفس السطر.
+ * @returns مصفوفة بسطر واحد أو أكثر بعد التطبيع
+ */
 const normalizeDialogueBulletLine = (line: string): string[] => {
   const cueOnlyMatch = line.match(/^([^:：]{1,42})\s*[:：]\s*$/u)
   if (cueOnlyMatch) {
@@ -81,6 +118,10 @@ const normalizeDialogueBulletLine = (line: string): string[] => {
   return [`${speaker} : ${dialogue}`]
 }
 
+/**
+ * يتحقق ممّا إذا كان السطر حدّاً بنيوياً (سطر فارغ، انتقال، ترويسة مشهد، أو إشارة متحدث).
+ * يُستخدم في {@link shouldJoinWrappedLine} لمنع دمج الأسطر عبر حدود البنية.
+ */
 const looksLikeBoundaryLine = (line: string): boolean => {
   const trimmed = line.trim()
   if (!trimmed) return true
@@ -95,6 +136,10 @@ const looksLikeBoundaryLine = (line: string): boolean => {
 const endsWithStrongPunctuation = (line: string): boolean =>
   /[.!؟?!…:：]\s*$/u.test(line.trim())
 
+/**
+ * يُقرر ما إذا كان يجب دمج سطرين متتاليين (السطر الحالي مع السابق).
+ * يعتمد على: علامات الترقيم القوية، حدود البنية، طول الأسطر، والأقواس المفتوحة.
+ */
 const shouldJoinWrappedLine = (previous: string, current: string): boolean => {
   const prev = previous.trim()
   const curr = current.trim()
@@ -109,6 +154,14 @@ const shouldJoinWrappedLine = (previous: string, current: string): boolean => {
   return false
 }
 
+/**
+ * يدمج الأسطر المكسورة (wrapped) في نص خام إلى أسطر منطقية كاملة.
+ * يُطبّق تسلسل: إزالة علامات الاتجاه → تطبيع المسافات → تطبيع ترويسات المشاهد
+ * → إزالة التعداد النقطي → تطبيع أسطر الحوار → دمج الأسطر المتتالية.
+ *
+ * @param rawText - النص الخام المستورد
+ * @returns النص بعد دمج الأسطر المكسورة
+ */
 const mergeWrappedLines = (rawText: string): string => {
   const inputLines = normalizeNewlines(rawText).split('\n')
   const output: string[] = []
@@ -155,6 +208,10 @@ const mergeWrappedLines = (rawText: string): string => {
   return output.join('\n')
 }
 
+/**
+ * معالجة مسبقة خاصة بنصوص PDF: تحويل رموز التعداد إلى أسطر جديدة
+ * ثم دمج الأسطر المكسورة.
+ */
 const preprocessPdfText = (text: string): ImportPreprocessResult => {
   let result = normalizeNewlines(text)
   const applied: string[] = []
@@ -173,6 +230,13 @@ const preprocessPdfText = (text: string): ImportPreprocessResult => {
   return { text: result.trim(), applied }
 }
 
+/**
+ * يُطبّع نص DOC المستخرج عبر أداة Antiword في Backend.
+ * يُطبّق دمج الأسطر المكسورة وتطبيع مسافات ترويسات المشاهد.
+ *
+ * @param text - النص الخام من Antiword
+ * @returns نتيجة المعالجة مع خطوات التطبيع المُطبَّقة
+ */
 export const normalizeDocTextFromAntiword = (
   text: string,
 ): ImportPreprocessResult => {
@@ -191,6 +255,18 @@ export const normalizeDocTextFromAntiword = (
   }
 }
 
+/**
+ * نقطة الدخول الرئيسية للمعالجة المسبقة. يختار استراتيجية التطبيع
+ * حسب نوع الملف:
+ * - `doc` → {@link normalizeDocTextFromAntiword}
+ * - `docx` → دمج الأسطر المكسورة + تطبيع المسافات
+ * - `pdf` → {@link preprocessPdfText}
+ * - أخرى → تطبيع فواصل الأسطر فقط
+ *
+ * @param text - النص المستخرج من الملف
+ * @param fileType - نوع الملف المصدر
+ * @returns نتيجة المعالجة مع خطوات التطبيع المُطبَّقة
+ */
 export const preprocessImportedTextForClassifier = (
   text: string,
   fileType: ImportedFileType,
@@ -213,6 +289,17 @@ export const preprocessImportedTextForClassifier = (
   }
 }
 
+/**
+ * يحسب درجة جودة النص المستورد (0–1). كلما ارتفعت الدرجة كان النص أنظف.
+ *
+ * يرصد الشذوذات: أرقام مشاهد ملتصقة (وزن 2)، رموز تعداد (1.2)،
+ * أسطر قصيرة جداً (1)، وأسطر بدون علامة ترقيم نهائية (0.7).
+ *
+ * المعادلة: `max(0, 1 - anomalies / (lines * 2.2))`
+ *
+ * @param text - النص المُعالَج مسبقاً
+ * @returns درجة الجودة مقرّبة لثلاثة أرقام عشرية
+ */
 export const computeImportedTextQualityScore = (text: string): number => {
   const lines = normalizeNewlines(text)
     .split('\n')

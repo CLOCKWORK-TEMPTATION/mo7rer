@@ -1,3 +1,14 @@
+/**
+ * @module extensions/basmala
+ * @description
+ * عنصر البسملة (Basmala) — "بسم الله الرحمن الرحيم".
+ *
+ * يُصدّر:
+ * - {@link isBasmalaLine} — كاشف أسطر البسملة (4 تعبيرات نمطية مُركّبة)
+ * - {@link Basmala} — عقدة Tiptap للبسملة
+ *
+ * سلوك Enter: الانتقال إلى {@link SceneHeaderTopLine} (رأس مشهد).
+ */
 import { Node, mergeAttributes } from '@tiptap/core'
 import {
   BASMALA_ALLAH_RE,
@@ -8,7 +19,11 @@ import {
 import { normalizeLine } from './text-utils'
 
 /**
- * مطابقة سطر البسملة مع دعم الأقواس والمحارف غير المرئية.
+ * يفحص ما إذا كان السطر بسملة — يتطلب وجود "بسم" + "الله" + ("الرحمن" أو "الرحيم").
+ * يُنظّف الأقواس والمحارف غير المرئية قبل الفحص.
+ *
+ * @param text - النص الخام للسطر
+ * @returns `true` إذا طابق نمط البسملة
  */
 export const isBasmalaLine = (text: string): boolean => {
   const cleaned = (text ?? '')

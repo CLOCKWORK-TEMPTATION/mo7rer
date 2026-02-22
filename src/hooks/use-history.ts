@@ -1,3 +1,6 @@
+/**
+ * @description واجهة تحكم التراجع والتقدم (History/Undo-Redo).
+ */
 export interface HistoryController<T> {
   getState: () => T
   set: (action: T | ((prev: T) => T)) => T
@@ -8,6 +11,25 @@ export interface HistoryController<T> {
   subscribe: (listener: (state: T) => void) => () => void
 }
 
+/**
+ * @description منشئ لحالة قابلة للتراجع/التقدم (Undo/Redo) تعتمد على مصفوفة للمحفوظات ونظام اشتراكات محلي لا يعتمد على إطار عمل محدد.
+ *
+ * @param {T} initialState - الحالة الابتدائية.
+ *
+ * @returns {HistoryController<T>} كائن التحكم بالحالة والمحفوظات.
+ *
+ * @complexity الزمنية: O(1) لكل عملية (باستثناء الإشعارات التي تستغرق O(k) حيث k عدد المشتركين) | المكانية: O(n) حيث n عدد العناصر في المحفوظات.
+ *
+ * @sideEffects
+ *   - يدير حالة داخلية (closure) وينفذ دوال المستمعين عند التغيير.
+ *
+ * @example الاستخدام الأساسي
+ * ```typescript
+ * const history = useHistory({ count: 0 });
+ * history.set({ count: 1 });
+ * history.undo(); // { count: 0 }
+ * ```
+ */
 export const useHistory = <T>(initialState: T): HistoryController<T> => {
   let index = 0
   const history: T[] = [initialState]

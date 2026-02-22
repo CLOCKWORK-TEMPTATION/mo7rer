@@ -2,6 +2,7 @@ import { Extension } from '@tiptap/core'
 import { Fragment, Node as PmNode, Schema, Slice } from '@tiptap/pm/model'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { isActionLine } from './action'
+import { DATE_PATTERNS, TIME_PATTERNS, convertHindiToArabic, detectDialect } from './arabic-patterns'
 import { isBasmalaLine } from './basmala'
 import {
   ensureCharacterTrailingColon,
@@ -35,7 +36,7 @@ const resolveAgentReviewEndpoint = (): string => {
   if (explicit) return normalizeEndpoint(explicit)
 
   const fileImportEndpoint = (import.meta.env.VITE_FILE_IMPORT_BACKEND_URL as string | undefined)?.trim()
-  if (!fileImportEndpoint) return '/api/agent/review'
+  if (!fileImportEndpoint) return ''
 
   const normalized = normalizeEndpoint(fileImportEndpoint)
   if (normalized.endsWith('/api/file-extract')) {
@@ -76,6 +77,9 @@ const buildContext = (previousTypes: readonly ElementType[]): ClassificationCont
   }
 }
 
+const hasTemporalSceneSignal = (text: string): boolean =>
+  DATE_PATTERNS.test(text) || TIME_PATTERNS.test(text)
+
 const classifyLines = (text: string): ClassifiedDraft[] => {
   const lines = text.split(/\r?\n/)
   const classified: ClassifiedDraft[] = []
@@ -91,6 +95,8 @@ const classifyLines = (text: string): ClassifiedDraft[] => {
   for (const rawLine of lines) {
     const trimmed = parseBulletLine(rawLine)
     if (!trimmed) continue
+    const normalizedForClassification = convertHindiToArabic(trimmed)
+    const detectedDialect = detectDialect(normalizedForClassification)
 
     const previous = classified[classified.length - 1]
     if (previous) {
@@ -123,7 +129,7 @@ const classifyLines = (text: string): ClassifiedDraft[] => {
 
     const context = buildContext(classified.map((item) => item.type))
 
-    if (isBasmalaLine(trimmed)) {
+    if (isBasmalaLine(normalizedForClassification)) {
       push({
         type: 'basmala',
         text: trimmed,
@@ -133,8 +139,8 @@ const classifyLines = (text: string): ClassifiedDraft[] => {
       continue
     }
 
-    if (isCompleteSceneHeaderLine(trimmed)) {
-      const parts = splitSceneHeaderLine(trimmed)
+    if (isCompleteSceneHeaderLine(normalizedForClassification)) {
+      const parts = splitSceneHeaderLine(normalizedForClassification)
       if (parts) {
         push({
           type: 'sceneHeaderTopLine',
@@ -148,7 +154,7 @@ const classifyLines = (text: string): ClassifiedDraft[] => {
       }
     }
 
-    if (isTransitionLine(trimmed)) {
+    if (isTransitionLine(normalizedForClassification)) {
       push({
         type: 'transition',
         text: trimmed,
@@ -158,11 +164,15 @@ const classifyLines = (text: string): ClassifiedDraft[] => {
       continue
     }
 
-    if (context.isAfterSceneHeaderTopLine && isSceneHeader3Line(trimmed, context)) {
+    const temporalSceneSignal = hasTemporalSceneSignal(normalizedForClassification)
+    if (
+      context.isAfterSceneHeaderTopLine &&
+      (isSceneHeader3Line(normalizedForClassification, context) || temporalSceneSignal)
+    ) {
       push({
         type: 'sceneHeader3',
         text: trimmed,
-        confidence: 90,
+        confidence: temporalSceneSignal ? 88 : 90,
         classificationMethod: 'context',
       })
       continue
@@ -195,7 +205,7 @@ const classifyLines = (text: string): ClassifiedDraft[] => {
       continue
     }
 
-    if (isParentheticalLine(trimmed) && context.isInDialogueBlock) {
+    if (isParentheticalLine(normalizedForClassification) && context.isInDialogueBlock) {
       push({
         type: 'parenthetical',
         text: trimmed,
@@ -242,7 +252,7 @@ const classifyLines = (text: string): ClassifiedDraft[] => {
       continue
     }
 
-    if (isCharacterLine(trimmed, context)) {
+    if (isCharacterLine(normalizedForClassification, context)) {
       push({
         type: 'character',
         text: ensureCharacterTrailingColon(trimmed),
@@ -252,18 +262,20 @@ const classifyLines = (text: string): ClassifiedDraft[] => {
       continue
     }
 
-    const dialogueProbability = getDialogueProbability(trimmed, context)
-    if (isDialogueLine(trimmed, context) || dialogueProbability >= 6) {
+    const dialogueProbability = getDialogueProbability(normalizedForClassification, context)
+    const dialogueThreshold = detectedDialect ? 5 : 6
+    if (isDialogueLine(normalizedForClassification, context) || dialogueProbability >= dialogueThreshold) {
+      const dialectBoost = detectedDialect ? 3 : 0
       push({
         type: 'dialogue',
         text: trimmed,
-        confidence: Math.max(72, Math.min(92, 64 + dialogueProbability * 4)),
+        confidence: Math.max(72, Math.min(94, 64 + dialogueProbability * 4 + dialectBoost)),
         classificationMethod: 'context',
       })
       continue
     }
 
-    if (isSceneHeader3Line(trimmed, context)) {
+    if (isSceneHeader3Line(normalizedForClassification, context)) {
       push({
         type: 'sceneHeader3',
         text: trimmed,
@@ -273,16 +285,16 @@ const classifyLines = (text: string): ClassifiedDraft[] => {
       continue
     }
 
-    const decision = resolveNarrativeDecision(trimmed, context)
+    const decision = resolveNarrativeDecision(normalizedForClassification, context)
     const hybridResult = hybridClassifier.classifyLine(
-      trimmed,
+      normalizedForClassification,
       decision.type,
       context,
       memoryManager.getSnapshot()
     )
 
     if (hybridResult.type === 'sceneHeaderTopLine') {
-      const parts = splitSceneHeaderLine(trimmed)
+      const parts = splitSceneHeaderLine(normalizedForClassification)
       if (parts && parts.header2) {
         push({
           type: 'sceneHeaderTopLine',
@@ -306,7 +318,7 @@ const classifyLines = (text: string): ClassifiedDraft[] => {
       continue
     }
 
-    if (hybridResult.type === 'action' || isActionLine(trimmed, context)) {
+    if (hybridResult.type === 'action' || isActionLine(normalizedForClassification, context)) {
       push({
         type: 'action',
         text: trimmed.replace(/^[-–—]\s*/, ''),
@@ -386,6 +398,17 @@ const requestAgentReview = async (
     }
   }
 
+  if (!AGENT_REVIEW_ENDPOINT) {
+    return {
+      status: 'warning',
+      model: AGENT_REVIEW_MODEL,
+      decisions: [],
+      message:
+        'VITE_FILE_IMPORT_BACKEND_URL غير مضبوط؛ تعذر استدعاء /api/agent/review من الواجهة.',
+      latencyMs: 0,
+    }
+  }
+
   if (pendingAgentAbortController) {
     pendingAgentAbortController.abort()
   }
@@ -454,13 +477,15 @@ const applyReviewerCorrections = (classified: ClassifiedDraft[]): ClassifiedDraf
   const corrected = [...classified]
 
   for (const suspicious of packet.suspiciousLines) {
-    if (suspicious.totalSuspicion < REVIEW_APPLY_THRESHOLD) continue
-    if (suspicious.findings.length < REVIEW_MIN_FINDINGS) continue
+    const validatedSuspicious = reviewer.reviewSingleLine(suspicious.line, suspicious.contextLines)
+    if (!validatedSuspicious) continue
+    if (validatedSuspicious.totalSuspicion < REVIEW_APPLY_THRESHOLD) continue
+    if (validatedSuspicious.findings.length < REVIEW_MIN_FINDINGS) continue
 
-    const suggested = suspicious.findings.find((finding) => finding.suggestedType !== null)?.suggestedType
+    const suggested = validatedSuspicious.findings.find((finding) => finding.suggestedType !== null)?.suggestedType
     if (!suggested || !isElementType(suggested)) continue
 
-    const idx = suspicious.line.lineIndex
+    const idx = validatedSuspicious.line.lineIndex
     const original = corrected[idx]
     if (!original || original.type === suggested) continue
 
@@ -499,9 +524,13 @@ const applyRemoteAgentReview = async (classified: ClassifiedDraft[]): Promise<Cl
   const reviewer = new PostClassificationReviewer()
   const reviewPacket = reviewer.review(reviewInput)
   if (reviewPacket.suspiciousLines.length === 0) return classified
+  const reviewPacketText = reviewer.formatForLLM(reviewPacket)
 
   const suspiciousPayload = reviewPacket.suspiciousLines
-    .map((suspect) => {
+    .map((rawSuspect) => {
+      const suspect = reviewer.reviewSingleLine(rawSuspect.line, rawSuspect.contextLines)
+      if (!suspect) return null
+
       const itemIndex = suspect.line.lineIndex
       const item = classified[itemIndex]
       if (!item) return null
@@ -538,6 +567,7 @@ const applyRemoteAgentReview = async (classified: ClassifiedDraft[]): Promise<Cl
   const requestPayload: AgentReviewRequestPayload = {
     sessionId: `paste-${Date.now()}`,
     totalReviewed: reviewPacket.totalReviewed,
+    reviewPacketText: reviewPacketText || undefined,
     suspiciousLines: suspiciousPayload,
   }
 

@@ -18,18 +18,53 @@ import {
   LOCKED_EDITOR_FONT_SIZE,
   LOCKED_EDITOR_LINE_HEIGHT,
 } from '../../constants/editor-format-styles'
-import { screenplayBlocksToHtml, type ScreenplayBlock } from '../../utils/file-import'
+import { htmlToScreenplayBlocks, screenplayBlocksToHtml, type ScreenplayBlock } from '../../utils/file-import'
+import { FILMLANE_CLIPBOARD_MIME, type ClipboardOrigin, type EditorClipboardPayload } from '../../types/editor-clipboard'
+import type { RunEditorCommandOptions } from '../../types/editor-engine'
 import type { DocumentStats, EditorAreaProps, EditorCommand, EditorHandle, FileImportMode } from './editor-area.types'
 
-const escapeHtml = (value: string): string =>
-  value
+/**
+ * @description هروب (Escape) للنصوص لضمان خلوها من وسوم HTML ضارة قبل حقنها.
+ *
+ * @param {string} value - النص الأصلي.
+ * @returns {string} النص بعد استبدال العلامات الخاصة.
+ */
+function escapeHtml(value: string): string {
+  return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
+}
 
-const classifiedLineToHtml = (item: ClassifiedDraft): string => {
+const hashText = (value: string): string => {
+  let hash = 0x811c9dc5
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
+const isValidClipboardPayload = (value: unknown): value is EditorClipboardPayload => {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<EditorClipboardPayload>
+  if (typeof candidate.plainText !== 'string') return false
+  if (typeof candidate.hash !== 'string') return false
+  if (typeof candidate.createdAt !== 'string') return false
+  if (candidate.sourceKind !== 'selection' && candidate.sourceKind !== 'document') return false
+  if (candidate.blocks && !Array.isArray(candidate.blocks)) return false
+  return true
+}
+
+/**
+ * @description تحويل السطر المُصنّف إلى شكل HTML جاهز للاستخدام داخل محرر Tiptap، مع الحفاظ على التنسيقات وتحديد نوع العنصر.
+ *
+ * @param {ClassifiedDraft} item - السطر وحالة تصنيفه.
+ * @returns {string} وسوم HTML مع الكلاسات المناسبة.
+ */
+function classifiedLineToHtml(item: ClassifiedDraft): string {
   switch (item.type) {
     case 'sceneHeaderTopLine': {
       const h1 = escapeHtml(item.header1 ?? '')
@@ -87,6 +122,24 @@ const formatLabelByType: Record<ElementType, string> = {
   transition: 'انتقال',
 }
 
+/**
+ * @description المكون الرئيسي لمنطقة تحرير السيناريو. يدير كائن Tiptap ومزامنة التنسيقات ويراقب تغييرات الصفحة (Layout).
+ *
+ * @complexity الزمنية: O(1) للتهيئة الأساسية | المكانية: O(n) استناداً لحجم المستند.
+ *
+ * @sideEffects
+ *   - يتفاعل بشكل كثيف مع الـ DOM (تحديث أحجام، ومراقبة تغيرات).
+ *   - قد يُنشأ ResizeObserver.
+ *
+ * @usedBy
+ *   - `ScreenplayEditor` لربط منطقة الكتابة بالترويسة وأدوات أخرى.
+ *
+ * @example
+ * ```typescript
+ * const area = new EditorArea({ mount: div, onContentChange: (text) => console.log(text) });
+ * area.getHandle().clear();
+ * ```
+ */
 export class EditorArea implements EditorHandle {
   readonly editor
 
@@ -147,7 +200,9 @@ export class EditorArea implements EditorHandle {
     this.emitState()
   }
 
-  runCommand = (command: EditorCommand): boolean => {
+  runCommand = (commandInput: EditorCommand | RunEditorCommandOptions): boolean => {
+    const command = typeof commandInput === 'string' ? commandInput : commandInput.command
+
     switch (command) {
       case 'bold':
         return this.editor.chain().focus().toggleBold().run()
@@ -163,6 +218,12 @@ export class EditorArea implements EditorHandle {
         const redo = (this.editor.commands as Record<string, unknown>).redo
         return typeof redo === 'function' ? (redo as () => boolean)() : false
       }
+      case 'select-all':
+        this.editor.commands.selectAll()
+        return true
+      case 'focus-end':
+        this.editor.commands.focus('end')
+        return true
       default:
         return false
     }
@@ -224,6 +285,112 @@ export class EditorArea implements EditorHandle {
 
     this.refreshPageModel(true)
     this.emitState()
+  }
+
+  getBlocks = (): ScreenplayBlock[] => htmlToScreenplayBlocks(this.getAllHtml())
+
+  hasSelection = (): boolean => !this.editor.state.selection.empty
+
+  copySelectionToClipboard = async (): Promise<boolean> => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return false
+
+    const hasSelection = this.hasSelection()
+    const plainText = hasSelection
+      ? this.editor.state.doc.textBetween(
+          this.editor.state.selection.from,
+          this.editor.state.selection.to,
+          '\n'
+        )
+      : this.getAllText()
+
+    if (!plainText.trim()) return false
+
+    const payload: EditorClipboardPayload = {
+      plainText,
+      blocks: hasSelection ? undefined : this.getBlocks(),
+      sourceKind: hasSelection ? 'selection' : 'document',
+      hash: hashText(plainText),
+      createdAt: new Date().toISOString(),
+    }
+
+    const serializedPayload = JSON.stringify(payload)
+
+    try {
+      if (typeof ClipboardItem !== 'undefined' && typeof navigator.clipboard.write === 'function') {
+        const clipboardItem = new ClipboardItem({
+          'text/plain': new Blob([plainText], { type: 'text/plain' }),
+          [FILMLANE_CLIPBOARD_MIME]: new Blob([serializedPayload], { type: FILMLANE_CLIPBOARD_MIME }),
+        })
+        await navigator.clipboard.write([clipboardItem])
+        return true
+      }
+    } catch {
+      // fallback to plain text write when custom MIME fails.
+    }
+
+    if (typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(plainText)
+      return true
+    }
+
+    return false
+  }
+
+  cutSelectionToClipboard = async (): Promise<boolean> => {
+    if (!this.hasSelection()) return false
+
+    const copied = await this.copySelectionToClipboard()
+    if (!copied) return false
+
+    return this.editor.chain().focus().deleteSelection().run()
+  }
+
+  pasteFromClipboard = async (origin: ClipboardOrigin): Promise<boolean> => {
+    void origin
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return false
+
+    try {
+      if (typeof navigator.clipboard.read === 'function') {
+        const items = await navigator.clipboard.read()
+        for (const item of items) {
+          if (item.types.includes(FILMLANE_CLIPBOARD_MIME)) {
+            const payloadBlob = await item.getType(FILMLANE_CLIPBOARD_MIME)
+            const payloadText = await payloadBlob.text()
+            const parsed = JSON.parse(payloadText) as unknown
+            if (isValidClipboardPayload(parsed) && parsed.hash === hashText(parsed.plainText)) {
+              if (parsed.blocks && parsed.blocks.length > 0) {
+                this.importStructuredBlocks(parsed.blocks, 'insert')
+                return true
+              }
+
+              if (parsed.plainText.trim()) {
+                await this.importClassifiedText(parsed.plainText, 'insert')
+                return true
+              }
+            }
+          }
+
+          if (item.types.includes('text/plain')) {
+            const plainBlob = await item.getType('text/plain')
+            const text = await plainBlob.text()
+            if (text.trim()) {
+              await this.importClassifiedText(text, 'insert')
+              return true
+            }
+          }
+        }
+      }
+    } catch {
+      // fallback to readText below.
+    }
+
+    if (typeof navigator.clipboard.readText !== 'function') return false
+
+    const text = await navigator.clipboard.readText()
+    if (!text.trim()) return false
+
+    await this.importClassifiedText(text, 'insert')
+    return true
   }
 
   destroy(): void {
@@ -370,23 +537,24 @@ export class EditorArea implements EditorHandle {
     const editorRoot = this.body.querySelector<HTMLElement>('.filmlane-prosemirror-root, .ProseMirror')
     if (!editorRoot) return
 
-    // ── 1. Clear all previous fixes so layout returns to its "natural" state ──
+    // ── 1. مسح جميع الإصلاحات السابقة لإعادة التخطيط لحالته الطبيعية ──
     const previouslyFixed = editorRoot.querySelectorAll<HTMLElement>('[data-character-widow-fix]')
     for (const el of previouslyFixed) {
-      el.style.removeProperty('margin-top')
+      const prop = el.getAttribute('data-character-widow-fix') || 'margin-top'
+      el.style.removeProperty(prop)
       el.removeAttribute('data-character-widow-fix')
     }
 
-    // Force synchronous reflow so bounding-rects are accurate after clearing
+    // فرض إعادة تدفق متزامنة لضمان دقة الإحداثيات بعد المسح
     void editorRoot.offsetHeight
 
-    // ── 2. Collect all content block elements (nested inside .tiptap-page containers) ──
+    // ── 2. تجميع جميع عناصر كتل المحتوى ──
     const allBlocks = Array.from(
       editorRoot.querySelectorAll<HTMLElement>('[data-type]')
     )
-    if (allBlocks.length < 2) return
+    if (allBlocks.length === 0) return
 
-    // ── 3. Detect character elements split from their dialogue/parenthetical ──
+    // ── 3. كشف عناصر الشخصية "اليتيمة" (المعزولة في أسفل الصفحة) ──
     const pagesStorage = this.editor.storage as {
       pages?: { getPageForPosition?: (pos: number) => number }
     }
@@ -394,36 +562,11 @@ export class EditorArea implements EditorHandle {
 
     let hasAdjustment = false
 
-    for (let i = 0; i < allBlocks.length - 1; i += 1) {
+    for (let i = 0; i < allBlocks.length; i += 1) {
       const current = allBlocks[i]
-      const next = allBlocks[i + 1]
-
       if (current.getAttribute('data-type') !== 'character') continue
-      const nextType = next.getAttribute('data-type')
-      if (nextType !== 'dialogue' && nextType !== 'parenthetical') continue
 
-      // ── 3a. Check if they sit on different pages ──
-      let isSplit = false
-
-      // Method A: Pages extension API (most reliable)
-      if (!isSplit && typeof getPageFn === 'function') {
-        try {
-          const p1 = getPageFn(this.editor.view.posAtDOM(current, 0))
-          const p2 = getPageFn(this.editor.view.posAtDOM(next, 0))
-          isSplit = p1 !== p2
-        } catch { /* fall through to DOM method */ }
-      }
-
-      // Method B: DOM page containers
-      if (!isSplit) {
-        const currentPage = current.closest('.tiptap-page')
-        const nextPage = next.closest('.tiptap-page')
-        isSplit = !!(currentPage && nextPage && currentPage !== nextPage)
-      }
-
-      if (!isSplit) continue
-
-      // ── 4. Calculate the push needed to move the character off its current page ──
+      // إيجاد حاوي الصفحة لعنصر الشخصية هذا
       const page = current.closest('.tiptap-page')
       if (!page) continue
 
@@ -434,17 +577,67 @@ export class EditorArea implements EditorHandle {
         : page.getBoundingClientRect().bottom
       const spaceBelow = contentBottom - charRect.bottom
 
-      if (spaceBelow < 0) continue
+      // الكتلة السابقة والتالية بترتيب المستند
+      const prev = i > 0 ? allBlocks[i - 1] : null
+      const next = i + 1 < allBlocks.length ? allBlocks[i + 1] : null
 
-      const pushAmount = Math.ceil(spaceBelow) + 2
-      current.style.setProperty('margin-top', `${pushAmount}px`)
-      current.setAttribute('data-character-widow-fix', '1')
+      let isWidow = false
+
+      // ── أولاً: الفحص الهندسي ──
+      // إذا كانت المساحة المتبقية في الصفحة بعد الشخصية أقل من
+      // 1.5 ضعف ارتفاع السطر، فلا مكان للحوار → الشخصية يتيمة.
+      // نستخدم 1.5 × الارتفاع لضمان مساحة كافية لسطر حوار واحد على الأقل.
+      if (spaceBelow >= 0 && spaceBelow < charRect.height * 1.5) {
+        isWidow = true
+      }
+
+      // ── ثانياً: واجهة برمجة امتداد الصفحات ──
+      if (
+        !isWidow &&
+        next &&
+        typeof getPageFn === 'function'
+      ) {
+        try {
+          const p1 = getPageFn(this.editor.view.posAtDOM(current, 0))
+          const p2 = getPageFn(this.editor.view.posAtDOM(next, 0))
+          if (p1 !== p2) isWidow = true
+        } catch { /* fall through to DOM method */ }
+      }
+
+      // ── TERTIARY: DOM page containers ──
+      if (!isWidow && next) {
+        const nextPage = next.closest('.tiptap-page')
+        if (page && nextPage && page !== nextPage) isWidow = true
+      }
+
+      if (!isWidow) continue
+
+      // ── 4. دفع الشخصية لتجاوز منطقة محتوى الصفحة الحالية ──
+      // لمنع فجوة بصرية كبيرة أعلى الصفحة التالية، نفضّل إضافة
+      // `margin-bottom` للعنصر السابق في نفس الصفحة. إذا تعذّر ذلك،
+      // نرجع لإضافة `margin-top` على عنصر الشخصية نفسه.
+      const prevPage = prev ? prev.closest('.tiptap-page') : null
+      const effectiveSpaceBelow = Math.max(0, spaceBelow)
+
+      let pushTarget = current
+      let targetProp = 'margin-top'
+      let pushAmount = Math.ceil(effectiveSpaceBelow + charRect.height) + 4
+
+      if (prev && prevPage === page) {
+        pushTarget = prev
+        targetProp = 'margin-bottom'
+        // يكفي دفع الحافة السفلية للعنصر الحالي لتجاوز حد الصفحة
+        pushAmount = Math.ceil(effectiveSpaceBelow) + 4
+      }
+
+      pushTarget.style.setProperty(targetProp, `${pushAmount}px`, 'important')
+      pushTarget.setAttribute('data-character-widow-fix', targetProp)
       hasAdjustment = true
     }
 
     if (!hasAdjustment) return
 
-    // ── 5. Guard: double-RAF so Pages extension reflow completes before we re-check ──
+    // ── 5. حارس: إطارا رسوم متحركة مزدوجان لإتمام إعادة تدفق امتداد الصفحات قبل إعادة الفحص ──
     this.applyingCharacterWidowFix = true
     if (typeof window !== 'undefined') {
       window.requestAnimationFrame(() => {

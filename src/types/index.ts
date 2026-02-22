@@ -1,3 +1,13 @@
+/**
+ * @module types/index
+ * @description ملف البرميل (barrel) لمجلد الأنماط — يُعيد تصدير جميع الأنماط والقيم من الوحدات الفرعية
+ *
+ * يُتيح الاستيراد الموحد من `@/types` بدلاً من تحديد المسار الكامل لكل ملف:
+ * ```typescript
+ * import type { LineType, DocumentStats, EditorEngineAdapter } from '@/types'
+ * ```
+ */
+
 export type { DocumentStats, LineType } from './screenplay'
 export type {
   FileImportMode,

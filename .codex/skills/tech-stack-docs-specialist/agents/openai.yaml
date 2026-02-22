@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tech Stack Docs Specialist"
+  short_description: "Navigate and answer from local stack docs"
+  default_prompt: "Use tech_stack_docs as the primary source and answer with exact file references and implementation-focused guidance."

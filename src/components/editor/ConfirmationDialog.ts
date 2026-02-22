@@ -16,17 +16,36 @@ const CLASSIFICATION_OPTIONS: readonly ClassificationOption[] = [
   { value: 'transition', label: 'انتقال' },
 ]
 
+/**
+ * @description حمولة بيانات نافذة تأكيد التصنيف.
+ */
 export interface ClassificationConfirmationPayload {
   line: string
   suggestedType: ElementType
   confidence: number
 }
 
+/**
+ * @description التوابع التي يتم تفويضها لنافذة تأكيد التصنيف.
+ */
 export interface ClassificationConfirmationDialogCallbacks {
   onConfirm: (finalType: ElementType) => void
   onCancel: () => void
 }
 
+/**
+ * @description مكون واجهة المستخدم لعرض نافذة تأكيد تصنيف سطر معين عند الاشتباه بصحة التصنيف.
+ * يبني نفسه في ذاكرة الـ DOM ويدير أحداث القبول والرفض.
+ *
+ * @complexity الزمنية: O(1) لإنشاء العنصر | المكانية: O(1)
+ *
+ * @sideEffects
+ *   - ينشئ عناصر DOM غير مربوطة مسبقاً بالشجرة.
+ *   - يضيف EventListeners على الأزرار والشاشة.
+ *
+ * @usedBy
+ *   - `EditorArea` لاقتراح التصنيف واستقبال القرار.
+ */
 export class ClassificationConfirmationDialog {
   readonly element: HTMLDivElement
 

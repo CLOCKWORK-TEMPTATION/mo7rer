@@ -1,3 +1,25 @@
+/**
+ * @module utils/file-import/document-model
+ * @description نموذج المستند الأساسي لتطبيق Filmlane.
+ *
+ * يُعرّف هيكل كتلة السيناريو ({@link ScreenplayBlock})، حمولة التصدير/الاستيراد
+ * ({@link ScreenplayPayloadV1})، وآليات الترميز/فكّ الترميز (Base64 + FNV1a checksum).
+ *
+ * يتضمن تحويلات ثنائية الاتجاه بين:
+ * - كتل السيناريو ↔ HTML (لتكامل Tiptap)
+ * - كتل السيناريو ↔ Payload مشفّر (للتصدير/الاستيراد بدون فقدان)
+ *
+ * علامة الحمولة: `[[FILMLANE_PAYLOAD_V1:<base64>]]`
+ */
+
+/**
+ * معرّفات التنسيق المتاحة لكتل السيناريو العربي.
+ * تُستخدم كاتحاد حرفي عبر `as const` لضمان أمان الأنواع.
+ *
+ * العناصر العشرة:
+ * `basmala` | `scene-header-top-line` | `scene-header-1` | `scene-header-2` |
+ * `scene-header-3` | `action` | `character` | `dialogue` | `parenthetical` | `transition`
+ */
 export const SCREENPLAY_BLOCK_FORMAT_IDS = [
   'basmala',
   'scene-header-top-line',
@@ -11,13 +33,30 @@ export const SCREENPLAY_BLOCK_FORMAT_IDS = [
   'transition',
 ] as const
 
+/** نوع اتحادي حرفي لمعرّفات التنسيق المشتقة من {@link SCREENPLAY_BLOCK_FORMAT_IDS} */
 export type ScreenplayFormatId = (typeof SCREENPLAY_BLOCK_FORMAT_IDS)[number]
 
+/**
+ * كتلة سيناريو واحدة تربط نصاً بنوع تنسيق.
+ * @property formatId - معرّف التنسيق (مثل `'dialogue'` أو `'action'`)
+ * @property text - النص الخام للكتلة
+ */
 export interface ScreenplayBlock {
   formatId: ScreenplayFormatId
   text: string
 }
 
+/**
+ * حمولة التصدير/الاستيراد للإصدار الأول.
+ * تحتوي كتل السيناريو مع بيانات وصفية (خط، حجم، تاريخ) وبصمة تحقق FNV1a.
+ *
+ * @property version - رقم إصدار الحمولة (دائماً `1`)
+ * @property blocks - مصفوفة كتل السيناريو المُصنَّفة
+ * @property font - اسم الخط المستخدم (مثل `'AzarMehrMonospaced-San'`)
+ * @property size - حجم الخط (مثل `'12pt'`)
+ * @property checksum - بصمة FNV1a هيكساديسيمال (8 محارف)
+ * @property createdAt - طابع زمني ISO 8601
+ */
 export interface ScreenplayPayloadV1 {
   version: 1
   blocks: ScreenplayBlock[]
@@ -27,7 +66,10 @@ export interface ScreenplayPayloadV1 {
   createdAt: string
 }
 
+/** رقم إصدار بروتوكول الحمولة الحالي */
 export const SCREENPLAY_PAYLOAD_VERSION = 1 as const
+
+/** رمز التعريف المُضمَّن في علامة الحمولة: `[[FILMLANE_PAYLOAD_V1:...]]` */
 export const SCREENPLAY_PAYLOAD_TOKEN = 'FILMLANE_PAYLOAD_V1' as const
 
 const MARKER_RE = new RegExp(
@@ -52,9 +94,11 @@ const DATA_TYPE_TO_FORMAT_ID: Record<string, ScreenplayFormatId> = {
   sceneHeader3: 'scene-header-3',
 }
 
+/** يُطبّع نص كتلة: يحوّل المسافات غير القابلة للكسر إلى عادية ويزيل CR */
 const normalizeBlockText = (value: string): string =>
   (value ?? '').replace(/\u00A0/g, ' ').replace(/\r/g, '')
 
+/** يهرب محارف HTML الخمسة الخطرة (`& < > " '`) لمنع حقن XSS */
 const escapeHtml = (value: string): string =>
   value
     .replace(/&/g, '&amp;')
@@ -63,6 +107,7 @@ const escapeHtml = (value: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
 
+/** يحوّل سلسلة UTF-8 إلى Base64 عبر TextEncoder + btoa */
 const utf8ToBase64 = (value: string): string => {
   const bytes = new TextEncoder().encode(value)
   let binary = ''
@@ -72,6 +117,7 @@ const utf8ToBase64 = (value: string): string => {
   return btoa(binary)
 }
 
+/** يحوّل سلسلة Base64 إلى UTF-8 عبر atob + TextDecoder */
 const base64ToUtf8 = (value: string): string => {
   const binary = atob(value)
   const bytes = new Uint8Array(binary.length)
@@ -81,6 +127,12 @@ const base64ToUtf8 = (value: string): string => {
   return new TextDecoder().decode(bytes)
 }
 
+/**
+ * يحسب بصمة FNV-1a (32-بت) لسلسلة نصية.
+ * تُستخدم كبصمة تحقق سريعة وغير تشفيرية للحمولة.
+ * @param input - السلسلة المراد حساب بصمتها
+ * @returns سلسلة هيكساديسيمال مُبطَّنة بأصفار (8 محارف)
+ */
 const fnv1a = (input: string): string => {
   let hash = 0x811c9dc5
   for (let i = 0; i < input.length; i++) {
@@ -90,6 +142,11 @@ const fnv1a = (input: string): string => {
   return (hash >>> 0).toString(16).padStart(8, '0')
 }
 
+/**
+ * يُطبّع معرّف تنسيق خام إلى {@link ScreenplayFormatId} صالح.
+ * يدعم الصيغ القديمة (camelCase مثل `sceneHeaderTopLine`) والحديثة (kebab-case).
+ * @returns المعرّف المُطبَّع أو `null` إذا كان غير معروف
+ */
 const normalizeFormatId = (value: string): ScreenplayFormatId | null => {
   if (!value) return null
   if (value in DATA_TYPE_TO_FORMAT_ID) {
@@ -101,6 +158,11 @@ const normalizeFormatId = (value: string): ScreenplayFormatId | null => {
   return null
 }
 
+/**
+ * يستخرج معرّف التنسيق من عنصر HTML عبر `data-type` أولاً ثم فئات CSS (`format-*`).
+ * @param element - عنصر DOM المراد فحصه
+ * @returns المعرّف المُطبَّع أو `null`
+ */
 const getFormatIdFromElement = (element: Element): ScreenplayFormatId | null => {
   const dataType = element.getAttribute('data-type')
   if (dataType) {
@@ -119,6 +181,12 @@ const getFormatIdFromElement = (element: Element): ScreenplayFormatId | null => 
   return null
 }
 
+/**
+ * يفكّ سطر ترويسة مشهد مُركَّب (top-line) إلى أجزائه: رقم المشهد (header-1) وزمن/مكان (header-2).
+ * يعالج الفواصل: شرطة، نقطتين، فاصلة عربية، أو مسافة.
+ * @param text - نص السطر المُركَّب
+ * @returns مصفوفة كتل مقسّمة (1-2 عنصر) أو مصفوفة فارغة
+ */
 const splitLegacyTopLineText = (
   text: string,
 ): Array<{ formatId: 'scene-header-1' | 'scene-header-2'; text: string }> => {
@@ -142,6 +210,10 @@ const splitLegacyTopLineText = (
   return [{ formatId: 'scene-header-2', text: normalized }]
 }
 
+/**
+ * يُطبّع مصفوفة كتل واردة: يُطبّع المعرّفات، يفكّ أسطر top-line، ويُطبّع النصوص.
+ * يُستخدم كبوابة تطبيع موحّدة قبل الترميز أو التحويل إلى HTML.
+ */
 const normalizeIncomingBlocks = (blocks: ScreenplayBlock[]): ScreenplayBlock[] => {
   const normalizedBlocks: ScreenplayBlock[] = []
 
@@ -163,6 +235,10 @@ const normalizeIncomingBlocks = (blocks: ScreenplayBlock[]): ScreenplayBlock[] =
   return normalizedBlocks
 }
 
+/**
+ * يستخرج أسطر النص من عنصر DOM (يفضّل `innerText` على `textContent`).
+ * @returns مصفوفة أسطر مُطبَّعة (عنصر واحد على الأقل)
+ */
 const toLineTextsFromNode = (element: Element): string[] => {
   const rawText =
     element instanceof HTMLElement && typeof element.innerText === 'string'
@@ -176,12 +252,20 @@ const toLineTextsFromNode = (element: Element): string[] => {
   return lines.length > 0 ? lines : ['']
 }
 
+/** يحسب بصمة FNV1a للحمولة بدون حقل checksum عبر تسلسل JSON */
 const computePayloadChecksum = (
   payload: Omit<ScreenplayPayloadV1, 'checksum'>,
 ): string => {
   return fnv1a(JSON.stringify(payload))
 }
 
+/**
+ * يُطبّع الحمولة ويعيد حساب بصمة التحقق FNV1a.
+ * يُطبّق {@link normalizeIncomingBlocks} على الكتل قبل الحساب.
+ *
+ * @param payload - حمولة بدون بصمة (أو ببصمة قديمة تُتجاهل)
+ * @returns حمولة كاملة من نوع {@link ScreenplayPayloadV1} ببصمة صحيحة
+ */
 export const ensurePayloadChecksum = (
   payload: Omit<ScreenplayPayloadV1, 'checksum'> & { checksum?: string },
 ): ScreenplayPayloadV1 => {
@@ -199,17 +283,43 @@ export const ensurePayloadChecksum = (
   }
 }
 
+/**
+ * يبني علامة الحمولة الكاملة: `[[FILMLANE_PAYLOAD_V1:<encodedPayload>]]`
+ * @param encodedPayload - الحمولة المشفّرة بـ Base64
+ */
 export const buildPayloadMarker = (encodedPayload: string): string =>
   `[[${SCREENPLAY_PAYLOAD_TOKEN}:${encodedPayload}]]`
 
+/**
+ * يستخرج الجزء المشفّر بـ Base64 من علامة الحمولة في النص.
+ * @param text - النص الذي قد يحتوي علامة `[[FILMLANE_PAYLOAD_V1:...]]`
+ * @returns السلسلة المشفّرة أو `null` إذا لم تُوجد علامة
+ */
 export const extractEncodedPayloadMarker = (text: string): string | null => {
   const match = (text ?? '').match(MARKER_RE)
   return match?.[1] ?? null
 }
 
+/**
+ * يُرمّز حمولة السيناريو إلى سلسلة Base64 عبر تسلسل JSON ثم UTF-8→Base64.
+ * @param payload - حمولة كاملة من نوع {@link ScreenplayPayloadV1}
+ * @returns سلسلة Base64 جاهزة للتضمين في علامة الحمولة
+ */
 export const encodeScreenplayPayload = (payload: ScreenplayPayloadV1): string =>
   utf8ToBase64(JSON.stringify(payload))
 
+/**
+ * يفكّ ترميز حمولة سيناريو من سلسلة Base64 ويتحقق من سلامتها.
+ *
+ * خطوات التحقق:
+ * 1. فك Base64 → JSON → كائن
+ * 2. التحقق من وجود جميع الحقول الإلزامية وأنواعها
+ * 3. تطبيع معرّفات التنسيق ونصوص الكتل
+ * 4. إعادة حساب بصمة FNV1a ومقارنتها بالبصمة المُخزَّنة
+ *
+ * @param encodedPayload - سلسلة Base64 المستخرجة من علامة الحمولة
+ * @returns حمولة صالحة أو `null` إذا فشل أي تحقق
+ */
 export const decodeScreenplayPayload = (
   encodedPayload: string,
 ): ScreenplayPayloadV1 | null => {
@@ -260,12 +370,32 @@ export const decodeScreenplayPayload = (
   }
 }
 
+/**
+ * يستخرج ويفكّ ترميز حمولة السيناريو من نص يحتوي علامة حمولة.
+ * يجمع بين {@link extractEncodedPayloadMarker} و {@link decodeScreenplayPayload}.
+ *
+ * @param text - النص الذي قد يحتوي `[[FILMLANE_PAYLOAD_V1:...]]`
+ * @returns حمولة صالحة أو `null` إذا لم تُوجد علامة أو فشل فك الترميز
+ */
 export const extractPayloadFromText = (text: string): ScreenplayPayloadV1 | null => {
   const encoded = extractEncodedPayloadMarker(text)
   if (!encoded) return null
   return decodeScreenplayPayload(encoded)
 }
 
+/**
+ * يحوّل سلسلة HTML إلى مصفوفة كتل سيناريو عبر DOMParser.
+ *
+ * يعالج ثلاث حالات لكل عقدة:
+ * - عقدة نصية → كتل `action`
+ * - عنصر `scene-header-top-line` → فكّ إلى `scene-header-1` + `scene-header-2`
+ * - عنصر آخر → استخراج formatId من `data-type` أو CSS class
+ *
+ * يُطبّق {@link normalizeIncomingBlocks} على النتيجة النهائية.
+ *
+ * @param html - سلسلة HTML من محرر Tiptap أو مصدر خارجي
+ * @returns مصفوفة كتل مُطبَّعة (فارغة إذا كان HTML فارغاً أو DOMParser غير متاح)
+ */
 export const htmlToScreenplayBlocks = (html: string): ScreenplayBlock[] => {
   if (!html || !html.trim()) return []
   if (typeof DOMParser === 'undefined') return []
@@ -336,6 +466,10 @@ export const htmlToScreenplayBlocks = (html: string): ScreenplayBlock[] => {
   return normalizeIncomingBlocks(blocks)
 }
 
+/**
+ * يبني HTML لعنصر top-line مركّب من header-1 و header-2 مع تهريب XSS.
+ * @internal يُستخدم حصرياً من {@link screenplayBlocksToHtml}
+ */
 const renderTopLineBlock = (header1: string, header2: string): string => {
   const top = normalizeBlockText(header1).trim()
   const bottom = normalizeBlockText(header2).trim()
@@ -344,6 +478,19 @@ const renderTopLineBlock = (header1: string, header2: string): string => {
   }</div><div data-type="scene-header-2">${bottom ? escapeHtml(bottom) : ''}</div></div>`
 }
 
+/**
+ * يحوّل مصفوفة كتل سيناريو إلى سلسلة HTML جاهزة لمحرر Tiptap.
+ *
+ * يعالج ثلاث حالات خاصة لترويسات المشاهد:
+ * - `scene-header-top-line` → فكّ ثم عرض كـ top-line مركّب
+ * - `scene-header-1` يليه `scene-header-2` → دمجهما في top-line واحد
+ * - `scene-header-1` أو `scene-header-2` منفرداً → top-line بجزء فارغ
+ *
+ * باقي الأنواع تُعرض كـ `<div data-type="formatId">text</div>`.
+ *
+ * @param blocks - مصفوفة كتل من نوع {@link ScreenplayBlock}
+ * @returns سلسلة HTML مُطبَّعة
+ */
 export const screenplayBlocksToHtml = (blocks: ScreenplayBlock[]): string => {
   const normalized = normalizeIncomingBlocks(
     (blocks ?? []).filter(
@@ -391,6 +538,15 @@ export const screenplayBlocksToHtml = (blocks: ScreenplayBlock[]): string => {
   return html.join('')
 }
 
+/**
+ * يبني حمولة سيناريو كاملة من مصفوفة كتل مع بصمة FNV1a.
+ *
+ * القيم الافتراضية: خط `AzarMehrMonospaced-San`، حجم `12pt`، تاريخ ISO حالي.
+ *
+ * @param blocks - مصفوفة كتل المصدر
+ * @param options - خيارات اختيارية (font, size, createdAt)
+ * @returns حمولة كاملة من نوع {@link ScreenplayPayloadV1}
+ */
 export const createPayloadFromBlocks = (
   blocks: ScreenplayBlock[],
   options?: {
@@ -408,6 +564,14 @@ export const createPayloadFromBlocks = (
   })
 }
 
+/**
+ * يبني حمولة سيناريو كاملة من سلسلة HTML.
+ * اختصار يجمع {@link htmlToScreenplayBlocks} ثم {@link createPayloadFromBlocks}.
+ *
+ * @param html - سلسلة HTML من محرر Tiptap
+ * @param options - خيارات اختيارية (font, size, createdAt)
+ * @returns حمولة كاملة من نوع {@link ScreenplayPayloadV1}
+ */
 export const createPayloadFromHtml = (
   html: string,
   options?: {

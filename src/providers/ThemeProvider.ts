@@ -10,6 +10,28 @@ export interface ThemeProviderOptions {
 const resolveSystemTheme = (): Theme =>
   window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 
+/**
+ * @description مزود السمة (Theme Provider) الذي يدير حالة المظهر (فاتح/داكن/نظام) ويطبقه على الواجهة.
+ *
+ * @complexity الزمنية: O(1) | المكانية: O(1)
+ *
+ * @sideEffects
+ *   - يتفاعل مع `localStorage` لحفظ التفضيلات واستعادتها.
+ *   - يعدل `document.documentElement` (`classList` أو `attributes`) لتطبيق السمة.
+ *
+ * @dependencies
+ *   - واجهات المتصفح المدمجة (`window.matchMedia`, `localStorage`, `document.documentElement`).
+ *
+ * @usedBy
+ *   - نقطة الدخول الرئيسية للتطبيق (`main.tsx` أو ما شابه) لتهيئة حالة السمة.
+ *
+ * @example الاستخدام الأساسي
+ * ```typescript
+ * const provider = new ThemeProvider({ defaultTheme: 'dark' });
+ * provider.init();
+ * provider.toggleTheme();
+ * ```
+ */
 export class ThemeProvider {
   private readonly options: Required<ThemeProviderOptions>
   private currentTheme: Theme
@@ -68,6 +90,26 @@ export class ThemeProvider {
   }
 }
 
+/**
+ * @description دالة مساعدة (Factory Function) لإنشاء وضبط مزود السمة وتفعيله فوراً بخطوة واحدة.
+ *
+ * @param {ThemeProviderOptions} options - خيارات التهيئة لمزود السمة (اختيارية).
+ *
+ * @returns {ThemeProvider} كائن مزود السمة المُهيأ.
+ *
+ * @complexity الزمنية: O(1) | المكانية: O(1)
+ *
+ * @sideEffects
+ *   - ينفذ دالة `init()` مما يسبب تأثيرات جانبية على `localStorage` والـ DOM.
+ *
+ * @usedBy
+ *   - نقطة الدخول لبناء وتغليف حالة السمة بسرعة.
+ *
+ * @example بناء المزود
+ * ```typescript
+ * const themeProvider = createThemeProvider({ defaultTheme: 'light' });
+ * ```
+ */
 export const createThemeProvider = (options: ThemeProviderOptions = {}): ThemeProvider => {
   const provider = new ThemeProvider(options)
   provider.init()

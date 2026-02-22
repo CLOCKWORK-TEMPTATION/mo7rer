@@ -1,5 +1,16 @@
-// Screenplay Editor Color Palette - Jungle Green Edition
+/**
+ * @module constants/colors
+ * @description لوحة ألوان محرر السيناريو — إصدار Jungle Green.
+ *
+ * تُصدّر أربع مجموعات:
+ * - {@link colors} — 19 لوناً أساسياً لمنتقي الألوان
+ * - {@link brandColors} — ألوان العلامة التجارية (jungleGreen, teal, bronze, dark)
+ * - {@link semanticColors} — ألوان دلالية (primary, error, warning, إلخ)
+ * - {@link highlightColors} — 8 ألوان للتمييز النصي
+ * - {@link gradients} — 8 تدرجات خطية جاهزة
+ */
 
+/** مصفوفة الألوان الأساسية (19 لوناً) لمنتقي الألوان في واجهة المحرر */
 export const colors = [
   '#070100',
   '#029784',
@@ -22,6 +33,7 @@ export const colors = [
   '#000000',
 ] as const
 
+/** ألوان العلامة التجارية لـ Filmlane */
 export const brandColors = {
   jungleGreen: '#029784',
   teal: '#40A5B3',
@@ -29,6 +41,7 @@ export const brandColors = {
   dark: '#070100',
 } as const
 
+/** ألوان دلالية مُعيَّنة حسب الغرض (نجاح، خطأ، تحذير، إلخ) */
 export const semanticColors = {
   primary: '#029784',
   secondary: '#40A5B3',
@@ -41,6 +54,7 @@ export const semanticColors = {
   technical: '#3b5bdb',
 } as const
 
+/** 8 ألوان للتمييز النصي (highlight) في المحرر */
 export const highlightColors = [
   '#029784',
   '#40A5B3',
@@ -52,6 +66,7 @@ export const highlightColors = [
   '#9c36b5',
 ] as const
 
+/** تدرجات خطية (linear-gradient) جاهزة للاستخدام في خلفيات واجهة المستخدم */
 export const gradients = {
   jungle: 'linear-gradient(135deg, #029784, #40A5B3)',
   jungleFull: 'linear-gradient(135deg, #029784, #40A5B3, #746842)',

@@ -1,9 +1,23 @@
+/**
+ * @module extensions/transition
+ * @description
+ * عنصر الانتقال (Transition) — أوامر المونتاج بين المشاهد.
+ *
+ * يُصدّر:
+ * - {@link isTransitionLine} — كاشف أسطر الانتقال (قطع إلى، مزج إلى، إلخ)
+ * - {@link Transition} — عقدة Tiptap للانتقال
+ *
+ * سلوك Enter: الانتقال إلى {@link SceneHeaderTopLine} (رأس مشهد جديد).
+ */
 import { Node, mergeAttributes } from '@tiptap/core'
 import { TRANSITION_RE } from './arabic-patterns'
 import { normalizeLine } from './text-utils'
 
 /**
- * مطابقة سطر الانتقال (Transition).
+ * يفحص ما إذا كان السطر أمر انتقال مونتاجي.
+ *
+ * @param text - النص الخام للسطر
+ * @returns `true` إذا طابق {@link TRANSITION_RE}
  */
 export const isTransitionLine = (text: string): boolean => {
   const normalized = normalizeLine(text)

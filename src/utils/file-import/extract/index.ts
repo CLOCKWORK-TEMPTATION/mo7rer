@@ -1,3 +1,15 @@
+/**
+ * @module utils/file-import/extract
+ * @description منسّق الاستخراج المركزي. يختار الاستراتيجية المناسبة لكل نوع ملف:
+ *
+ * - `doc` → Backend فقط (غير مدعوم في المتصفح)
+ * - `pdf` → متصفح أولاً + فحص جودة (عتبة {@link LOW_PDF_QUALITY_THRESHOLD})
+ *   مع بديل Backend احتياطي عند الجودة المنخفضة
+ * - أخرى → متصفح أولاً + بديل Backend احتياطي عند الفشل
+ *
+ * بعد الاستخراج يمرّ كل نتيجة عبر {@link finalizeExtraction} الذي يُطبّق
+ * المعالجة المسبقة ويفحص وجود Payload Marker لاسترجاع البنية مباشرة.
+ */
 import type { FileExtractionResult } from '../../../types/file-import'
 import { getFileType } from '../../../types/file-import'
 import { extractPayloadFromText } from '../document-model'
@@ -14,12 +26,23 @@ import {
   type BackendExtractOptions,
 } from './backend-extract'
 
+/** عتبة الجودة التي تُحفّز التحويل إلى Backend لملفات PDF */
 const LOW_PDF_QUALITY_THRESHOLD = 0.42
 
+/**
+ * خيارات الاستخراج الموحّدة.
+ * @property pdfLowQualityThreshold - عتبة الجودة لملفات PDF (الافتراضي: 0.42)
+ */
 export interface ExtractImportedFileOptions extends BackendExtractOptions {
   pdfLowQualityThreshold?: number
 }
 
+/**
+ * يُنهي نتيجة الاستخراج بتطبيق:
+ * 1. المعالجة المسبقة ({@link preprocessImportedTextForClassifier})
+ * 2. فحص Payload Marker لاسترجاع البنية
+ * 3. حساب درجة الجودة ({@link computeImportedTextQualityScore})
+ */
 const finalizeExtraction = (result: FileExtractionResult): FileExtractionResult => {
   if (result.method === 'app-payload') {
     return {
@@ -60,6 +83,7 @@ const finalizeExtraction = (result: FileExtractionResult): FileExtractionResult 
   }
 }
 
+/** يدمج تحذيرات ومحاولات نتيجتين استخراج متتاليتين */
 const mergeResults = (
   primary: FileExtractionResult,
   secondary: FileExtractionResult,
@@ -72,6 +96,16 @@ const mergeResults = (
 const toErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : 'خطأ غير معروف'
 
+/**
+ * نقطة الدخول الرئيسية لاستخراج الملفات المستوردة.
+ *
+ * يختار الاستراتيجية حسب نوع الملف ويُطبّق المعالجة المسبقة تلقائياً.
+ *
+ * @param file - كائن الملف من مربع حوار الاختيار
+ * @param options - خيارات اختيارية (endpoint، مهلة، عتبة PDF)
+ * @returns نتيجة الاستخراج النهائية
+ * @throws {Error} إذا كان نوع الملف غير مدعوم أو فشل كل المسارات
+ */
 export const extractImportedFile = async (
   file: File,
   options?: ExtractImportedFileOptions,

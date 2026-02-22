@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tiptap All Docs Specialist"
+  short_description: "Navigate and answer from local Tiptap docs"
+  default_prompt: "Use the local tiptap_all_docs corpus to answer with precise file references and concise implementation guidance."

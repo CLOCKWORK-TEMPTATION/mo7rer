@@ -1,5 +1,16 @@
 import type { DocumentStats } from './editor-area.types'
 
+/**
+ * @description مكون واجهة ذيل المحرر (Footer) لعرض الإحصائيات (كلمات، أحرف، صفحات، مشاهد) والعنصر النصي النشط حالياً.
+ *
+ * @complexity الزمنية: O(1) للتحديث | المكانية: O(1)
+ *
+ * @sideEffects
+ *   - ينشئ عناصر الـ DOM ويحدّث محتواها النصي مباشرة.
+ *
+ * @usedBy
+ *   - `ScreenplayEditor` لربطه بنهاية المحرر لتحديث حالته باستمرار.
+ */
 export class EditorFooter {
   readonly element: HTMLElement
 

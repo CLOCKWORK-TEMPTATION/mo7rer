@@ -1,17 +1,56 @@
+/**
+ * @module extensions/classification-decision
+ * @description
+ * نظام حسم الغموض السردي — يحل التعارض بين وصف/حوار/شخصية
+ * عبر مقارنة النقاط (score competition) مع بوابات تعريف صارمة.
+ *
+ * يُصدّر:
+ * - {@link ResolvedNarrativeType} — الأنواع الثلاثة القابلة للحسم
+ * - {@link NarrativeDecision} — نتيجة الحسم (نوع + سبب + فجوة النقاط)
+ * - {@link getContextTypeScore} — يحسب نقاط السياق من الأنواع الـ 6 الأخيرة
+ * - {@link scoreActionEvidence} — يحسب نقاط أدلة الوصف
+ * - {@link passesActionDefinitionGate} — بوابة تعريف الوصف
+ * - {@link isDialogueHardBreaker} — كاسر حوار صلب (أدلة وصف ≥ 5)
+ * - {@link passesDialogueDefinitionGate} — بوابة تعريف الحوار
+ * - {@link passesCharacterDefinitionGate} — بوابة تعريف الشخصية
+ * - {@link resolveNarrativeDecision} — الدالة الرئيسية لحسم الغموض
+ *
+ * يُستهلك في {@link PasteClassifier} → `classifyLines()` كآخر خطوة احتياطية.
+ */
 import { collectActionEvidence, type ActionEvidence, isActionLine } from './action'
 import { isCharacterLine } from './character'
 import type { ClassificationContext } from './classification-types'
 import { getDialogueProbability, hasDirectDialogueCues, isDialogueLine } from './dialogue'
 import { normalizeLine } from './text-utils'
 
+/**
+ * الأنواع الثلاثة القابلة للحسم عند غموض السطر.
+ */
 export type ResolvedNarrativeType = 'action' | 'dialogue' | 'character'
 
+/**
+ * نتيجة حسم الغموض السردي.
+ *
+ * - `type` — النوع الفائز
+ * - `reason` — سبب الاختيار (بصيغة `'score:action'` مثلاً)
+ * - `scoreGap` — الفرق بين الفائز والوصيف (كلما زاد كان الحسم أقوى)
+ */
 export interface NarrativeDecision {
   readonly type: ResolvedNarrativeType
   readonly reason: string
   readonly scoreGap: number
 }
 
+/**
+ * يحسب نقاط السياق بناءً على آخر 6 أنواع سابقة.
+ *
+ * الأنواع الأحدث تحصل على وزن أعلى (الأخير = 6، الأقدم = 1).
+ * `parenthetical` يُعامل كـ `dialogue` بوزن مخفّض.
+ *
+ * @param context - سياق التصنيف
+ * @param candidateTypes - الأنواع المرشحة لحساب النقاط
+ * @returns مجموع النقاط الموزونة
+ */
 export const getContextTypeScore = (
   context: ClassificationContext,
   candidateTypes: readonly ResolvedNarrativeType[]
@@ -32,6 +71,24 @@ export const getContextTypeScore = (
   return score
 }
 
+/**
+ * يحسب نقاط أدلة الوصف — جدول أوزان ثابت.
+ *
+ * | الدليل | النقاط |
+ * |--------|--------|
+ * | `byDash` | +5 |
+ * | `byCue` | +3 |
+ * | `byPattern` | +3 |
+ * | `byVerb` | +2 |
+ * | `byStructure` | +1 |
+ * | `byNarrativeSyntax` | +2 |
+ * | `byPronounAction` | +2 |
+ * | `byThenAction` | +1 |
+ * | `byAudioNarrative` | +2 |
+ *
+ * @param evidence - أدلة الوصف
+ * @returns مجموع النقاط (0–21)
+ */
 export const scoreActionEvidence = (evidence: ActionEvidence): number => {
   let score = 0
   if (evidence.byDash) score += 5
@@ -46,6 +103,17 @@ export const scoreActionEvidence = (evidence: ActionEvidence): number => {
   return score
 }
 
+/**
+ * بوابة تعريف الوصف — يحدد إذا كان السطر مؤهلاً كوصف/حدث.
+ *
+ * يمرّ إذا: شرطة، أو نمط/فعل/سرد، أو (سابق=وصف ونقاط ≥ 1)،
+ * أو عبر {@link isActionLine} كاحتياطي.
+ *
+ * @param line - النص المُطبّع
+ * @param context - سياق التصنيف
+ * @param evidence - أدلة الوصف
+ * @returns `true` إذا مؤهل كوصف
+ */
 export const passesActionDefinitionGate = (
   line: string,
   context: ClassificationContext,
@@ -58,6 +126,15 @@ export const passesActionDefinitionGate = (
   return isActionLine(line, context)
 }
 
+/**
+ * كاسر الحوار الصلب — إذا كانت أدلة الوصف قوية جداً (≥ 5)
+ * ولا توجد دلائل حوار مباشر، يُستبعد السطر من الحوار.
+ *
+ * @param line - النص المُطبّع
+ * @param _context - سياق التصنيف (غير مُستخدم حالياً)
+ * @param evidence - أدلة الوصف
+ * @returns `true` إذا يجب كسر الحوار
+ */
 export const isDialogueHardBreaker = (
   line: string,
   _context: ClassificationContext,
@@ -68,6 +145,19 @@ export const isDialogueHardBreaker = (
   return actionScore >= 5
 }
 
+/**
+ * بوابة تعريف الحوار — يحدد إذا كان السطر مؤهلاً كحوار.
+ *
+ * يُستبعد أولاً إذا مرّ بـ {@link isDialogueHardBreaker}.
+ * ثم يمرّ إذا: {@link isDialogueLine}، أو (في تدفق حوار + نقاط ≥ 2)،
+ * أو نقاط حوار ≥ 5.
+ *
+ * @param line - النص المُطبّع
+ * @param context - سياق التصنيف
+ * @param dialogueScore - نقاط احتمالية الحوار
+ * @param evidence - أدلة الوصف (لفحص الكاسر)
+ * @returns `true` إذا مؤهل كحوار
+ */
 export const passesDialogueDefinitionGate = (
   line: string,
   context: ClassificationContext,
@@ -86,6 +176,13 @@ export const passesDialogueDefinitionGate = (
   return dialogueScore >= 5
 }
 
+/**
+ * بوابة تعريف الشخصية — تفوّض لـ {@link isCharacterLine}.
+ *
+ * @param line - النص المُطبّع
+ * @param context - سياق التصنيف
+ * @returns `true` إذا مؤهل كاسم شخصية
+ */
 export const passesCharacterDefinitionGate = (
   line: string,
   context: ClassificationContext
@@ -93,6 +190,23 @@ export const passesCharacterDefinitionGate = (
   return isCharacterLine(line, context)
 }
 
+/**
+ * الدالة الرئيسية لحسم الغموض — تُقارن نقاط الوصف والحوار والشخصية
+ * وتختار النوع ذا أعلى مجموع (أدلة + سياق).
+ *
+ * خطوات الحسم:
+ * 1. جمع أدلة الوصف ({@link collectActionEvidence})
+ * 2. حساب نقاط الحوار ({@link getDialogueProbability})
+ * 3. فحص البوابات الثلاث (action/dialogue/character)
+ * 4. حساب نقاط النوع = نقاط الأدلة + نقاط السياق
+ * 5. الفائز = أعلى مجموع (مع `scoreGap` = الفرق عن الوصيف)
+ *
+ * إذا كان السطر فارغاً: يُعيد `action` كقيمة افتراضية.
+ *
+ * @param line - النص الخام
+ * @param context - سياق التصنيف
+ * @returns {@link NarrativeDecision}
+ */
 export const resolveNarrativeDecision = (
   line: string,
   context: ClassificationContext

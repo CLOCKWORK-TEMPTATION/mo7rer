@@ -1,9 +1,32 @@
+/**
+ * @module extensions/line-repair
+ * @description
+ * أدوات إصلاح النصوص الملصوقة — تنظيف HTML وعلامات الترقيم ودمج الأسطر المكسورة.
+ *
+ * يُصدّر:
+ * - {@link extractPlainTextFromHtmlLikeLine} — استخراج نص عادي من سطر يحتوي وسوم HTML
+ * - {@link parseBulletLine} — تنظيف سطر من HTML + علامات نقطية + تطبيع
+ * - {@link shouldMergeWrappedLines} — يحدد إذا كان سطران حوار متتاليان يجب دمجهما
+ * - {@link mergeBrokenCharacterName} — يدمج اسم شخصية مقسوم على سطرين (شائع في Word/PDF)
+ *
+ * يُستهلك في {@link PasteClassifier} أثناء المعالجة المسبقة للنص الملصوق.
+ */
 import type { ElementType } from './classification-types'
 import { CHARACTER_RE } from './arabic-patterns'
 import { normalizeLine, stripLeadingBullets } from './text-utils'
 
+/** نمط regex لمطابقة وسوم HTML */
 const HTML_TAG_RE = /<[^>]+>/g
 
+/**
+ * يستخرج نصاً عادياً من سطر يحتوي وسوم HTML.
+ *
+ * يستبدل كل وسم بمسافة ثم يطبّع المسافات المتعددة.
+ * إذا لم يحتوِ السطر على `<` أو `>` يُعيده كما هو.
+ *
+ * @param line - السطر الخام (قد يحتوي HTML)
+ * @returns النص العادي بدون وسوم
+ */
 export const extractPlainTextFromHtmlLikeLine = (line: string): string => {
   const raw = (line ?? '').trim()
   if (!raw || !/[<>]/.test(raw)) return raw
@@ -15,6 +38,14 @@ export const extractPlainTextFromHtmlLikeLine = (line: string): string => {
     .trim()
 }
 
+/**
+ * ينظّف سطراً من HTML ثم يزيل العلامات النقطية ويطبّعه.
+ *
+ * سلسلة المعالجة: HTML → نص عادي → إزالة نقاط → تطبيع.
+ *
+ * @param line - السطر الخام
+ * @returns النص المُنظّف والمُطبّع
+ */
 export const parseBulletLine = (line: string): string => {
   const plain = extractPlainTextFromHtmlLikeLine(line)
   return normalizeLine(stripLeadingBullets(plain))
@@ -22,6 +53,21 @@ export const parseBulletLine = (line: string): string => {
 
 /**
  * دمج التفاف السطر للحوار فقط عندما يبدو استكمالًا لنفس الجملة.
+ */
+/**
+ * يحدد إذا كان سطرا حوار متتاليان يجب دمجهما كاستمرار لنفس الجملة.
+ *
+ * شروط الدمج:
+ * 1. السطر السابق كان `dialogue`
+ * 2. لا يبدأ أي منهما بشرطة أو نقطة
+ * 3. السطر الحالي لا ينتهي بنقطتين (ليس اسم شخصية)
+ * 4. السطر الحالي يبدأ بعلامة استمرار (`…`، `،`، `و`، `ثم`)
+ * 5. السطر السابق لم ينتهِ بعلامة نهاية جملة
+ *
+ * @param previousLine - السطر السابق
+ * @param currentLine - السطر الحالي
+ * @param previousType - نوع السطر السابق
+ * @returns `true` إذا يجب دمج السطرين
  */
 export const shouldMergeWrappedLines = (
   previousLine: string,
@@ -42,6 +88,26 @@ export const shouldMergeWrappedLines = (
 
 /**
  * يحاول دمج اسم شخصية منقسم على سطرين (حالة شائعة في نسخ Word/PDF).
+ */
+/**
+ * يدمج اسم شخصية مقسوم على سطرين — حالة شائعة في نسخ Word/PDF.
+ *
+ * شروط الدمج:
+ * 1. السطر السابق لا ينتهي بعلامة نهاية جملة
+ * 2. السطر الحالي ينتهي بنقطتين
+ * 3. كل جزء ≤ 25 حرفاً والمجموع ≤ 32
+ * 4. الاسم المدمج يتطابق مع {@link CHARACTER_RE}
+ * 5. لا يحتوي على علامات ترقيم غير مسموحة
+ *
+ * @param previousLine - السطر السابق (الجزء الأول من الاسم)
+ * @param currentLine - السطر الحالي (الجزء الثاني + النقطتين)
+ * @returns الاسم المدمج مع النقطتين، أو `null` إذا فشل الدمج
+ *
+ * @example
+ * ```ts
+ * mergeBrokenCharacterName('عبد', 'الرحمن:')  // 'عبد الرحمن:'
+ * mergeBrokenCharacterName('جملة طويلة.', 'أحمد:') // null
+ * ```
  */
 export const mergeBrokenCharacterName = (
   previousLine: string,

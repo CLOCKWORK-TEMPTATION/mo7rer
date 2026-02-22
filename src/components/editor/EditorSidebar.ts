@@ -1,5 +1,8 @@
 import { createHoverCard } from '../ui'
 
+/**
+ * @description واجهة قسم مفرد ضمن الشريط الجانبي يحتوي عنوان وعناصر داخلية.
+ */
 export interface SidebarSection {
   title: string
   items: readonly string[]
@@ -48,6 +51,17 @@ const createSection = (section: SidebarSection): HTMLElement => {
   return details
 }
 
+/**
+ * @description مكون واجهة الشريط الجانبي (Sidebar) لعرض الإعدادات أو القوائم الثانوية وأدوات البحث.
+ *
+ * @complexity الزمنية: O(s * i) لإنشائه، حيث s الأقسام و i عناصرها | المكانية: O(s * i).
+ *
+ * @sideEffects
+ *   - يبني عناصر DOM للشريط الجانبي وفق المعطيات.
+ *
+ * @usedBy
+ *   - `ScreenplayEditor` لوضعه في المساحة الجانبية للتحكم المستمر.
+ */
 export class EditorSidebar {
   readonly element: HTMLElement
 

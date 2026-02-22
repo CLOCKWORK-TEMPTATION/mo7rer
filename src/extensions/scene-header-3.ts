@@ -1,3 +1,17 @@
+/**
+ * @module extensions/scene-header-3
+ * @description
+ * رأس المشهد — المستوى الثالث (Scene Header 3): الموقع التفصيلي.
+ *
+ * يُصدّر:
+ * - {@link isSceneHeader3Line} — كاشف أسطر الموقع التفصيلي (سياقي)
+ * - {@link SceneHeader3} — عقدة Tiptap مستقلة (block)
+ *
+ * سلوك Enter: الانتقال إلى {@link Action} (وصف).
+ *
+ * يستخدم كشفاً سياقياً: إذا جاء بعد {@link SceneHeaderTopLine}
+ * وعدد الكلمات ≤ 14 ولا يوجد ترقيم جمل أو أفعال وصف → يُصنّف كموقع تفصيلي.
+ */
 import { Node, mergeAttributes } from '@tiptap/core'
 import type { ClassificationContext } from './classification-types'
 import {
@@ -15,7 +29,14 @@ import {
 } from './text-utils'
 
 /**
- * مطابقة سطر scene-header-3 (الموقع التفصيلي).
+ * يفحص ما إذا كان السطر موقعاً تفصيلياً (مثل "شقة سيد — غرفة النوم").
+ *
+ * يستبعد: أرقام المشاهد، الانتقالات، الجمل المُرقّمة، أفعال الوصف.
+ * يقبل: بادئات أماكن معروفة، نطاقات مواقع، سياق بعد sceneHeaderTopLine.
+ *
+ * @param text - النص الخام
+ * @param context - سياق التصنيف (اختياري)
+ * @returns `true` إذا صُنّف كموقع تفصيلي
  */
 export const isSceneHeader3Line = (
   text: string,

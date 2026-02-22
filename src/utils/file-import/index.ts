@@ -1,3 +1,19 @@
+/**
+ * @module utils/file-import
+ * @description نقطة إعادة التصدير الموحدة لنظام استيراد الملفات الفرعي.
+ * يجمع كل الوحدات: file-picker، preprocessor، open-pipeline، extract،
+ * document-model، structure-pipeline، plain-text-to-blocks.
+ *
+ * @example
+ * ```ts
+ * import {
+ *   pickImportFile,
+ *   extractImportedFile,
+ *   buildFileOpenPipelineAction,
+ *   htmlToScreenplayBlocks,
+ * } from '@/utils/file-import'
+ * ```
+ */
 export {
   pickImportFile,
 } from './file-picker'

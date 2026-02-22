@@ -147,3 +147,7 @@ build/
 
 # Ignore npmrc (contains private registry configuration)
 .npmrc
+
+# Ignore documentation folders
+tech_stack_docs/
+tiptap_all_docs/

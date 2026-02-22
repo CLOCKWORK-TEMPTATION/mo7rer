@@ -209,9 +209,22 @@ const parseReviewDecisions = (rawText) => {
 }
 
 const buildReviewUserPrompt = (request) => {
+  const reviewPacketText =
+    typeof request?.reviewPacketText === 'string' ? request.reviewPacketText.trim() : ''
+
   const payload = {
     totalReviewed: request.totalReviewed,
     suspiciousLines: request.suspiciousLines,
+  }
+
+  if (reviewPacketText) {
+    return `راجع عناصر التصنيف المشتبه فيها فقط، وارجع JSON بالمخطط المطلوب حرفيًا.
+
+السياق المنسق:
+${reviewPacketText}
+
+البيانات الهيكلية:
+${JSON.stringify(payload, null, 2)}`
   }
 
   return `راجع عناصر التصنيف المشتبه فيها فقط، وارجع JSON بالمخطط المطلوب حرفيًا.\n\n${JSON.stringify(payload, null, 2)}`

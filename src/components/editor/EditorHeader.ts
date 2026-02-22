@@ -1,5 +1,8 @@
 import { createDropdownMenu } from '../ui'
 
+/**
+ * @description مُعرفات الإجراءات (Actions) الممكنة من ترويسة المحرر.
+ */
 export type HeaderActionId =
   | 'new-file'
   | 'open-file'
@@ -17,6 +20,18 @@ export type HeaderActionId =
   | 'user-settings'
   | 'user-logout'
 
+/**
+ * @description مكون ترويسة المحرر (Header) الذي يحتوي على قوائم منسدلة وأزرار تحكم علوية مثل "ملف"، "تعديل"، ومعلومات المستخدم.
+ *
+ * @complexity الزمنية: O(1) | المكانية: O(1)
+ *
+ * @sideEffects
+ *   - ينشئ عناصر الـ DOM للقوائم في الذاكرة.
+ *   - يستدعي دالة المتصل (onAction) عند النقر.
+ *
+ * @usedBy
+ *   - `ScreenplayEditor` للتحكم العام وإدارة الملفات.
+ */
 export class EditorHeader {
   readonly element: HTMLElement
 

@@ -1,3 +1,9 @@
+/**
+ * @module constants
+ * @description نقطة إعادة التصدير المركزية (barrel) لجميع ثوابت المحرر.
+ *
+ * يُعيد تصدير: التنسيقات، أنماط المحرر، الخطوط، الألوان، أبعاد الصفحة، وقائمة الإدراج.
+ */
 export {
   screenplayFormats,
   formatClassMap,

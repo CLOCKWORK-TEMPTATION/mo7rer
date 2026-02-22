@@ -1,3 +1,28 @@
+/**
+ * @module extensions/hybrid-classifier
+ * @description
+ * مصنّف هجين خفيف: regex قوي + سياق + ذاكرة قصيرة.
+ *
+ * يعمل كطبقة تصنيف ثانية بعد كواشف regex الأولية، ويُحسّن
+ * الحالات الرمادية (السطور الغامضة) بدون تبعيات خارجية أو AI.
+ *
+ * يُصدّر:
+ * - {@link HybridResult} — نتيجة التصنيف (نوع + ثقة + طريقة)
+ * - {@link HybridClassifier} — الفئة الرئيسية مع `classifyLine()`
+ *
+ * سلّم الثقة:
+ * | الحالة | الثقة |
+ * |--------|-------|
+ * | بسملة (regex) | 99 |
+ * | رأس مشهد علوي (regex) | 96 |
+ * | انتقال (regex) | 95 |
+ * | شخصية معروفة من الذاكرة | 92 |
+ * | نمط حوار ×3 | 86 |
+ * | نمط وصف ×3 | 85 |
+ * | قيمة احتياطية | 80 |
+ *
+ * يُستهلك في {@link PasteClassifier} → `classifyLines()`.
+ */
 import { isBasmalaLine } from './basmala'
 import type { ClassificationContext, ClassificationMethod, ElementType } from './classification-types'
 import type { ContextMemorySnapshot } from './context-memory-manager'
@@ -5,6 +30,9 @@ import { isCompleteSceneHeaderLine } from './scene-header-top-line'
 import { isTransitionLine } from './transition'
 import { normalizeCharacterName } from './text-utils'
 
+/**
+ * نتيجة التصنيف الهجين — نوع العنصر مع درجة الثقة وطريقة التصنيف.
+ */
 export interface HybridResult {
   readonly type: ElementType
   readonly confidence: number
@@ -16,6 +44,16 @@ export interface HybridResult {
  * الهدف تحسين الحالات الرمادية بدون تبعيات خارجية.
  */
 export class HybridClassifier {
+  /**
+   * يصنّف سطراً واحداً عبر سلسلة أولويات:
+   * basmala → sceneHeaderTopLine → transition → شخصية معروفة → نمط سياقي → احتياطي.
+   *
+   * @param line - السطر الخام
+   * @param fallbackType - النوع الاحتياطي من المصنّف الأولي
+   * @param context - سياق التصنيف (الأنواع السابقة)
+   * @param memory - لقطة ذاكرة السياق (تكرار الشخصيات + الأنواع الأخيرة)
+   * @returns {@link HybridResult}
+   */
   classifyLine(
     line: string,
     fallbackType: ElementType,

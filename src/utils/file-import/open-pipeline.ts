@@ -1,3 +1,14 @@
+/**
+ * @module utils/file-import/open-pipeline
+ * @description يبني إجراء فتح الملف النهائي ({@link FileOpenPipelineAction})
+ * من نتيجة الاستخراج. يُرجع اتحاداً مميَّزاً (discriminated union) بثلاثة أنواع:
+ *
+ * - `import-structured-blocks` — كتل بنيوية جاهزة للإدراج المباشر
+ * - `import-classified-text` — نص خام يحتاج تصنيف اللصق
+ * - `reject` — ملف فارغ أو غير صالح
+ *
+ * يتضمن بناء بيانات القياس (telemetry) ورسائل التنبيه بالعربية.
+ */
 import type { FileExtractionResult, FileImportMode } from '../../types/file-import'
 import type { ScreenplayBlock } from './document-model'
 
@@ -43,14 +54,20 @@ type RejectAction = {
   telemetry: FileOpenPipelineTelemetry
 }
 
+/**
+ * الاتحاد المميَّز لإجراءات فتح الملف.
+ * كل متغير يحتوي `kind` و `mode` و `toast` و `telemetry`.
+ */
 export type FileOpenPipelineAction =
   | ImportStructuredAction
   | ImportClassifiedAction
   | RejectAction
 
+/** يُرجع تسمية الوضع بالعربية: "تم فتح" أو "تم إدراج" */
 const buildModeLabel = (mode: FileImportMode): string =>
   mode === 'replace' ? 'تم فتح' : 'تم إدراج'
 
+/** يبني كائن بيانات القياس من نتيجة الاستخراج */
 const buildTelemetry = (
   extraction: FileExtractionResult,
   source: FileOpenPipelineTelemetry['source'],
@@ -65,6 +82,17 @@ const buildTelemetry = (
   preprocessedSteps: extraction.normalizationApplied ?? [],
 })
 
+/**
+ * يبني الإجراء النهائي لخط أنابيب فتح الملف.
+ *
+ * - إذا وُجدت كتل بنيوية → `import-structured-blocks`
+ * - إذا وُجد نص فقط → `import-classified-text`
+ * - إذا كان الملف فارغاً → `reject`
+ *
+ * @param extraction - نتيجة الاستخراج من {@link extractImportedFile}
+ * @param mode - وضع الاستيراد (`replace` أو `insert`)
+ * @returns الإجراء النهائي مع رسالة التنبيه وبيانات القياس
+ */
 export function buildFileOpenPipelineAction(
   extraction: FileExtractionResult,
   mode: FileImportMode,

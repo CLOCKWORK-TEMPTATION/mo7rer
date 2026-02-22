@@ -1,5 +1,21 @@
+/**
+ * @module constants/editor-format-styles
+ * @description أنماط CSS لعناصر السيناريو العشرة داخل محرر Tiptap.
+ *
+ * يُصدّر:
+ * - {@link EDITOR_STYLE_FORMAT_IDS} — المعرّفات العشرة لأنواع العناصر
+ * - {@link EditorStyleFormatId} — نوع TypeScript مشتق من المصفوفة
+ * - ثوابت الخط المقفل: {@link LOCKED_EDITOR_FONT_FAMILY}, {@link LOCKED_EDITOR_FONT_SIZE}, {@link LOCKED_EDITOR_LINE_HEIGHT}
+ * - {@link getFormatStyles} — مولّد أنماط CSS لكل نوع عنصر
+ * - {@link getSpacingMarginTop} — حاسب التباعد العمودي بين عنصرين متتاليين
+ * - {@link applyEditorFormatStyleVariables} — يكتب متغيرات CSS المخصصة على عنصر DOM
+ */
 import type { CSSProperties } from 'react'
 
+/**
+ * المعرّفات العشرة لأنواع عناصر السيناريو المدعومة في المحرر.
+ * تُستخدم كمفاتيح في أنماط CSS وفي خريطة التنسيقات.
+ */
 export const EDITOR_STYLE_FORMAT_IDS = [
   'basmala',
   'scene-header-1',
@@ -13,12 +29,30 @@ export const EDITOR_STYLE_FORMAT_IDS = [
   'scene-header-top-line',
 ] as const
 
+/** نوع TypeScript مشتق من {@link EDITOR_STYLE_FORMAT_IDS}، يمثل أي معرّف تنسيق صالح */
 export type EditorStyleFormatId = (typeof EDITOR_STYLE_FORMAT_IDS)[number]
 
+/** عائلة الخط المقفلة للمحرر (AzarMehrMonospaced-San مع احتياطي monospace) */
 export const LOCKED_EDITOR_FONT_FAMILY = "'AzarMehrMonospaced-San', monospace"
+/** حجم الخط المقفل للمحرر: 12 نقطة */
 export const LOCKED_EDITOR_FONT_SIZE = '12pt'
+/** ارتفاع السطر المقفل للمحرر: 15 نقطة */
 export const LOCKED_EDITOR_LINE_HEIGHT = '15pt'
 
+/**
+ * يُرجع كائن {@link CSSProperties} يحتوي الأنماط المناسبة لنوع عنصر سيناريو معيّن.
+ *
+ * يدمج أنماطاً أساسية مشتركة (خط، اتجاه RTL، ارتفاع سطر) مع أنماط خاصة بكل نوع:
+ * - `basmala`: محاذاة يسار، وزن عادي
+ * - `scene-header-top-line`: عرض flex مع توزيع المسافات
+ * - `dialogue`: عرض 4.1 بوصة، وسط، حشوات مخصصة
+ * - `action`: محاذاة مبررة (justify) مع آخر سطر لليمين
+ *
+ * @param formatType - معرّف نوع العنصر (مثل `'action'`، `'dialogue'`)
+ * @param selectedSize - حجم الخط (مقفل حالياً على `'12pt'`)
+ * @param selectedFont - عائلة الخط (مقفلة حالياً على `'AzarMehrMonospaced-San'`)
+ * @returns كائن أنماط CSS جاهز للتطبيق على عنصر DOM أو مكوّن React
+ */
 export const getFormatStyles = (
   formatType: EditorStyleFormatId | string,
   selectedSize: string = LOCKED_EDITOR_FONT_SIZE,
@@ -111,6 +145,13 @@ export const getFormatStyles = (
  * - parenthetical → يتبع نفس قواعد dialogue
  * - transition → scene-header-1/scene-header-top-line: سطر فارغ
  */
+/**
+ * يحسب الهامش العلوي (margin-top) بين عنصرين متتاليين وفق قواعد التباعد المعيارية.
+ *
+ * @param previousFormat - معرّف نوع العنصر السابق
+ * @param currentFormat - معرّف نوع العنصر الحالي
+ * @returns قيمة CSS للهامش: `'12pt'` لسطر فارغ، `'0'` لعدم تباعد، `''` للافتراضي
+ */
 export const getSpacingMarginTop = (
   previousFormat: string,
   currentFormat: string,
@@ -189,11 +230,26 @@ export const getSpacingMarginTop = (
   return ''
 }
 
+/**
+ * @internal يحوّل قيمة CSS إلى سلسلة نصية مع قيمة احتياطية.
+ * @param value - القيمة المُستخرجة من كائن CSSProperties
+ * @param fallback - القيمة الاحتياطية عند `undefined` أو `null` (افتراضي: `'0'`)
+ */
 const cssValue = (value: CSSProperties[keyof CSSProperties] | undefined, fallback = '0'): string => {
   if (value === undefined || value === null) return fallback
   return typeof value === 'number' ? `${value}` : String(value)
 }
 
+/**
+ * يكتب متغيرات CSS المخصصة (`--fmt-*` و `--editor-*`) على كائن {@link CSSStyleDeclaration}.
+ *
+ * يُستدعى عادةً على `document.documentElement.style` لجعل الأنماط متاحة
+ * لكل عناصر المحرر عبر `var(--fmt-dialogue-width)` وما شابه.
+ *
+ * المتغيرات المكتوبة تشمل: الخط، الحجم، ارتفاع السطر، والهوامش/الحشوات لكل نوع عنصر.
+ *
+ * @param style - كائن CSSStyleDeclaration المُستهدَف (عادةً `document.documentElement.style`)
+ */
 export const applyEditorFormatStyleVariables = (style: CSSStyleDeclaration): void => {
   const stylesByFormat: Record<EditorStyleFormatId, CSSProperties> = {
     basmala: getFormatStyles('basmala'),

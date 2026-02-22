@@ -1,16 +1,40 @@
+/**
+ * @module extensions/scene-header-top-line
+ * @description
+ * سطر رأس المشهد العلوي (Scene Header Top Line) — عقدة مركّبة تحتوي:
+ * - {@link SceneHeader1} (يمين): رقم المشهد
+ * - {@link SceneHeader2} (يسار): الزمن + داخلي/خارجي
+ *
+ * يُعرض بتخطيط flex مع justify-content: space-between.
+ *
+ * يُصدّر:
+ * - {@link SceneHeaderTopLineParts} — واجهة الأجزاء المُحلّلة
+ * - {@link splitSceneHeaderLine} — محلّل سطر رأس المشهد إلى جزأين
+ * - {@link isCompleteSceneHeaderLine} — كاشف السطر الكامل (رقم + زمن/موقع)
+ * - {@link SceneHeaderTopLine} — عقدة Tiptap المركّبة
+ *
+ * سلوك Enter: header1 → ينتقل إلى header2، header2 → يُنشئ sceneHeader3 بعده.
+ * سلوك Tab: header1 → ينتقل إلى header2.
+ */
 import { Node, mergeAttributes } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
 import { SCENE_NUMBER_EXACT_RE } from './arabic-patterns'
 import { isSceneHeader2Line } from './scene-header-2'
 import { normalizeLine } from './text-utils'
 
+/** أجزاء سطر رأس المشهد المُحلّلة: رقم المشهد + الوصف. */
 export interface SceneHeaderTopLineParts {
   header1: string
   header2: string
 }
 
 /**
- * تحليل سطر رأس المشهد العلوي إلى جزأين: رقم المشهد + الوصف.
+ * يُحلّل سطر رأس المشهد إلى جزأين: header1 (رقم المشهد) و header2 (الزمن/الموقع).
+ *
+ * يدعم الفصل بـ tab، نقطتين، شرطات، فواصل.
+ *
+ * @param line - النص الخام لسطر رأس المشهد
+ * @returns كائن {@link SceneHeaderTopLineParts} أو `null` إذا لم يُطابق
  */
 export const splitSceneHeaderLine = (line: string): SceneHeaderTopLineParts | null => {
   const raw = line ?? ''
@@ -52,7 +76,10 @@ export const splitSceneHeaderLine = (line: string): SceneHeaderTopLineParts | nu
 }
 
 /**
- * التحقق أن السطر يمثل scene-header-top-line كامل (رقم + وصف زمني/مكاني).
+ * يتحقق أن السطر يمثل رأس مشهد علوي كامل (رقم مشهد + زمن/موقع صالح).
+ *
+ * @param line - النص الخام
+ * @returns `true` إذا احتوى على رقم مشهد + header2 صالح
  */
 export const isCompleteSceneHeaderLine = (line: string): boolean => {
   const normalized = normalizeLine(line)

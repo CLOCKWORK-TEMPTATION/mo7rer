@@ -1,12 +1,31 @@
+/**
+ * @module utils/file-import/extract/backend-extract
+ * @description استخراج النصوص عبر خادم Backend خارجي (REST API).
+ *
+ * يُرسل الملف بصيغة Base64 داخل جسم JSON إلى نقطة النهاية المحددة في
+ * `VITE_FILE_IMPORT_BACKEND_URL`، مع مهلة زمنية افتراضية 45 ثانية
+ * عبر {@link AbortController}.
+ *
+ * يُستخدم كبديل احتياطي (fallback) عندما يفشل الاستخراج في المتصفح
+ * أو عندما تكون جودة النص المستخرج منخفضة (خاصةً لملفات PDF و DOC).
+ */
 import type {
   FileExtractionResponse,
   FileExtractionResult,
   ImportedFileType,
 } from '../../../types/file-import'
 
-const DEFAULT_BACKEND_ENDPOINT =
+/** نقطة نهاية Backend المأخوذة من متغير البيئة */
+const ENV_BACKEND_ENDPOINT =
   (import.meta.env.VITE_FILE_IMPORT_BACKEND_URL as string | undefined)?.trim() || ''
 
+/**
+ * يحوّل ArrayBuffer إلى سلسلة Base64 عبر تقطيع القطع (chunks)
+ * لتجنب تجاوز حد المكدس في `String.fromCharCode`.
+ *
+ * @param arrayBuffer - المخزن المؤقت المراد ترميزه
+ * @returns سلسلة Base64
+ */
 const arrayBufferToBase64 = (arrayBuffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(arrayBuffer)
   let binary = ''
@@ -20,26 +39,62 @@ const arrayBufferToBase64 = (arrayBuffer: ArrayBuffer): string => {
   return btoa(binary)
 }
 
+/** يزيل الشرطة المائلة الزائدة من نهاية عنوان URL */
 const normalizeEndpoint = (endpoint: string): string => endpoint.replace(/\/$/, '')
 
+/**
+ * خيارات استخراج الملف عبر Backend.
+ * @property endpoint - عنوان URL مخصص (يتجاوز متغير البيئة)
+ * @property timeoutMs - مهلة الطلب بالمللي ثانية (الافتراضي: 45000)
+ */
 export interface BackendExtractOptions {
   endpoint?: string
   timeoutMs?: number
 }
 
+/**
+ * يتحقق ممّا إذا كان Backend مضبوطاً (عبر متغير البيئة أو endpoint صريح).
+ *
+ * @param endpoint - عنوان اختياري يتجاوز `VITE_FILE_IMPORT_BACKEND_URL`
+ * @returns `true` إذا وُجد عنوان غير فارغ
+ */
 export const isBackendExtractionConfigured = (
   endpoint?: string,
-): boolean => Boolean((endpoint ?? DEFAULT_BACKEND_ENDPOINT).trim())
+): boolean => Boolean((endpoint ?? ENV_BACKEND_ENDPOINT).trim())
 
+/**
+ * يحلّ عنوان نقطة النهاية النهائي، ويرمي خطأ إذا لم يُضبط أي عنوان.
+ * @throws {Error} إذا لم يكن هناك endpoint مضبوط
+ */
+const resolveBackendExtractionEndpoint = (endpoint?: string): string => {
+  const resolved = (endpoint ?? ENV_BACKEND_ENDPOINT).trim()
+  if (!resolved) {
+    throw new Error(
+      'VITE_FILE_IMPORT_BACKEND_URL غير مضبوط. اضبط endpoint كامل مثل: http://127.0.0.1:8787/api/file-extract',
+    )
+  }
+
+  return normalizeEndpoint(resolved)
+}
+
+/**
+ * يستخرج نص الملف عبر Backend API.
+ *
+ * يُرسل الملف كـ Base64 في جسم JSON ويستقبل {@link FileExtractionResult}.
+ * يدعم مهلة زمنية عبر AbortController (الافتراضي 45 ثانية).
+ *
+ * @param file - كائن الملف المراد استخراجه
+ * @param fileType - نوع الملف المُحدد مسبقاً
+ * @param options - خيارات اختيارية (endpoint، مهلة)
+ * @returns نتيجة الاستخراج
+ * @throws {Error} عند فشل الاتصال أو انتهاء المهلة
+ */
 export const extractFileWithBackend = async (
   file: File,
   fileType: ImportedFileType,
   options?: BackendExtractOptions,
 ): Promise<FileExtractionResult> => {
-  const endpoint = (options?.endpoint ?? DEFAULT_BACKEND_ENDPOINT).trim()
-  if (!endpoint) {
-    throw new Error('Backend file extraction endpoint is not configured.')
-  }
+  const endpoint = resolveBackendExtractionEndpoint(options?.endpoint)
 
   const timeoutMs = options?.timeoutMs ?? 45_000
   const controller = new AbortController()
@@ -53,7 +108,7 @@ export const extractFileWithBackend = async (
       fileBase64: arrayBufferToBase64(arrayBuffer),
     }
 
-    const response = await fetch(normalizeEndpoint(endpoint), {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
