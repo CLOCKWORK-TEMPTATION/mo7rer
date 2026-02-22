@@ -1,0 +1,104 @@
+
+
+- التقرير الكامل: `docs/COMPARISON_OUR_APP_VS_FILMLANE.md`
+- نطاق المقارنة: `E:\محرر\src` مقابل `E:\yarab we elnby\New folder (2)\Filmlane\src`
+- تاريخ المقارنة: 2026-02-22
+
+### أهم النتائج العليا
+1. **متطور عندهم:** تغطية الاختبارات (29 test files منها 6 integration) + hardening لمسارات file-import.
+2. **متطور عندهم:** API routes مدمجة داخل التطبيق (`/api/files/extract`, `/api/agent/review`) بدل خدمة منفصلة.
+3. **متطور عندنا:** فصل shell إلى مكونات React مستقلة داخل `src/components/app-shell/*`.
+4. **متطور عندنا:** توحيد CSS entrypoint في `src/styles/system.css` مع تنظيف legacy في `shell.css` و`toolbar.css`.
+5. **متساوي تقريبًا:** طبقة constants الأساسية (`colors`, `formats`, `insert-menu`, `page`).
+6. **غير موجود عندنا أصلًا:** طبقة `src/ai/*` و`src/ml/*` في Filmlane (تحتاج قرار منتجي قبل النقل).
+
+### توصية تنفيذ مختصرة
+- أولوية P0 الحالية: نقل **منهج الاختبارات** لمسارات `structure-pipeline`, `plain-text-to-blocks`, `open-pipeline` قبل أي نقل معماري كبير.
+
+## 7) جدول تفصيلي لملفات Filmlane (القائمة المرسلة)
+
+| مسار Filmlane | النظير عندنا | الحكم | السبب المختصر | دليل التفعيل | القرار المقترح |
+|---|---|---|---|---|---|
+| `src/ai` | لا نظير مباشر | غير موجود عندنا | طبقة AI flows مخصصة | ملفات `src/ai/*` | دراسة P2 |
+| `src/ai/flows/auto-format-screenplay.ts` | لا نظير مباشر | غير موجود عندنا | flow جاهز للتنسيق الذكي عبر Genkit | تعريف flow في الملف | دراسة |
+| `src/ai/flows/generate-scene-ideas.ts` | لا نظير مباشر | غير موجود عندنا | توليد أفكار مشاهد | flow مخصص | دراسة |
+| `src/ai/dev.ts` | لا نظير مباشر | غير موجود عندنا | تشغيل Genkit dev server | scripts لديهم | دراسة |
+| `src/ai/genkit.ts` | لا نظير مباشر | غير موجود عندنا | تكوين Genkit + Google AI plugin | imports واضحة | دراسة |
+| `src/app` | `src/main.tsx` + `src/App.tsx` | متساوي | runtime root مختلف معماريًا | page/layout | إبقاء اختلاف |
+| `src/app/api/agent/review/route.ts` | `server/file-import-server.mjs` (`/api/agent/review`) | متطور عندهم | route داخل التطبيق + zod validation | `route.ts:59`, `route.ts:78` | مرجع لتحسين API contract |
+| `src/app/api/files/extract/route.ts` | `server/file-import-server.mjs` (`/api/file-extract`) | متطور عندهم | route متكامل داخل نفس runtime | `route.ts:12`, `route.ts:40` | خيار توحيد لاحق |
+| `src/app/globals.css` | `src/styles/globals.css` | متساوي | base styles | imports root | إبقاء |
+| `src/app/layout.tsx` | `src/main.tsx` | متساوي | bootstrap/root wrapper | `layout.tsx:77` | إبقاء |
+| `src/app/page.tsx` | `src/App.tsx` | متساوي | root page rendering editor | `page.tsx:15` | إبقاء |
+| `src/app/ui-kit.css` | `src/styles/ui-kit.css` | متساوي | نفس طبقة util effects | imports | إبقاء |
+| `src/components/editor/ConfirmationDialog.tsx` | لا نظير runtime عندنا الآن | غير موجود عندنا | dialog مخصص لمسارهم | exports editor لديهم | اختياري |
+| `src/components/editor/editor-area.types.ts` | `src/components/editor/editor-area.types.ts` | متطور عندهم | عقود أوسع لدعم مسارات أكثر | استهلاك ScreenplayEditor لديهم | مراجعة |
+| `src/components/editor/EditorArea.tsx` | `src/components/editor/EditorArea.ts` | متساوي | core editor | runtime طرفين | إبقاء |
+| `src/components/editor/EditorHeader.tsx` | لا نظير runtime (لدينا AppHeader) | متساوي | legacy لديهم؛ لدينا shell حديث | تعليقات legacy داخل الملف | تجاهل |
+| `src/components/editor/EditorToolbar.tsx` | `src/toolbar.ts` (legacy) + AppDock | متساوي | legacy محفوظ لديهم كذلك | comments legacy | تجاهل |
+| `src/components/editor/EditorSidebar.tsx` | `src/components/app-shell/AppSidebar.tsx` | متساوي | نفس الوظيفة بصياغة مختلفة | runtime layout | إبقاء اختلاف |
+| `src/components/editor/EditorFooter.tsx` | `src/components/app-shell/AppFooter.tsx` | متساوي | footer/stats | runtime | إبقاء |
+| `src/components/editor/index.ts` | `src/components/editor/index.ts` | متطور عندهم | exports أوسع لمسارات editor | barrel exports | مراجعة |
+| `src/components/editor/ScreenplayEditor.tsx` | `src/App.tsx` | متساوي | orchestrator رئيسي | `src/app/page.tsx:15` | إبقاء |
+| `src/components/editor/tiptap/extensions/FilmlaneClipboard.ts` | `src/types/editor-clipboard.ts` + `src/extensions/paste-classifier.ts` | متطور عندهم | extension مستقل للحافظة داخل tiptap | `ScreenplayTiptapEditor.tsx:196` | تبنّي انتقائي |
+| `src/components/editor/tiptap/extensions/PageLayout.ts` | `@tiptap-pro/extension-pages` wiring في `src/editor.ts` | متساوي | Page layout موجود بالمسارين | tiptap extensions wiring | إبقاء |
+| `src/components/editor/tiptap/extensions/ScreenplayKeymap.ts` | `src/extensions/screenplay-commands.ts` | متساوي | keymap/commands parity | runtime الطرفين | إبقاء |
+| `src/components/editor/tiptap/extensions/ScreenplayLine.ts` | مجموعة `src/extensions/*` | متساوي | نفس domain مع اختلاف التقسيم | runtime الطرفين | إبقاء |
+| `src/components/editor/tiptap/ScreenplayTiptapEditor.tsx` | `src/editor.ts` + `src/components/editor/EditorArea.ts` | متطور عندهم | تجميع tiptap runtime + tests قوية | integration test file موجود | مرجع تقني |
+| `src/constants/colors.ts` | `src/constants/colors.ts` | متساوي | parity | runtime | إبقاء |
+| `src/constants/fonts.ts` | `src/constants/fonts.ts` | متساوي | parity | constants | إبقاء |
+| `src/constants/formats.ts` | `src/constants/formats.ts` | متساوي | parity | runtime | إبقاء |
+| `src/constants/index.ts` | `src/constants/index.ts` | متساوي | parity | barrel | إبقاء |
+| `src/constants/insert-menu.ts` | `src/constants/insert-menu.ts` | متساوي | parity (photo-montage included) | runtime | إبقاء |
+| `src/constants/page.ts` | `src/constants/page.ts` | متساوي | parity | pagination | إبقاء |
+| `src/hooks/index.ts` | `src/hooks/index.ts` | متساوي | parity | exports | إبقاء |
+| `src/hooks/use-history.ts` | `src/hooks/use-history.ts` | متطور عندنا | implementation عندنا أعمّ (غير معتمد React state داخليًا) | core utility design | لا نقل |
+| `src/hooks/use-local-storage.ts` | `src/hooks/use-local-storage.ts` | متساوي | نفس الهدف | autosave | إبقاء |
+| `src/hooks/use-mobile.tsx` | `src/hooks/use-mobile.ts` | متساوي | same behavior | responsive | إبقاء |
+| `src/hooks/use-toast.ts` | `src/hooks/use-toast.ts` | متطور عندهم | reducer/update model | hook runtime | دراسة تبنّي جزئي |
+| `src/ml/model-loader.ts` | لا نظير مباشر | غير موجود عندنا | local model loading | ملف ML | دراسة P2 |
+| `src/ml/text-classifier.ts` | لا نظير مباشر | غير موجود عندنا | local Arabic classifier | + test file | دراسة |
+| `src/ml/training-data.ts` | لا نظير مباشر | غير موجود عندنا | training corpus | ML stack | دراسة |
+| `src/providers/index.ts` | `src/providers/index.ts` | متساوي | provider barrel | runtime | إبقاء |
+| `src/providers/ThemeProvider.tsx` | `src/providers/ThemeProvider.ts` | متطور عندهم | next-themes integration | `layout.tsx:77` | إبقاء نهجنا الحالي |
+| `src/types/agent-review.ts` | `src/types/agent-review.ts` | متطور عندهم | مرتبطة مباشرة بـ API route المدمجة | `app/api/agent/review/route.ts` | مراجعة |
+| `src/types/declarations.d.ts` | لا نظير مباشر | غير موجود عندنا | declarations إضافية | compile typing | اختياري |
+| `src/types/editor-clipboard.ts` | `src/types/editor-clipboard.ts` | متساوي | parity | clipboard | إبقاء |
+| `src/types/editor-engine.ts` | `src/types/editor-engine.ts` | متساوي | parity | editor adapter | إبقاء |
+| `src/types/external-modules.d.ts` | `src/types/external-modules.d.ts` | متساوي | stack-specific declarations | compile | إبقاء |
+| `src/types/file-import.ts` | `src/types/file-import.ts` | متساوي | approach differences only | runtime imports | إبقاء |
+| `src/types/screenplay.ts` | `src/types/screenplay.ts` | متطور عندهم | type universe أوسع بكثير | 559 سطر | انتقاء مفيد فقط |
+| `src/types/structure-pipeline.ts` | `src/types/structure-pipeline.ts` | متطور عندنا | type profile عندنا أوضح لحالتنا الحالية | runtime mapping | لا نقل كامل |
+| `src/types/typing-system.ts` | `src/types/typing-system.ts` | متساوي | parity | runtime | إبقاء |
+| `src/utils/arabic-patterns.ts` | `src/extensions/arabic-patterns.ts` | متساوي | نفس الدور | runtime | إبقاء |
+| `src/utils/Arabic-Screenplay-Classifier-Agent.ts` | لا نظير مباشر | غير موجود عندنا | agent script مستقل ضخم | utility script | دراسة |
+| `src/utils/classification-core.ts` | `src/extensions/classification-core.ts` | متطور عندهم | + tests | test files | تبنّي tests |
+| `src/utils/classification-sequence-rules.ts` | `src/extensions/classification-sequence-rules.ts` | متساوي | parity | runtime | إبقاء |
+| `src/utils/cn.ts` | `src/utils/cn.ts` + `src/lib/utils.ts` | متساوي | نفس الناتج | UI class merge | إبقاء |
+| `src/utils/context-memory-manager.ts` | `src/extensions/context-memory-manager.ts` | متساوي | parity | runtime | إبقاء |
+| `src/utils/context-window.ts` | لا نظير مباشر | غير موجود عندنا | سياق إضافي مستقل | utils scope | دراسة |
+| `src/utils/doc-converter-flow.ts` | `server/file-import-server.mjs` (DOC extraction) | متساوي | نفس الغرض بمكان مختلف | extraction path | إبقاء اختلاف |
+| `src/utils/document-model.ts` | `src/utils/file-import/document-model.ts` | متساوي | payload serialization موجود بالطرفين | runtime | إبقاء |
+| `src/utils/editor-styles.ts` | `src/constants/editor-format-styles.ts` | متساوي | style mapping موجود بالطرفين | editor style setup | إبقاء |
+| `src/utils/exporters.ts` | لا نظير مباشر | غير موجود عندنا | export layer (PDF/DOCX) غير موجود كطبقة مستقلة عندنا | + tests | مرشح P1 |
+| `src/utils/feedback-collector.ts` | لا نظير مباشر | غير موجود عندنا | feedback training support | utils | اختياري |
+| `src/utils/file-extraction.ts` | `src/utils/file-import/extract/index.ts` | متطور عندهم | server-side extraction مع tests | `file-extraction.test.ts` | تبنّي جزئي |
+| `src/utils/file-import-preprocessor.ts` | `src/utils/file-import/preprocessor.ts` | متطور عندهم | tests موجودة | test file | تبنّي tests |
+| `src/utils/file-open-pipeline.ts` | `src/utils/file-import/open-pipeline.ts` | متطور عندهم | test coverage أوسع | `file-open-pipeline.test.ts` | تبنّي tests |
+| `src/utils/file-operations.ts` | لا نظير مباشر | غير موجود عندنا | file ops layer إضافية | utilities | دراسة |
+| `src/utils/hybrid-classifier.ts` | `src/extensions/hybrid-classifier.ts` | متطور عندهم | tests | test file | تبنّي tests |
+| `src/utils/index.ts` | `src/utils/file-import/index.ts` + exports متفرقة | متطور عندهم | barrel شامل يغطي utils كثيرة | imports central | اختيار انتقائي |
+| `src/utils/logger.ts` | `src/utils/logger.ts` | متطور عندهم | features logger إضافية | logger APIs | تبنّي انتقائي |
+| `src/utils/mistral-ocr.ts` | `server/file-import-server.mjs` (OCR) | متساوي | OCR موجود بالمشروعين بموقعين مختلفين | extraction paths | إبقاء |
+| `src/utils/paste-classifier.ts` | `src/extensions/paste-classifier.ts` | متطور عندهم | route integration + tests | `/api/agent/review` لديهم | تبنّي جزئي |
+| `src/utils/pdf-converter-flow-runner.ts` | لا نظير مباشر | غير موجود عندنا | runner utility إضافي | utils | اختياري |
+| `src/utils/pdf-converter-flow.ts` | `server/file-import-server.mjs` + pdf pipeline | متساوي | pdf extraction موجود عندنا أيضًا | extraction runtime | إبقاء |
+| `src/utils/photo-montage.ts` | منطق إدراج في `src/constants/insert-menu.ts` + `src/App.tsx` | متساوي | feature موجود بالطرفين | insert runtime | إبقاء |
+| `src/utils/plain-text-to-blocks.ts` | `src/utils/file-import/plain-text-to-blocks.ts` | متطور عندهم | test coverage أعلى | `plain-text-to-blocks.test.ts` | تبنّي tests |
+| `src/utils/screenplay-rules.ts` | لا نظير مباشر | غير موجود عندنا | rules layer إضافية | utils | دراسة |
+| `src/utils/storage.ts` | جزئيًا `src/hooks/use-local-storage.ts` | متطور عندهم | storage utility مستقلة وقابلة لإعادة الاستخدام | imports داخل hooks | تبنّي P1 |
+| `src/utils/structure-pipeline.ts` | `src/utils/file-import/structure-pipeline.ts` | متساوي | نفس capability تقريبًا | runtime | إبقاء |
+| `src/utils/text-utils.ts` | `src/extensions/text-utils.ts` | متساوي | same role | runtime | إبقاء |
+| `src/utils/typing-workflow-rules.ts` | لا نظير مباشر | غير موجود عندنا | rules layer إضافية | utils | دراسة |
+
+## 8) TODO List (بنود متساوية الأهمية)

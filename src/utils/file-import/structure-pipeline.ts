@@ -20,6 +20,8 @@ import {
   type StructurePipelineResult,
 } from '../../types/structure-pipeline'
 import {
+  DATE_PATTERNS,
+  MIXED_NUMBER_RE,
   SCENE_HEADER3_KNOWN_PLACES_RE,
   SCENE_HEADER3_MULTI_LOCATION_EXACT_RE,
   SCENE_HEADER3_MULTI_LOCATION_RE,
@@ -28,6 +30,8 @@ import {
   SCENE_LOCATION_RE,
   SCENE_NUMBER_EXACT_RE,
   SCENE_TIME_RE,
+  TIME_PATTERNS,
+  convertHindiToArabic,
 } from '../../extensions/arabic-patterns'
 import {
   hasActionVerbStructure,
@@ -59,9 +63,21 @@ const normalizeInlineSpaces = (value: string): string =>
   value.replace(/\s+/g, ' ').trim()
 
 const normalizeLineForStructure = (line: string): string =>
-  normalizeInlineSpaces((line ?? '').replace(/\u00A0/g, ' '))
+  normalizeInlineSpaces(convertHindiToArabic((line ?? '').replace(/\u00A0/g, ' ')))
 
 const stripTrailingColon = (line: string): string => line.replace(/[:：]\s*$/u, '').trim()
+
+const SCENE_NUMERIC_LOCATION_RE =
+  /(?:شارع|طريق|مبنى|غرفة|شقة|مكتب|دور|بوابة|باب)\s*[0-9٠-٩]+/iu
+
+const hasTemporalSceneSignal = (line: string): boolean =>
+  DATE_PATTERNS.test(line) || TIME_PATTERNS.test(line)
+
+const hasSceneNumericSignal = (line: string): boolean =>
+  SCENE_NUMERIC_LOCATION_RE.test(line) || /\b(?:مشهد|scene)\s*[0-9٠-٩]+\b/iu.test(line)
+
+const hasUsefulNumericToken = (line: string): boolean =>
+  MIXED_NUMBER_RE.test(line) && line.split(/\s+/).filter(Boolean).length <= 12
 
 const isLikelySpeakerName = (value: string): boolean => {
   const name = normalizeInlineSpaces(value)
@@ -129,6 +145,9 @@ const isSceneHeader3Standalone = (line: string): boolean => {
   if (SCENE_HEADER3_MULTI_LOCATION_EXACT_RE.test(normalized)) return true
   if (SCENE_HEADER3_MULTI_LOCATION_RE.test(normalized)) return true
   if (SCENE_HEADER3_KNOWN_PLACES_RE.test(normalized)) return true
+  if (hasTemporalSceneSignal(normalized)) return true
+  if (hasSceneNumericSignal(normalized)) return true
+  if (hasUsefulNumericToken(normalized) && SCENE_LOCATION_RE.test(normalized)) return true
 
   return false
 }
@@ -167,6 +186,11 @@ const classifyLineLabelOnly = (
       state.expectingDialogueAfterCue = false
       return 'scene-header-2'
     }
+    if (hasTemporalSceneSignal(line) || hasSceneNumericSignal(line)) {
+      state.expectedSceneHeader = null
+      state.expectingDialogueAfterCue = false
+      return 'scene-header-3'
+    }
     if (isSceneHeader3Standalone(line)) {
       state.expectedSceneHeader = null
       state.expectingDialogueAfterCue = false
@@ -174,6 +198,11 @@ const classifyLineLabelOnly = (
     }
     state.expectedSceneHeader = null
   } else if (state.expectedSceneHeader === 'scene-header-3') {
+    if (hasTemporalSceneSignal(line) || hasSceneNumericSignal(line)) {
+      state.expectedSceneHeader = null
+      state.expectingDialogueAfterCue = false
+      return 'scene-header-3'
+    }
     if (isSceneHeader3Standalone(line)) {
       state.expectedSceneHeader = null
       state.expectingDialogueAfterCue = false

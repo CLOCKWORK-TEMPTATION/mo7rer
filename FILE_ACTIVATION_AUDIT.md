@@ -28,7 +28,7 @@
 - تحميل `.env` في السيرفر: `server/file-import-server.mjs:8`, `server/file-import-server.mjs:12`  
 - نقطة الدخول من HTML: `index.html:13`  
 - سكربتات التشغيل والبناء: `package.json:9`, `package.json:10`  
-- تفعيل Tailwind في CSS: `src/styles/globals.css:1`, `src/styles/ui-kit.css:1`  
+- تفعيل Tailwind في CSS (مصدر واحد): `src/styles/globals.css:1`, `src/main.tsx:21`, `src/styles/system.css:8`  
 - plugins الخاصة بـ PostCSS: `postcss.config.mjs:4`, `postcss.config.mjs:5`
 
 ## ملاحظات قرار
@@ -355,25 +355,64 @@
 
 ## حاجات مهمة نرجعلها في الاخر
 
-1. ملفات متطورة عنا (جزئيًا) في التفكيك المعماري:
-   - `src/components/editor/ScreenplayEditor.ts` متطور تنظيميًا لأنه يفصل الـ shell إلى مكونات مستقلة (Header/Toolbar/Sidebar/Footer).
-   - قرار رجوع لاحق: نحدد هل ننقل نفس التفكيك المعماري إلى مسار React الحالي تدريجيًا بدون الرجوع لمسار class-based كامل.
+1. [تم جزئيًا] ملفات متطورة عنا (جزئيًا) في التفكيك المعماري:
+   - تم نقل تفكيك الـ shell في مسار React الحالي إلى مكونات مستقلة:
+     - `src/components/app-shell/AppHeader.tsx`
+     - `src/components/app-shell/AppSidebar.tsx`
+     - `src/components/app-shell/AppDock.tsx`
+     - `src/components/app-shell/AppFooter.tsx`
+   - المتبقي (اختياري): استكمال فصل منطق القوائم/الأوامر في طبقات hook/controller مستقلة إذا أردنا مزيدًا من العزل.
 
-2. تشغيل محلي تلقائي:
-   - تم إضافة سكربت `dev:full` في `package.json` لتشغيل الواجهة + `file-import-server` معًا أثناء التطوير المحلي.
+2. [تم] تشغيل محلي تلقائي:
+   - تمت إضافة سكربت `dev:full` في `package.json` لتشغيل الواجهة + `file-import-server` معًا أثناء التطوير المحلي.
    - هذا مناسب للتطوير فقط وليس للإنتاج.
-3. النشر على Railway:
+
+3. [قيد تجهيز النشر] النشر على Railway:
    - الأفضل فصل النشر إلى خدمتين: `frontend` و `file-import backend`.
    - خدمة الـbackend تبدأ بـ `node server/file-import-server.mjs`.
    - دعم ملفات `DOC` يتطلب توفر `antiword` في بيئة التشغيل (غالبًا عبر Dockerfile).
-   - `VITE_FILE_IMPORT_BACKEND_URL` لازم يشير إلى رابط backend المنشور وقت بناء الواجهة.
-4. قرار مؤجل:
+   - `VITE_FILE_IMPORT_BACKEND_URL` يجب أن يشير إلى رابط backend المنشور وقت بناء الواجهة.
+
+4. [قرار مؤجل] Docker في Railway:
    - نحدد لاحقًا: هل سنعتمد Docker لخدمة backend على Railway لضمان توفر `antiword` في الإنتاج.
-   
-  5. إذا تريد، أطبق نفس تفعيل إشارات التاريخ/الوقت/الأرقام أيضًا داخل structure-pipeline.ts لتوحيد السلوك بين اللصق والاستيراد من الملفات.
-6. قرار خصائص hooks المتقدمة:
+
+5. [تم] تفعيل `structure-pipeline.ts` + `plain-text-to-blocks.ts`:
+   - تم ربط تدفق فتح الملفات فعليًا بـ `buildStructuredBlocksFromText` + `buildProjectionGuardReport`.
+   - تم تفعيل مستهلك runtime واضح لـ `plainTextToScreenplayBlocks`.
+   - تم توحيد إشارات التاريخ/الوقت/الأرقام داخل `src/utils/file-import/structure-pipeline.ts` لتقارب أعلى مع منطق `paste-classifier`.
+
+6. [تم] خصائص hooks المتقدمة:
    - `src/hooks/use-local-storage.ts` و`src/hooks/use-mobile.ts` متطورين جزئيًا عن السلوك الحالي.
-   - نحدد لاحقًا: نفعّل autosave + mobile reactive behavior فعليًا، أم نُبقي الملفات كتحضير فقط.
-7. قرار عقود `src/types` غير المفعلة:
-   - تم التنفيذ: `src/types/editor-clipboard.ts`, `src/types/editor-engine.ts`, `src/types/typing-system.ts` أصبحت مفعلة فعليًا في runtime.
-   - المتابعة لاحقًا: تحسين UX لإعدادات typing system (واجهة إعدادات مرئية بدل الاعتماد على localStorage فقط).
+   - تم تفعيل autosave فعليًا للمحتوى في `localStorage` مع استعادة تلقائية للمسودة عند بدء التطبيق.
+   - تم تفعيل mobile reactive behavior عبر `subscribeIsMobile` وضبط الواجهة (إخفاء فتحات جانبية وتقليل Dock على الجوال).
+
+7. [تم] عقود `src/types` غير المفعلة سابقًا + UX:
+   - تم تفعيل `src/types/editor-clipboard.ts`, `src/types/editor-engine.ts`, `src/types/typing-system.ts` فعليًا في runtime.
+   - تم تنفيذ واجهة إعدادات مرئية لنظام الكتابة (تغيير `TypingSystemMode` و `liveIdleMinutes`) بدل الاعتماد على localStorage فقط.
+   - تم إضافة مؤشرات حالة config للـ backend/agent-review داخل إعدادات الواجهة.
+
+8. [تم] توحيد نظام الأنماط (CSS) بمصدر حقيقة واحد:
+   - تم إنشاء مدخل موحّد: `src/styles/system.css` وأصبح هو الاستيراد الوحيد من `src/main.tsx`.
+   - تم اعتماد `src/styles/globals.css` كمصدر الحقيقة لتوكنز التصميم والخطوط والـ base reset.
+   - تم فصل المسؤوليات: `page.css` لنموذج صفحة السيناريو، `ui-kit.css` للتأثيرات/اليوتيليتي، و`toolbar.css` + `shell.css` كطبقة توافق legacy.
+   - تم حذف تكرارات `:root` و`@tailwind` من الملفات الفرعية لمنع تضارب القيم بين أكثر من ملف.
+   - تم تنفيذ تصفية نهائية لكلاسات legacy غير المستخدمة:
+     - `src/styles/shell.css` أصبح يحتوي فقط أنماط `ui-toaster/ui-toast` المستخدمة فعليًا في runtime الحالي.
+     - `src/styles/toolbar.css` تحوّل إلى deprecated stub بعد إزالة كل `.toolbar*` legacy classes.
+
+## مقارنة خارجية مع Filmlane (مرجع سريع)
+
+- التقرير الكامل: `docs/COMPARISON_OUR_APP_VS_FILMLANE.md`
+- نطاق المقارنة: `E:\محرر\src` مقابل `E:\yarab we elnby\New folder (2)\Filmlane\src`
+- تاريخ المقارنة: 2026-02-22
+
+### أهم النتائج العليا
+1. **متطور عندهم:** تغطية الاختبارات (29 test files منها 6 integration) + hardening لمسارات file-import.
+2. **متطور عندهم:** API routes مدمجة داخل التطبيق (`/api/files/extract`, `/api/agent/review`) بدل خدمة منفصلة.
+3. **متطور عندنا:** فصل shell إلى مكونات React مستقلة داخل `src/components/app-shell/*`.
+4. **متطور عندنا:** توحيد CSS entrypoint في `src/styles/system.css` مع تنظيف legacy في `shell.css` و`toolbar.css`.
+5. **متساوي تقريبًا:** طبقة constants الأساسية (`colors`, `formats`, `insert-menu`, `page`).
+6. **غير موجود عندنا أصلًا:** طبقة `src/ai/*` و`src/ml/*` في Filmlane (تحتاج قرار منتجي قبل النقل).
+
+### توصية تنفيذ مختصرة
+- أولوية P0 الحالية: نقل **منهج الاختبارات** لمسارات `structure-pipeline`, `plain-text-to-blocks`, `open-pipeline` قبل أي نقل معماري كبير.

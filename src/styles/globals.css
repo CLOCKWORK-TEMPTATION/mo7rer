@@ -76,6 +76,26 @@
     /* === Brand Accent (Teal - for toolbar/UI highlights) === */
     --brand: #029784;
     --brand-foreground: #ffffff;
+    --brand-teal: #40a5b3;
+    --brand-bronze: #746842;
+
+    /* === Extended Semantic Tokens === */
+    --accent-creative: oklch(0.75 0.18 330);
+    --accent-technical: oklch(0.7 0.12 195);
+    --accent-success: oklch(0.75 0.18 140);
+    --accent-warning: oklch(0.8 0.18 80);
+    --accent-error: oklch(0.65 0.22 25);
+    --gradient-start: var(--brand);
+    --gradient-middle: var(--brand-teal);
+    --gradient-end: var(--brand-bronze);
+    --view-transition-duration: 0.3s;
+
+    /* === App Runtime Fallbacks (can be overridden from App.tsx) === */
+    --filmlane-brand-gradient: linear-gradient(135deg, var(--brand), var(--brand-teal), var(--brand-bronze));
+    --filmlane-brand-gradient-soft: linear-gradient(135deg, var(--brand), var(--brand-teal));
+    --filmlane-highlight-primary: color-mix(in oklch, var(--brand) 65%, white);
+    --filmlane-highlight-secondary: color-mix(in oklch, var(--brand-teal) 65%, white);
+    --filmlane-palette-dark: #060808;
 
     /* === Border Radius === */
     --radius: 0.625rem;
@@ -126,6 +146,23 @@
     --page-footer-height: 0.8in;
     --page-margin-left: 1in;
     --page-margin-right: 1.25in;
+
+    /* === Legacy Aliases (kept for page.css/toolbar.css compatibility) === */
+    --color-bg: var(--background);
+    --color-page-bg: #ffffff;
+    --color-text: #1a1a1a;
+    --color-toolbar-bg: #2c2c2c;
+    --color-toolbar-text: #e0e0e0;
+    --color-toolbar-hover: #444444;
+    --color-toolbar-active: #0078d4;
+    --color-border: #d0d0d0;
+    --color-scene-heading: #1a5276;
+    --color-character: #6c3483;
+    --color-transition: #7d6608;
+    --color-parenthetical: #555555;
+    --color-active-element-bg: rgba(0, 120, 212, 0.06);
+    --shadow-page: 0 2px 12px rgba(0, 0, 0, 0.15);
+    --shadow-toolbar: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -194,321 +231,8 @@
   }
 }
 
-/* ============================================
-   SCREENPLAY STYLES
-   ============================================ */
-
-@layer components {
-  .format-scene-header-1 {
-    font-weight: bold;
-    text-transform: uppercase;
-    margin-top: 24px;
-    margin-bottom: 12px;
-    background-color: rgba(0, 0, 0, 0.05);
-  }
-
-  .format-action {
-    margin-bottom: 12px;
-    text-align: left;
-  }
-
-  .format-character {
-    margin-top: 12px;
-    margin-bottom: 0;
-    text-transform: uppercase;
-    text-align: center;
-    padding-left: 20%;
-    padding-right: 20%;
-  }
-
-  .format-dialogue {
-    margin-bottom: 12px;
-    text-align: center;
-    padding-left: 15%;
-    padding-right: 15%;
-  }
-
-  .format-parenthetical {
-    margin-bottom: 0;
-    text-align: center;
-    padding-left: 20%;
-    padding-right: 20%;
-  }
-
-  .format-transition {
-    text-align: right;
-    text-transform: uppercase;
-    margin-top: 12px;
-    margin-bottom: 12px;
-  }
-
-  .screenplay-page {
-    font-family: var(--font-family-editor);
-    font-size: 12pt;
-    line-height: 14pt;
-  }
-
-  .screenplay-page * {
-    font-family: var(--font-family-editor);
-    font-size: inherit;
-    line-height: inherit;
-  }
-
-  .screenplay-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 30px;
-    padding-bottom: 50px;
-    width: 100%;
-    background-color: transparent;
-    min-height: 100%;
-    padding-top: 30px;
-  }
-
-  .screenplay-sheet {
-    position: relative;
-    width: var(--page-width);
-    height: var(--page-height);
-    background-color: white;
-    box-shadow:
-      0 4px 6px -1px rgba(0, 0, 0, 0.1),
-      0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    margin: 0 auto;
-    color: black;
-    border-radius: var(--radius-xl);
-  }
-
-  .screenplay-sheet__header {
-    height: var(--page-header-height);
-    width: 100%;
-    pointer-events: none;
-    user-select: none;
-    flex-shrink: 0;
-  }
-
-  .screenplay-sheet__body {
-    flex-grow: 1;
-    width: 100%;
-    padding-left: var(--page-margin-left);
-    padding-right: var(--page-margin-right);
-    outline: none;
-    font-family: var(--font-family-editor);
-    font-size: 12pt;
-    line-height: 14pt;
-    direction: rtl;
-    color: black;
-    white-space: pre-wrap;
-    box-sizing: border-box;
-    user-select: text !important;
-    -webkit-user-select: text !important;
-    -moz-user-select: text !important;
-    -ms-user-select: text !important;
-    cursor: text;
-    caret-color: black;
-  }
-
-  .screenplay-sheet__body * {
-    user-select: text !important;
-    -webkit-user-select: text !important;
-  }
-
-  .screenplay-sheet__body .filmlane-prosemirror-root {
-    direction: rtl;
-    text-align: right;
-    min-height: 100%;
-    outline: none;
-    white-space: pre-wrap;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-content: start;
-    align-items: baseline;
-    column-gap: 0.75rem;
-  }
-
-  .screenplay-sheet__body .filmlane-prosemirror-root > * {
-    direction: rtl;
-    text-align: right;
-    grid-column: 1 / -1;
-    min-width: 0;
-  }
-
-  .screenplay-sheet__body .filmlane-prosemirror-root > .format-scene-header-1 {
-    margin-top: 0;
-    margin-bottom: 0;
-    background-color: transparent;
-  }
-
-  .screenplay-sheet__body .filmlane-prosemirror-root > .format-scene-header-2 {
-    margin-top: 0;
-    margin-bottom: 0;
-  }
-
-  .screenplay-sheet__body
-    .filmlane-prosemirror-root
-    > .format-scene-header-1:has(+ .format-scene-header-2) {
-    grid-column: 2;
-    justify-self: end;
-    text-align: right;
-  }
-
-  .screenplay-sheet__body
-    .filmlane-prosemirror-root
-    > .format-scene-header-1:has(+ .format-scene-header-2)
-    + .format-scene-header-2 {
-    grid-column: 1;
-    justify-self: start;
-    text-align: left;
-  }
-
-  .screenplay-sheet__body
-    .filmlane-prosemirror-root
-    > .format-scene-header-1:has(+ .format-scene-header-2)
-    + .format-scene-header-2
-    + * {
-    margin-top: 0.2rem;
-  }
-
-  .screenplay-sheet.filmlane-sheet-paged {
-    position: relative;
-    height: auto;
-    min-height: var(--page-height);
-  }
-
-  .screenplay-sheet.filmlane-sheet-paged .filmlane-page-overlays {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  .screenplay-sheet.filmlane-sheet-paged .filmlane-page-divider {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: rgba(0, 0, 0, 0.08);
-  }
-
-  .screenplay-sheet.filmlane-sheet-paged .filmlane-page-number-marker {
-    position: absolute;
-    left: 1in;
-    font-family: var(--font-family-editor);
-    font-size: 12pt;
-    color: rgba(0, 0, 0, 0.8);
-  }
-
-  .screenplay-sheet.filmlane-sheet-paged .screenplay-sheet__header,
-  .screenplay-sheet.filmlane-sheet-paged .screenplay-sheet__body,
-  .screenplay-sheet.filmlane-sheet-paged .screenplay-sheet__footer {
-    position: relative;
-    z-index: 2;
-  }
-
-  .screenplay-sheet__body::selection,
-  .screenplay-sheet__body *::selection {
-    background-color: rgba(2, 151, 132, 0.4) !important;
-    color: inherit;
-  }
-
-  .screenplay-sheet__body::-moz-selection,
-  .screenplay-sheet__body *::-moz-selection {
-    background-color: rgba(2, 151, 132, 0.4) !important;
-    color: inherit;
-  }
-
-  .screenplay-sheet__footer {
-    height: var(--page-footer-height);
-    width: 100%;
-    position: relative;
-    pointer-events: none;
-    user-select: none;
-    flex-shrink: 0;
-  }
-
-  .screenplay-page-number {
-    position: absolute;
-    bottom: 0.5in;
-    left: 1in;
-    font-family: var(--font-family-editor);
-    font-size: 12pt;
-    color: black;
-  }
-
-  .page-gap {
-    display: none;
-  }
-  .page-frame {
-    display: none;
-  }
-  .page-break-spacer {
-    display: none;
-  }
-
-  /* Glass effects */
-  .glass {
-    background: color-mix(in oklch, var(--background) 80%, transparent);
-    backdrop-filter: blur(12px);
-    border: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
-  }
-
-  .glass-dark {
-    background: color-mix(in oklch, var(--foreground) 10%, transparent);
-    backdrop-filter: blur(16px);
-    border: 1px solid color-mix(in oklch, var(--foreground) 20%, transparent);
-  }
-
-  .glow-brand {
-    box-shadow:
-      0 0 20px var(--brand),
-      0 0 40px color-mix(in oklch, var(--brand) 50%, transparent);
-  }
-
-  .card-container {
-    container-type: inline-size;
-    container-name: card;
-  }
-  @container card (min-width: 300px) {
-    .card-adaptive {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: var(--space-4);
-    }
-  }
-
-  .card-interactive {
-    transition:
-      transform var(--duration-fast) var(--easing-default),
-      box-shadow var(--duration-fast) var(--easing-default);
-  }
-  .card-interactive:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 40px -12px
-      color-mix(in oklch, var(--foreground) 20%, transparent);
-  }
-}
-
-@layer utilities {
-  .scrollbar-none {
-    scrollbar-width: none;
-  }
-  .scrollbar-none::-webkit-scrollbar {
-    display: none;
-  }
-  .line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .text-gradient-brand {
-    background: linear-gradient(135deg, var(--brand), var(--accent));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-}
+/* Source-of-truth policy:
+   - Tokens and base reset live in this file.
+   - Screenplay layout/style rules live in page.css.
+   - UI utilities and rich effects live in ui-kit.css.
+*/

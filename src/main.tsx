@@ -17,13 +17,8 @@
  *   - {@link createToaster} — مصنع مكون الإشعارات.
  */
 
-/* نقطة الدخول */
-import './styles/globals.css'
-import './styles/ui-kit.css'
-import './styles/main.css'
-import './styles/page.css'
-import './styles/toolbar.css'
-import './styles/shell.css'
+/* نقطة الدخول - نظام أنماط موحد */
+import './styles/system.css'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'

@@ -41,24 +41,29 @@ import {
   Stethoscope,
   Lightbulb,
   MessageSquare,
-  User,
-  Search,
   FileText,
   List,
   BookOpen,
   Settings,
-  Sparkles,
-  ChevronLeft,
   Clapperboard,
 } from 'lucide-react'
+import {
+  AppDock,
+  AppFooter,
+  AppHeader,
+  AppSidebar,
+  type AppDockButtonItem,
+  type AppShellMenuItem,
+  type AppShellMenuSection,
+  type AppSidebarSection,
+} from './components/app-shell'
 import { EditorArea } from './components/editor/EditorArea'
-import { HoverBorderGradient } from './components/ui/hover-border-gradient'
 import type { DocumentStats, FileImportMode } from './components/editor/editor-area.types'
 import { colors, brandColors, gradients, highlightColors, semanticColors } from './constants/colors'
 import { screenplayFormats } from './constants/formats'
 import { insertMenuDefinitions, type EditorStyleFormatId } from './constants/insert-menu'
 import { type ElementType, fromLegacyElementType, isElementType } from './extensions/classification-types'
-import { toast } from './hooks'
+import { loadFromStorage, saveToStorage, subscribeIsMobile, toast, useAutoSave, useIsMobile } from './hooks'
 import {
   ACCEPTED_FILE_EXTENSIONS,
   DEFAULT_TYPING_SYSTEM_SETTINGS,
@@ -68,7 +73,14 @@ import {
   type RunDocumentThroughPasteWorkflowOptions,
   type TypingSystemSettings,
 } from './types'
-import { buildFileOpenPipelineAction, extractImportedFile, pickImportFile } from './utils/file-import'
+import {
+  buildFileOpenPipelineAction,
+  buildProjectionGuardReport,
+  buildStructuredBlocksFromText,
+  extractImportedFile,
+  pickImportFile,
+  plainTextToScreenplayBlocks,
+} from './utils/file-import'
 import { logger } from './utils/logger'
 
 /**
@@ -222,22 +234,10 @@ const BackgroundGrid = (): React.JSX.Element => (
 )
 
 /** واجهة قسم في القائمة الرئيسية — تحتوي تسمية وقائمة عناصر مع معرّفات أوامر */
-interface MenuItem {
-  label: string
-  actionId: MenuActionId
-  shortcut?: string
-  accentColor?: string
-}
-
-interface MenuSection {
-  label: string
-  items: readonly MenuItem[]
-}
-
-const INSERT_MENU_ITEMS: readonly MenuItem[] = insertMenuDefinitions.map((definition) => {
+const INSERT_MENU_ITEMS: readonly AppShellMenuItem[] = insertMenuDefinitions.map((definition) => {
   const metadata = screenplayFormats.find((format) => format.id === definition.id)
   const icon = FORMAT_ICON_GLYPH_BY_NAME[metadata?.icon ?? definition.icon] ?? '•'
-  const actionId = `${definition.insertBehavior}:${definition.id}` as MenuActionId
+  const actionId = `${definition.insertBehavior}:${definition.id}` as const
   return {
     label: `${icon} ${metadata?.label ?? definition.label}`,
     actionId,
@@ -247,7 +247,7 @@ const INSERT_MENU_ITEMS: readonly MenuItem[] = insertMenuDefinitions.map((defini
 })
 
 /** أقسام القائمة الرئيسية: ملف، تعديل، إضافة، تنسيق، أدوات، مساعدة */
-const MENU_SECTIONS: readonly MenuSection[] = [
+const MENU_SECTIONS: readonly AppShellMenuSection[] = [
   {
     label: 'مـلــــف',
     items: [
@@ -298,14 +298,8 @@ const MENU_SECTIONS: readonly MenuSection[] = [
 /* ── تهيئة أزرار شريط Dock العائم ── */
 
 /** واجهة زر في شريط Dock — أيقونة + عنوان + معرّف أمر */
-interface DockButtonItem {
-  actionId: MenuActionId
-  icon: React.ElementType
-  title: string
-}
-
 /** قائمة أزرار شريط Dock العائم — مرتبة حسب المجموعة: وسائط، أدوات، إجراءات، تنسيق، معلومات */
-const DOCK_BUTTONS: readonly DockButtonItem[] = [
+const DOCK_BUTTONS: readonly AppDockButtonItem[] = [
   // وسائط وتصدير
   { actionId: 'about', icon: Clapperboard, title: 'تبديل التنسيق المباشر' },
   { actionId: 'export-html', icon: Download, title: 'تصدير PDF' },
@@ -328,35 +322,10 @@ const DOCK_BUTTONS: readonly DockButtonItem[] = [
   { actionId: 'about', icon: Info, title: 'مساعدة' },
 ]
 
-/** خصائص مكون زر أيقونة Dock */
-interface DockIconButtonProps {
-  icon: React.ElementType
-  title: string
-  onClick: () => void
-}
-
-/** مكون زر أيقونة في شريط Dock مع تأثير حدود متدرجة عند التحويم */
-function DockIconButton({ icon: Icon, title, onClick }: DockIconButtonProps): React.JSX.Element {
-  return (
-    <div className="relative z-10 flex h-10 w-10 items-center justify-center">
-      <HoverBorderGradient
-        as="button"
-        onClick={onClick}
-        title={title}
-        containerClassName="h-full w-full rounded-full"
-        className="flex h-full w-full items-center justify-center rounded-[inherit] bg-neutral-900/90 p-0 text-neutral-400 transition-all duration-200 hover:bg-neutral-800 hover:text-white active:scale-95"
-        duration={1}
-      >
-        <Icon className="size-[18px]" strokeWidth={1.75} />
-      </HoverBorderGradient>
-    </div>
-  )
-}
-
 /* ── تهيئة أقسام الشريط الجانبي ── */
 
 /** أقسام الشريط الجانبي: المستندات الأخيرة، المشاريع، المكتبة، الإعدادات */
-const SIDEBAR_SECTIONS = [
+const SIDEBAR_SECTIONS: readonly AppSidebarSection[] = [
   { id: 'docs', label: 'المستندات الأخيرة', icon: FileText, items: ['سيناريو فيلم.docx', 'مسودة الحلقة الأولى.docx', 'مشاهد مُصنفة.txt'] },
   { id: 'projects', label: 'المشاريع', icon: List, items: ['فيلم الرحلة', 'مسلسل الحارة', 'ورشة أفان تيتر'] },
   { id: 'library', label: 'المكتبة', icon: BookOpen, items: ['قوالب المشاهد', 'الشخصيات', 'الملاحظات'] },
@@ -364,18 +333,43 @@ const SIDEBAR_SECTIONS = [
 ] as const
 
 const TYPING_SETTINGS_STORAGE_KEY = 'filmlane.typing-system.settings'
+const AUTOSAVE_DRAFT_STORAGE_KEY = 'filmlane.autosave.document-text.v1'
+const TYPING_MODE_OPTIONS: ReadonlyArray<{
+  value: TypingSystemSettings['typingSystemMode']
+  label: string
+  description: string
+}> = [
+  {
+    value: 'plain',
+    label: 'يدوي (Plain)',
+    description: 'لا يتم تشغيل التصنيف التلقائي أثناء الكتابة.',
+  },
+  {
+    value: 'auto-deferred',
+    label: 'مؤجل (Auto Deferred)',
+    description: 'يشغّل إعادة المعالجة يدويًا بعد اللصق.',
+  },
+  {
+    value: 'auto-live',
+    label: 'حي (Auto Live)',
+    description: 'يشغّل إعادة المعالجة تلقائيًا بعد مهلة خمول.',
+  },
+]
+
+const toLiveIdleMinutesLabel = (minutes: number): string =>
+  `${minutes} ${minutes === 1 ? 'دقيقة' : 'دقائق'}`
+
+interface EditorAutosaveSnapshot {
+  text: string
+  updatedAt: string
+}
 
 const readTypingSystemSettings = (): TypingSystemSettings => {
-  if (typeof window === 'undefined') return DEFAULT_TYPING_SYSTEM_SETTINGS
-
-  try {
-    const raw = window.localStorage.getItem(TYPING_SETTINGS_STORAGE_KEY)
-    if (!raw) return DEFAULT_TYPING_SYSTEM_SETTINGS
-    const parsed = JSON.parse(raw) as Partial<TypingSystemSettings>
-    return sanitizeTypingSystemSettings(parsed)
-  } catch {
-    return DEFAULT_TYPING_SYSTEM_SETTINGS
-  }
+  const parsed = loadFromStorage<Partial<TypingSystemSettings> | null>(
+    TYPING_SETTINGS_STORAGE_KEY,
+    null,
+  )
+  return sanitizeTypingSystemSettings(parsed ?? DEFAULT_TYPING_SYSTEM_SETTINGS)
 }
 
 /**
@@ -397,13 +391,17 @@ export function App(): React.JSX.Element {
   const liveTypingWorkflowTimeoutRef = useRef<number | null>(null)
   const applyingTypingWorkflowRef = useRef(false)
   const lastLiveWorkflowTextRef = useRef('')
+  const hasRestoredAutosaveRef = useRef(false)
 
   const [stats, setStats] = useState<DocumentStats>({ pages: 1, words: 0, characters: 0, scenes: 0 })
   const [currentFormat, setCurrentFormat] = useState<ElementType | null>(null)
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [openSidebarItem, setOpenSidebarItem] = useState<string | null>(null)
   const [documentText, setDocumentText] = useState('')
-  const [typingSystemSettings] = useState<TypingSystemSettings>(() => readTypingSystemSettings())
+  const [isMobile, setIsMobile] = useState<boolean>(() => useIsMobile())
+  const [typingSystemSettings, setTypingSystemSettings] = useState<TypingSystemSettings>(() =>
+    readTypingSystemSettings(),
+  )
 
   /* ── تركيب/تدمير EditorArea مرة واحدة فقط ── */
   useEffect(() => {
@@ -424,6 +422,36 @@ export function App(): React.JSX.Element {
     }
   }, [])
 
+  useEffect(() => {
+    return subscribeIsMobile((nextIsMobile) => {
+      setIsMobile(nextIsMobile)
+      if (nextIsMobile) {
+        setOpenSidebarItem(null)
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    const area = editorAreaRef.current
+    if (!area) return
+    if (hasRestoredAutosaveRef.current) return
+
+    const snapshot = loadFromStorage<EditorAutosaveSnapshot | null>(
+      AUTOSAVE_DRAFT_STORAGE_KEY,
+      null,
+    )
+    hasRestoredAutosaveRef.current = true
+
+    if (!snapshot?.text?.trim()) return
+
+    void area.importClassifiedText(snapshot.text, 'replace').then(() => {
+      toast({
+        title: 'تمت استعادة المسودة',
+        description: 'استرجعنا آخر نسخة محفوظة تلقائيًا.',
+      })
+    })
+  }, [])
+
   /* ── إغلاق القوائم عند النقر خارجها ── */
   useEffect(() => {
     const closeMenus = (): void => setActiveMenu(null)
@@ -432,9 +460,22 @@ export function App(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    window.localStorage.setItem(TYPING_SETTINGS_STORAGE_KEY, JSON.stringify(typingSystemSettings))
+    saveToStorage(TYPING_SETTINGS_STORAGE_KEY, typingSystemSettings)
   }, [typingSystemSettings])
+
+  useEffect(() => {
+    const normalizedText = documentText.trim()
+    if (!normalizedText) return
+
+    useAutoSave<EditorAutosaveSnapshot>(
+      AUTOSAVE_DRAFT_STORAGE_KEY,
+      {
+        text: normalizedText,
+        updatedAt: new Date().toISOString(),
+      },
+      1500,
+    )
+  }, [documentText])
 
   /* ── تفعيل Design Tokens من constants/colors.ts ── */
   useEffect(() => {
@@ -455,6 +496,42 @@ export function App(): React.JSX.Element {
     rootStyle.setProperty('--filmlane-highlight-secondary', highlightColors[1])
     rootStyle.setProperty('--filmlane-palette-dark', colors[0])
   }, [])
+
+  const fileImportBackendEndpoint =
+    (import.meta.env.VITE_FILE_IMPORT_BACKEND_URL as string | undefined)?.trim() ?? ''
+  const explicitAgentReviewEndpoint =
+    (import.meta.env.VITE_AGENT_REVIEW_BACKEND_URL as string | undefined)?.trim() ?? ''
+  const hasFileImportBackend = fileImportBackendEndpoint.length > 0
+  const hasAgentReviewBackend =
+    explicitAgentReviewEndpoint.length > 0 || hasFileImportBackend
+
+  const handleTypingModeChange = (nextMode: TypingSystemSettings['typingSystemMode']): void => {
+    setTypingSystemSettings((current) =>
+      sanitizeTypingSystemSettings({
+        ...current,
+        typingSystemMode: nextMode,
+      }),
+    )
+
+    if (nextMode !== 'auto-live' && liveTypingWorkflowTimeoutRef.current !== null) {
+      window.clearTimeout(liveTypingWorkflowTimeoutRef.current)
+      liveTypingWorkflowTimeoutRef.current = null
+    }
+
+    logger.info('Typing system mode updated', {
+      scope: 'typing-system',
+      data: { mode: nextMode },
+    })
+  }
+
+  const handleLiveIdleMinutesChange = (nextMinutes: number): void => {
+    setTypingSystemSettings((current) =>
+      sanitizeTypingSystemSettings({
+        ...current,
+        liveIdleMinutes: nextMinutes,
+      }),
+    )
+  }
 
   const runDocumentThroughPasteWorkflow = useCallback(
     async (options: RunDocumentThroughPasteWorkflowOptions): Promise<void> => {
@@ -616,6 +693,9 @@ export function App(): React.JSX.Element {
     try {
       const extraction = await extractImportedFile(file)
       const action = buildFileOpenPipelineAction(extraction, mode)
+      let appliedPipeline: 'open-pipeline-structured' | 'structure-pipeline' | 'paste-classifier' =
+        'paste-classifier'
+      let projectionGuardReasons: string[] | null = null
 
       if (action.kind === 'reject') {
         toast(action.toast)
@@ -624,14 +704,66 @@ export function App(): React.JSX.Element {
 
       if (action.kind === 'import-structured-blocks') {
         area.importStructuredBlocks(action.blocks, mode)
+        appliedPipeline = 'open-pipeline-structured'
       } else {
-        await area.importClassifiedText(action.text, mode)
+        const structuredResult = buildStructuredBlocksFromText(action.text, {
+          mergePolicy: 'safe',
+          classifierRole: 'label-only',
+        })
+
+        const structuredBlocks = plainTextToScreenplayBlocks(action.text, structuredResult.policy)
+        const projectionGuard = buildProjectionGuardReport({
+          inputLineCount: structuredResult.normalizedLines.length,
+          currentBlocks: mode === 'replace' ? area.getBlocks() : undefined,
+          nextBlocks: structuredBlocks,
+          policy: structuredResult.policy,
+        })
+        projectionGuardReasons = projectionGuard.reasons
+
+        if (structuredBlocks.length > 0 && (mode === 'insert' || projectionGuard.accepted)) {
+          area.importStructuredBlocks(structuredBlocks, mode)
+          appliedPipeline = 'structure-pipeline'
+        } else if (mode === 'replace' && !projectionGuard.accepted) {
+          toast({
+            title: 'تم إيقاف الاستبدال لحماية المستند',
+            description:
+              'نتيجة الهيكلة كانت منخفضة الجودة مقارنة بالمحتوى الحالي. استخدم "إدراج ملف" أو راجع الملف المستورد.',
+            variant: 'destructive',
+          })
+
+          logger.warn('Projection guard prevented replace import', {
+            scope: 'file-import',
+            data: {
+              mode,
+              reasons: projectionGuard.reasons,
+              inputLineCount: projectionGuard.inputLineCount,
+              outputBlockCount: projectionGuard.outputBlockCount,
+            },
+          })
+          return
+        } else {
+          await area.importClassifiedText(action.text, mode)
+          appliedPipeline = 'paste-classifier'
+        }
       }
 
-      toast(action.toast)
+      const toastDescription =
+        appliedPipeline === 'structure-pipeline'
+          ? `${action.toast.description}\nتم تمرير النص عبر Structure Pipeline قبل الإدراج.`
+          : action.toast.description
+
+      toast({
+        ...action.toast,
+        description: toastDescription,
+      })
+
       logger.info('File import pipeline completed', {
         scope: 'file-import',
-        data: action.telemetry,
+        data: {
+          ...action.telemetry,
+          appliedPipeline,
+          projectionGuardReasons,
+        },
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'حدث خطأ غير معروف أثناء فتح الملف.'
@@ -800,239 +932,128 @@ export function App(): React.JSX.Element {
     }
   }
 
+  const activeTypingMode = TYPING_MODE_OPTIONS.find(
+    (option) => option.value === typingSystemSettings.typingSystemMode,
+  )
+
+  const currentFormatLabel = currentFormat ? FORMAT_LABEL_BY_TYPE[currentFormat] : '—'
+
+  const settingsPanel = (
+    <div className="mt-2 space-y-3 rounded-xl border border-white/10 bg-neutral-900/70 p-3 text-right">
+      <div className="space-y-1">
+        <label className="block text-xs font-semibold text-neutral-200">وضع نظام الكتابة</label>
+        <select
+          className="w-full rounded-lg border border-white/10 bg-neutral-950/80 px-3 py-2 text-xs text-neutral-100 outline-none focus:border-[var(--brand)]"
+          value={typingSystemSettings.typingSystemMode}
+          onChange={(event) =>
+            handleTypingModeChange(
+              event.target.value as TypingSystemSettings['typingSystemMode'],
+            )
+          }
+        >
+          {TYPING_MODE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <p className="text-[11px] text-neutral-400">{activeTypingMode?.description ?? ''}</p>
+      </div>
+
+      <div className="space-y-1">
+        <div className="flex items-center justify-between text-[11px] text-neutral-300">
+          <span>{toLiveIdleMinutesLabel(typingSystemSettings.liveIdleMinutes)}</span>
+          <span>مهلة المعالجة الحية</span>
+        </div>
+        <input
+          type="range"
+          min={1}
+          max={15}
+          step={1}
+          value={typingSystemSettings.liveIdleMinutes}
+          onChange={(event) => handleLiveIdleMinutesChange(Number(event.target.value))}
+          className="w-full accent-[var(--brand)]"
+        />
+        <div className="flex items-center justify-between text-[10px] text-neutral-500">
+          <span>1</span>
+          <span>15</span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        className="w-full rounded-lg border border-white/10 bg-neutral-950/80 px-3 py-2 text-xs text-neutral-200 transition-colors hover:border-[var(--brand)] hover:text-white"
+        onClick={() => {
+          void runDocumentThroughPasteWorkflow({
+            source: 'manual-deferred',
+            reviewProfile: 'interactive',
+            policyProfile: 'strict-structure',
+          })
+        }}
+      >
+        تشغيل المعالجة الآن
+      </button>
+
+      <div className="space-y-1 text-[10px] text-neutral-400">
+        <div className="flex items-center justify-between">
+          <span
+            className={`h-2 w-2 rounded-full ${hasFileImportBackend ? 'bg-emerald-400' : 'bg-amber-400'}`}
+          />
+          <span>Backend File Extract: {hasFileImportBackend ? 'Configured' : 'Not configured'}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span
+            className={`h-2 w-2 rounded-full ${hasAgentReviewBackend ? 'bg-emerald-400' : 'bg-amber-400'}`}
+          />
+          <span>
+            Agent Review Route: {hasAgentReviewBackend ? 'Reachable by config' : 'Not configured'}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+
   /* ──────────────────────── JSX ──────────────────────── */
   return (
-    <div className="app-root flex h-screen flex-col overflow-hidden bg-[var(--background)] font-['Cairo'] text-[var(--foreground)] selection:bg-[var(--brand)]/30" dir="rtl">
+    <div
+      className="app-root flex h-screen flex-col overflow-hidden bg-[var(--background)] font-['Cairo'] text-[var(--foreground)] selection:bg-[var(--brand)]/30"
+      dir="rtl"
+    >
       <BackgroundGrid />
 
-      {/* ── Header ── */}
-      <header className="app-header relative z-40 flex h-[60px] flex-shrink-0 items-center justify-between bg-[var(--card)]/80 px-7 backdrop-blur-2xl">
-        {/* Right side: Brand + Nav */}
-        <div className="flex items-center gap-3">
-          <HoverBorderGradient
-            as="div"
-            duration={1}
-            containerClassName="h-11 rounded-full"
-            className="flex h-full items-center gap-1.5 rounded-[inherit] bg-neutral-950/80 p-1.5 backdrop-blur-2xl"
-          >
-            <HoverBorderGradient
-              as="div"
-              duration={1}
-              containerClassName="h-full rounded-full"
-              className="flex h-full items-center gap-2.5 rounded-[inherit] bg-neutral-900/90 px-5"
-            >
-              <span className="h-1.5 w-1.5 rounded-full shadow-[0_0_6px_rgba(15,76,138,0.5)]" style={{ backgroundColor: semanticColors.info }} />
-              <span
-                className="bg-clip-text text-[15px] font-bold text-transparent transition-all duration-300"
-                style={{ backgroundImage: gradients.jungle }}
-              >
-                أفان تيتر
-              </span>
-            </HoverBorderGradient>
-          </HoverBorderGradient>
+      <AppHeader
+        menuSections={MENU_SECTIONS}
+        activeMenu={activeMenu}
+        onToggleMenu={(sectionLabel) =>
+          setActiveMenu((prev) => (prev === sectionLabel ? null : sectionLabel))
+        }
+        onAction={(actionId) => {
+          void handleMenuAction(actionId as MenuActionId)
+        }}
+        infoDotColor={semanticColors.info}
+        brandGradient={gradients.jungle}
+        onlineDotColor={brandColors.jungleGreen}
+      />
 
-          <HoverBorderGradient
-            as="div"
-            duration={1}
-            containerClassName="relative z-50 h-11 rounded-full"
-            className="flex h-full items-center gap-1.5 rounded-[inherit] bg-neutral-950/80 p-1.5 backdrop-blur-2xl"
-          >
-            {MENU_SECTIONS.map((section) => (
-              <div
-                key={section.label}
-                className="group relative h-full"
-                onClick={(event) => { event.stopPropagation() }}
-              >
-                <HoverBorderGradient
-                  as="button"
-                  duration={1}
-                  containerClassName="h-full rounded-full"
-                  className={`flex h-full min-w-[72px] justify-center items-center rounded-[inherit] px-4 text-[13px] font-medium transition-all ${activeMenu === section.label
-                      ? 'bg-neutral-800 text-white'
-                      : 'bg-neutral-900/90 text-neutral-400 hover:bg-neutral-800 group-hover:text-white'
-                    }`}
-                  onClick={() => setActiveMenu((prev) => (prev === section.label ? null : section.label))}
-                >
-                  {section.label}
-                </HoverBorderGradient>
-
-                {activeMenu === section.label && (
-                  <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--popover)]/95 p-1 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
-                    {section.items.map((item) => (
-                      <button
-                        key={`${section.label}-${item.label}`}
-                        onClick={() => void handleMenuAction(item.actionId)}
-                        className="flex w-full items-center gap-2 rounded-[var(--radius-md)] px-3 py-2 text-right text-[13px] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/50 hover:text-[var(--foreground)]"
-                      >
-                        {item.accentColor && (
-                          <span
-                            className="h-2 w-2 flex-shrink-0 rounded-full"
-                            style={{ backgroundColor: item.accentColor }}
-                          />
-                        )}
-                        <span className="flex-1 text-right">{item.label}</span>
-                        {item.shortcut && <span className="text-[10px] text-[var(--muted-foreground)]">{item.shortcut}</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </HoverBorderGradient>
-        </div>
-
-        {/* Left side: Status + User + Edition badge — shared container like nav */}
-        <HoverBorderGradient
-          as="div"
-          duration={1}
-          containerClassName="h-11 rounded-full"
-          className="flex h-full items-center gap-1.5 rounded-[inherit] bg-neutral-950/80 p-1.5 backdrop-blur-2xl"
-        >
-          <HoverBorderGradient
-            as="div"
-            duration={1}
-            containerClassName="h-full rounded-full"
-            className="flex h-full items-center gap-2 rounded-[inherit] bg-neutral-900/90 px-4 text-[11px] font-bold uppercase tracking-wider text-ring"
-          >
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ring" />
-            Online
-          </HoverBorderGradient>
-
-          <HoverBorderGradient
-            as="div"
-            duration={1}
-            containerClassName="h-full w-8 cursor-pointer rounded-full"
-            className="flex h-full w-full items-center justify-center rounded-[inherit] bg-neutral-900/90 p-0"
-          >
-            <User className="size-4 text-neutral-300" />
-          </HoverBorderGradient>
-
-          <HoverBorderGradient
-            as="div"
-            duration={1}
-            containerClassName="group h-full cursor-pointer rounded-full"
-            className="flex h-full items-center gap-2.5 rounded-[inherit] bg-neutral-900/90 px-5 leading-none"
-          >
-            <span className="bg-clip-text text-[15px] font-bold text-transparent transition-all duration-300" style={{ backgroundImage: gradients.jungleFull }}>النسخة</span>
-            <span className="flex h-1.5 w-1.5">
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ backgroundColor: brandColors.jungleGreen }} />
-            </span>
-          </HoverBorderGradient>
-        </HoverBorderGradient>
-      </header>
-
-      {/* ── Main area ── */}
       <div className="app-main relative z-10 flex flex-1 overflow-hidden">
-        {/* ── Sidebar ── */}
-        <aside className="app-sidebar hidden w-72 flex-col p-6 lg:flex">
-          <HoverBorderGradient
-            as="div"
-            duration={1}
-            containerClassName="h-full w-full rounded-3xl"
-            className="flex h-full w-full flex-col items-stretch rounded-[inherit] bg-neutral-900/60 p-4 backdrop-blur-2xl"
-          >
-            {/* Search */}
-            <div className="group relative mb-8">
-              <HoverBorderGradient
-                as="div"
-                duration={1}
-                containerClassName="w-full rounded-xl group"
-                className="flex w-full items-center gap-2 rounded-[inherit] bg-neutral-900/90 px-3 py-3"
-              >
-                <Search className="size-4 text-[var(--muted-foreground)] transition-colors group-focus-within:text-[var(--brand)]" />
-                <input
-                  type="text"
-                  placeholder="بحث..."
-                  className="w-full border-none bg-transparent text-[13px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none"
-                />
-                <kbd className="hidden rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] text-neutral-400 group-hover:block">⌘K</kbd>
-              </HoverBorderGradient>
-            </div>
+        <AppSidebar
+          sections={SIDEBAR_SECTIONS}
+          openSectionId={openSidebarItem}
+          onToggleSection={(sectionId) =>
+            setOpenSidebarItem((prev) => (prev === sectionId ? null : sectionId))
+          }
+          settingsPanel={settingsPanel}
+        />
 
-            {/* Sections */}
-            <div className="space-y-2">
-              {SIDEBAR_SECTIONS.map((section) => {
-                const SIcon = section.icon
-                const isOpen = openSidebarItem === section.id
-                return (
-                  <div key={section.id} className="mb-2">
-                    <HoverBorderGradient
-                      as="button"
-                      duration={1}
-                      containerClassName="w-full rounded-xl"
-                      className={`group flex w-full items-center gap-3 rounded-[inherit] bg-neutral-900/90 p-3 transition-all duration-200 ${isOpen ? 'text-white' : 'text-neutral-500 hover:text-neutral-200'
-                        }`}
-                      onClick={() => setOpenSidebarItem((prev) => (prev === section.id ? null : section.id))}
-                    >
-                      <SIcon className={`size-[18px] transition-colors ${isOpen ? 'text-neutral-300' : 'text-neutral-500 group-hover:text-neutral-200'}`} />
-                      <span className="flex-1 text-right text-sm font-medium">{section.label}</span>
-                      {section.items.length > 0 && (
-                        <ChevronLeft className={`size-4 text-neutral-600 transition-transform duration-300 ${isOpen ? '-rotate-90' : ''}`} />
-                      )}
-                    </HoverBorderGradient>
-                    {isOpen && section.items.length > 0 && (
-                      <div className="mt-2 space-y-1 pr-4">
-                        {section.items.map((item) => (
-                          <button
-                            key={`${section.id}-${item}`}
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-neutral-400 transition-colors hover:bg-white/5 hover:text-white"
-                          >
-                            <span className="h-1 w-1 rounded-full bg-neutral-600" />
-                            {item}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* AI Focus card */}
-            <div className="mt-auto">
-              <HoverBorderGradient
-                as="div"
-                duration={1}
-                containerClassName="w-full rounded-2xl"
-                className="flex w-full flex-col items-start rounded-[inherit] bg-neutral-900/90 p-4"
-              >
-                <Sparkles className="mb-2 size-5 text-primary" />
-                <p className="text-xs font-light leading-relaxed text-[var(--muted-foreground)]">تم تفعيل وضع التركيز الذكي. استمتع بتجربة كتابة خالية من المشتتات.</p>
-              </HoverBorderGradient>
-            </div>
-          </HoverBorderGradient>
-        </aside>
-
-        {/* ── Editor + Toolbar ── */}
         <main className="app-editor-main relative flex flex-1 flex-col overflow-hidden">
-          {/* Floating dock toolbar */}
-          <div className="app-dock pointer-events-none absolute left-0 right-0 top-0 z-40 flex justify-center pt-3">
-            <div className="pointer-events-auto">
-              <HoverBorderGradient
-                as="div"
-                duration={1}
-                containerClassName="mx-auto rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.4)]"
-                className="flex h-16 items-end gap-3.5 rounded-[inherit] bg-neutral-950/80 px-5 pb-3 backdrop-blur-2xl"
-              >
-                {DOCK_BUTTONS.map((button, index) => {
-                  return (
-                    <React.Fragment key={`${button.title}-${index}`}>
-                      <DockIconButton
-                        icon={button.icon}
-                        title={button.title}
-                        onClick={() => void handleMenuAction(button.actionId)}
-                      />
-                      {(index === 1 || index === 3 || index === 7 || index === 13) && (
-                        <div className="mx-3 mb-4 h-5 w-px bg-gradient-to-b from-transparent via-neutral-600/50 to-transparent" />
-                      )}
-                    </React.Fragment>
-                  )
-                })}
-              </HoverBorderGradient>
-            </div>
-          </div>
+          <AppDock
+            buttons={DOCK_BUTTONS}
+            isMobile={isMobile}
+            onAction={(actionId) => {
+              void handleMenuAction(actionId as MenuActionId)
+            }}
+          />
 
-          {/* Editor content area */}
           <div className="app-editor-scroll scrollbar-none flex flex-1 justify-center overflow-y-auto p-8 pt-20">
             <div className="app-editor-shell relative -mt-4 w-full max-w-[850px] pb-20">
               <div ref={editorMountRef} className="editor-area app-editor-host" />
@@ -1041,22 +1062,12 @@ export function App(): React.JSX.Element {
         </main>
       </div>
 
-      {/* ── Footer ── */}
-      <footer className="app-footer relative z-40 flex-shrink-0 border-t border-white/[0.04] bg-neutral-950/80 px-4 py-1 text-[11px] backdrop-blur-2xl" style={{ direction: 'rtl' }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4 text-[var(--muted-foreground)]">
-            <span>{stats.pages} صفحة</span>
-            <span className="hidden sm:inline">{stats.words} كلمة</span>
-            <span className="hidden md:inline">{stats.characters} حرف</span>
-            <span className="hidden sm:inline">{stats.scenes} مشهد</span>
-          </div>
-          <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
-            <span>{currentFormat ? FORMAT_LABEL_BY_TYPE[currentFormat] : '—'}</span>
-          </div>
-        </div>
-      </footer>
+      <AppFooter
+        stats={stats}
+        currentFormatLabel={currentFormatLabel}
+        isMobile={isMobile}
+      />
 
-      {/* Screen reader content */}
       <div className="sr-only">
         {screenplayFormats.map((format) => (
           <span key={format.id}>{format.label}</span>
