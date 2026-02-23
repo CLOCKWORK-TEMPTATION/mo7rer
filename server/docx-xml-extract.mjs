@@ -38,14 +38,16 @@ function extractParagraphsWithRegex(xmlString) {
 
     while ((rMatch = runRegex.exec(pXml)) !== null) {
       const rXml = rMatch[0]
-      const elementRegex = /<w:t([^>]*)>([\s\S]*?)<\/w:t>|<w:br\s*\/?>|<w:tab\s*\/?>/g
+      // <w:p> يمثل حد فقرة مستقل (hard boundary) بينما <w:br>/<w:cr> يمثلان كسر سطر ناعم داخل نفس الفقرة.
+      // نحتفظ بكليهما لأن التصنيف لاحقًا يعتمد على الفرق بين فصل الفقرات وفصل الأسطر داخل الفقرة.
+      const elementRegex = /<w:t([^>]*)>([\s\S]*?)<\/w:t>|<w:br\s*\/?>|<w:cr\s*\/?>|<w:tab\s*\/?>/g
       let elMatch
 
       while ((elMatch = elementRegex.exec(rXml)) !== null) {
         const fullMatch = elMatch[0]
         if (fullMatch.startsWith('<w:t')) {
           textParts.push(elMatch[2] ?? '')
-        } else if (fullMatch.startsWith('<w:br')) {
+        } else if (fullMatch.startsWith('<w:br') || fullMatch.startsWith('<w:cr')) {
           textParts.push('\n')
         } else if (fullMatch.startsWith('<w:tab')) {
           textParts.push('\t')

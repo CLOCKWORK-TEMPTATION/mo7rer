@@ -3,7 +3,7 @@
  * @description استخراج نص DOCX عبر قراءة XML المستند مباشرة (بدون Mammoth HTML).
  *
  * ملف DOCX هو أرشيف ZIP يحتوي `word/document.xml`.
- * كل `<w:p>` = فقرة مستقلة، وكل `<w:t>` = محتوى نصي، و `<w:br/>` = كسر ناعم.
+ * كل `<w:p>` = فقرة مستقلة، وكل `<w:t>` = محتوى نصي، و `<w:br/>`/`<w:cr/>` = كسر ناعم.
  * هذا يعطينا حدود فقرات دقيقة بدون أي هيوريستيك.
  */
 import { unzipSync } from 'fflate'
@@ -79,7 +79,7 @@ function extractParagraphsWithDOMParser(xmlString: string): ExtractedParagraph[]
 
         if (localName === 't') {
           textParts.push(el.textContent ?? '')
-        } else if (localName === 'br') {
+        } else if (localName === 'br' || localName === 'cr') {
           textParts.push('\n')
         } else if (localName === 'tab') {
           textParts.push('\t')
@@ -110,15 +110,16 @@ function extractParagraphsWithRegex(xmlString: string): ExtractedParagraph[] {
 
     while ((rMatch = runRegex.exec(pXml)) !== null) {
       const rXml = rMatch[0]
-      // معالجة العناصر بالترتيب للحفاظ على تسلسل النص والكسور
-      const elementRegex = /<w:t([^>]*)>([\s\S]*?)<\/w:t>|<w:br\s*\/?>|<w:tab\s*\/?>/g
+      // <w:p> يمثل حد فقرة مستقل (hard boundary) بينما <w:br>/<w:cr> يمثلان كسر سطر ناعم داخل نفس الفقرة.
+      // نحتفظ بكليهما لأن التصنيف لاحقًا يعتمد على الفرق بين فصل الفقرات وفصل الأسطر داخل الفقرة.
+      const elementRegex = /<w:t([^>]*)>([\s\S]*?)<\/w:t>|<w:br\s*\/?>|<w:cr\s*\/?>|<w:tab\s*\/?>/g
       let elMatch: RegExpExecArray | null
 
       while ((elMatch = elementRegex.exec(rXml)) !== null) {
         const fullMatch = elMatch[0]
         if (fullMatch.startsWith('<w:t')) {
           textParts.push(elMatch[2] ?? '')
-        } else if (fullMatch.startsWith('<w:br')) {
+        } else if (fullMatch.startsWith('<w:br') || fullMatch.startsWith('<w:cr')) {
           textParts.push('\n')
         } else if (fullMatch.startsWith('<w:tab')) {
           textParts.push('\t')
