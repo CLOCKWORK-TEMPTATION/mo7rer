@@ -18,13 +18,13 @@
  */
 
 /* نقطة الدخول - نظام أنماط موحد */
-import './styles/system.css'
+import "./styles/system.css";
 
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import { App } from './App'
-import { createToaster } from './components/ui/toaster'
-import { createThemeProvider } from './providers'
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { App } from "./App";
+import { createToaster } from "./components/ui/toaster";
+import { createThemeProvider } from "./providers";
 
 /**
  * تهيئة مزود السمة بالإعدادات الافتراضية.
@@ -32,24 +32,24 @@ import { createThemeProvider } from './providers'
  * مفتاح التخزين المحلي: `filmlane.theme`.
  */
 createThemeProvider({
-  attribute: 'class',
-  defaultTheme: 'dark',
+  attribute: "class",
+  defaultTheme: "dark",
   enableSystem: false,
-  storageKey: 'filmlane.theme',
-})
+  storageKey: "filmlane.theme",
+});
 
 /** إنشاء مكون الإشعارات وإلحاقه بجسم الصفحة */
-const toaster = createToaster()
-document.body.appendChild(toaster.element)
+const toaster = createToaster();
+document.body.appendChild(toaster.element);
 
 /** تركيب شجرة React على عنصر #app */
-const root = document.getElementById('app')
+const root = document.getElementById("app");
 if (root) {
   createRoot(root).render(
     <StrictMode>
       <App />
-    </StrictMode>,
-  )
+    </StrictMode>
+  );
 } else {
-  console.error('تعذر العثور على عنصر التطبيق #app')
+  console.error("تعذر العثور على عنصر التطبيق #app");
 }

@@ -35,16 +35,16 @@ import {
   PRONOUN_ACTION_RE,
   THEN_ACTION_RE,
   VERB_WITH_PRONOUN_SUFFIX_RE,
-} from './arabic-patterns'
+} from "./arabic-patterns";
 
 /** نمط regex لمطابقة الحروف غير المرئية: RTL mark، LTR mark، BOM */
-export const INVISIBLE_CHARS_RE = /[\u200f\u200e\ufeff]/g
+export const INVISIBLE_CHARS_RE = /[\u200f\u200e\ufeff]/g;
 /** نمط كشف بداية السطر بنقطة أو شرطة أو رمز نقطي (مع تجاهل المسافات وعلامات الاتجاه) */
 export const STARTS_WITH_BULLET_RE =
-  /^[\s\u200E\u200F\u061C\uFEFF]*[•·∙⋅●○◦■□▪▫◆◇–—−‒―‣⁃*+]/
+  /^[\s\u200E\u200F\u061C\uFEFF]*[•·∙⋅●○◦■□▪▫◆◇–—−‒―‣⁃*+]/;
 /** نمط إزالة النقاط والشرطات والرموز النقطية من بداية السطر */
 export const LEADING_BULLETS_RE =
-  /^[\s\u200E\u200F\u061C\uFEFF]*[•·∙⋅●○◦■□▪▫◆◇–—−‒―‣⁃*+]+\s*/
+  /^[\s\u200E\u200F\u061C\uFEFF]*[•·∙⋅●○◦■□▪▫◆◇–—−‒―‣⁃*+]+\s*/;
 
 /**
  * يحذف الحروف غير المرئية (RTL/LTR marks + BOM) من النص.
@@ -53,7 +53,7 @@ export const LEADING_BULLETS_RE =
  * @returns النص بدون حروف غير مرئية
  */
 export function cleanInvisibleChars(text: string): string {
-  return (text ?? '').replace(INVISIBLE_CHARS_RE, '')
+  return (text ?? "").replace(INVISIBLE_CHARS_RE, "");
 }
 
 /**
@@ -65,9 +65,9 @@ export function cleanInvisibleChars(text: string): string {
  */
 export function normalizeLine(text: string): string {
   return cleanInvisibleChars(text)
-    .replace(/\u00A0/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+    .replace(/\u00A0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /**
@@ -77,7 +77,7 @@ export function normalizeLine(text: string): string {
  * @returns النص بدون نقاط بادئة
  */
 export function stripLeadingBullets(text: string): string {
-  return (text ?? '').replace(LEADING_BULLETS_RE, '')
+  return (text ?? "").replace(LEADING_BULLETS_RE, "");
 }
 
 /**
@@ -87,7 +87,7 @@ export function stripLeadingBullets(text: string): string {
  * @returns `true` إذا يبدأ بنقطة/شرطة
  */
 export function startsWithBullet(text: string): boolean {
-  return STARTS_WITH_BULLET_RE.test(text ?? '')
+  return STARTS_WITH_BULLET_RE.test(text ?? "");
 }
 
 /**
@@ -103,8 +103,8 @@ export function startsWithBullet(text: string): boolean {
  */
 export function normalizeCharacterName(text: string): string {
   return normalizeLine(text)
-    .replace(/[:：]+\s*$/, '')
-    .trim()
+    .replace(/[:：]+\s*$/, "")
+    .trim();
 }
 
 /**
@@ -114,7 +114,7 @@ export function normalizeCharacterName(text: string): string {
  * @returns `true` إذا يحتوي علامة ترقيم
  */
 export function hasSentencePunctuation(text: string): boolean {
-  return /[.!?؟،,؛;]/.test(normalizeLine(text))
+  return /[.!?؟،,؛;]/.test(normalizeLine(text));
 }
 
 /**
@@ -124,9 +124,9 @@ export function hasSentencePunctuation(text: string): boolean {
  * @returns `true` إذا يبدأ بشرطة وصف
  */
 export function isActionWithDash(line: string): boolean {
-  const normalized = normalizeLine(line)
-  if (!normalized) return false
-  return /^[-–—]\s+.+/.test(normalized)
+  const normalized = normalizeLine(line);
+  if (!normalized) return false;
+  return /^[-–—]\s+.+/.test(normalized);
 }
 
 /**
@@ -137,8 +137,8 @@ export function isActionWithDash(line: string): boolean {
  * @returns `true` إذا يتطابق مع {@link ACTION_CUE_RE}
  */
 export function isActionCueLine(text: string): boolean {
-  const normalized = normalizeLine(text)
-  return ACTION_CUE_RE.test(normalized)
+  const normalized = normalizeLine(text);
+  return ACTION_CUE_RE.test(normalized);
 }
 
 /**
@@ -148,9 +148,9 @@ export function isActionCueLine(text: string): boolean {
  * @returns `true` إذا يبدأ بفعل أمر من {@link IMPERATIVE_VERB_SET}
  */
 export function isImperativeStart(text: string): boolean {
-  const normalized = normalizeLine(text)
-  const firstWord = normalized.split(/\s+/)[0] ?? ''
-  return IMPERATIVE_VERB_SET.has(firstWord)
+  const normalized = normalizeLine(text);
+  const firstWord = normalized.split(/\s+/)[0] ?? "";
+  return IMPERATIVE_VERB_SET.has(firstWord);
 }
 
 /**
@@ -161,9 +161,9 @@ export function isImperativeStart(text: string): boolean {
  * @returns `true` إذا يتطابق مع أي نمط
  */
 export function matchesActionStartPattern(text: string): boolean {
-  const normalized = normalizeLine(text)
-  if (!normalized) return false
-  return ACTION_START_PATTERNS.some((pattern) => pattern.test(normalized))
+  const normalized = normalizeLine(text);
+  if (!normalized) return false;
+  return ACTION_START_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
 /**
@@ -176,17 +176,18 @@ export function matchesActionStartPattern(text: string): boolean {
  * @returns `true` إذا يبدأ بفعل وصف
  */
 export function isActionVerbStart(text: string): boolean {
-  const normalized = normalizeLine(text)
-  if (!normalized) return false
+  const normalized = normalizeLine(text);
+  if (!normalized) return false;
 
-  const firstWord = normalized.split(/\s+/)[0] ?? ''
-  const normalizedFirstWord = firstWord.replace(/[^\u0600-\u06FFA-Za-z]/g, '')
+  const firstWord = normalized.split(/\s+/)[0] ?? "";
+  const normalizedFirstWord = firstWord.replace(/[^\u0600-\u06FFA-Za-z]/g, "");
 
-  if (FULL_ACTION_VERB_SET.has(normalizedFirstWord)) return true
-  if (/^(?:[وف]?)[يتنأ][\u0600-\u06FF]{2,}$/.test(normalizedFirstWord)) return true
-  if (NEGATION_PLUS_VERB_RE.test(normalized)) return true
+  if (FULL_ACTION_VERB_SET.has(normalizedFirstWord)) return true;
+  if (/^(?:[وف]?)[يتنأ][\u0600-\u06FF]{2,}$/.test(normalizedFirstWord))
+    return true;
+  if (NEGATION_PLUS_VERB_RE.test(normalized)) return true;
 
-  return false
+  return false;
 }
 
 /**
@@ -200,15 +201,15 @@ export function isActionVerbStart(text: string): boolean {
  * @returns `true` إذا يحتوي بنية فعل وصف
  */
 export function hasActionVerbStructure(text: string): boolean {
-  const normalized = normalizeLine(text)
-  if (!normalized) return false
+  const normalized = normalizeLine(text);
+  if (!normalized) return false;
 
-  if (PRONOUN_ACTION_RE.test(normalized)) return true
-  if (THEN_ACTION_RE.test(normalized)) return true
-  if (ACTION_VERB_FOLLOWED_BY_NAME_AND_VERB_RE.test(normalized)) return true
-  if (VERB_WITH_PRONOUN_SUFFIX_RE.test(normalized)) return true
+  if (PRONOUN_ACTION_RE.test(normalized)) return true;
+  if (THEN_ACTION_RE.test(normalized)) return true;
+  if (ACTION_VERB_FOLLOWED_BY_NAME_AND_VERB_RE.test(normalized)) return true;
+  if (VERB_WITH_PRONOUN_SUFFIX_RE.test(normalized)) return true;
 
-  return false
+  return false;
 }
 
 /**
@@ -222,31 +223,34 @@ export function hasActionVerbStructure(text: string): boolean {
  * @returns `true` إذا يشبه سرداً وصفياً
  */
 export function looksLikeNarrativeActionSyntax(text: string): boolean {
-  const normalized = normalizeLine(text)
-  if (!normalized) return false
-  if (/[:：]\s*$/.test(normalized)) return false
-  if (/[؟?!]/.test(normalized)) return false
+  const normalized = normalizeLine(text);
+  if (!normalized) return false;
+  if (/[:：]\s*$/.test(normalized)) return false;
+  if (/[؟?!]/.test(normalized)) return false;
 
-  const tokens = normalized.split(/\s+/).filter(Boolean)
-  if (tokens.length < 3) return false
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  if (tokens.length < 3) return false;
 
   const isVerbLikeToken = (token: string): boolean => {
-    const cleaned = token.replace(/[^\u0600-\u06FF]/g, '')
-    return /^(?:[وف]?)[يتنأ][\u0600-\u06FF]{2,}$/.test(cleaned)
-  }
+    const cleaned = token.replace(/[^\u0600-\u06FF]/g, "");
+    return /^(?:[وف]?)[يتنأ][\u0600-\u06FF]{2,}$/.test(cleaned);
+  };
 
-  const first = tokens[0] ?? ''
-  const second = tokens[1] ?? ''
+  const first = tokens[0] ?? "";
+  const second = tokens[1] ?? "";
   const startsWithVerbLike =
     isVerbLikeToken(first) ||
-    ((first === 'ثم' || first === 'و' || first === 'ف') && isVerbLikeToken(second))
+    ((first === "ثم" || first === "و" || first === "ف") &&
+      isVerbLikeToken(second));
 
-  if (!startsWithVerbLike) return false
+  if (!startsWithVerbLike) return false;
 
   const hasNarrativeConnectors =
-    /\s+(?:و|ثم|بينما|وقد|حتى|بجوار|أمام|خلف|داخل|خارج|الى|إلى|نحو)\b/.test(normalized)
+    /\s+(?:و|ثم|بينما|وقد|حتى|بجوار|أمام|خلف|داخل|خارج|الى|إلى|نحو)\b/.test(
+      normalized
+    );
 
-  return hasNarrativeConnectors || tokens.length >= 5
+  return hasNarrativeConnectors || tokens.length >= 5;
 }
 
 /**
@@ -259,12 +263,12 @@ export function looksLikeNarrativeActionSyntax(text: string): boolean {
  * @returns `true` إذا يحتوي علامات حوار
  */
 export function hasDirectDialogueMarkers(text: string): boolean {
-  const normalized = normalizeLine(text)
-  if (!normalized) return false
+  const normalized = normalizeLine(text);
+  if (!normalized) return false;
 
-  if (CONVERSATIONAL_MARKERS_RE.test(normalized)) return true
-  if (/[؟?!…]/.test(normalized)) return true
-  if (/^(?:"|«|').+/.test(normalized)) return true
+  if (CONVERSATIONAL_MARKERS_RE.test(normalized)) return true;
+  if (/[؟?!…]/.test(normalized)) return true;
+  if (/^(?:"|«|').+/.test(normalized)) return true;
 
-  return false
+  return false;
 }

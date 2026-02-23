@@ -8,17 +8,17 @@
  * @see utils/file-import/ — خط أنابيب الاستيراد الكامل
  */
 
-import type { ScreenplayBlock } from '../utils/file-import/document-model'
+import type { ScreenplayBlock } from "../utils/file-import/document-model";
 
 /**
  * وضع الاستيراد — يُحدد كيفية تعامل المحرر مع المحتوى المستورد
  * - `replace` — استبدال المستند الحالي بالكامل
  * - `insert` — إدراج المحتوى عند موضع المؤشر
  */
-export type FileImportMode = 'replace' | 'insert'
+export type FileImportMode = "replace" | "insert";
 
 /**
- * نوع الملف المستورد — صيغ الملفات الستة المدعومة
+ * نوع الملف المستورد — الصيغ المدعومة
  * - `doc` — Microsoft Word القديم (.doc)
  * - `docx` — Microsoft Word الحديث (.docx)
  * - `txt` — نص عادي (.txt)
@@ -27,17 +27,17 @@ export type FileImportMode = 'replace' | 'insert'
  * - `fdx` — Final Draft XML (.fdx)
  */
 export type ImportedFileType =
-  | 'doc'
-  | 'docx'
-  | 'txt'
-  | 'pdf'
-  | 'fountain'
-  | 'fdx'
+  | "doc"
+  | "docx"
+  | "txt"
+  | "pdf"
+  | "fountain"
+  | "fdx";
 
 /**
  * طريقة الاستخراج — الأسلوب المُستخدم لاستخراج النص من الملف
  * - `native-text` — قراءة مباشرة كنص عادي (txt, fountain)
- * - `docx-xml-direct` — قراءة `word/document.xml` مباشرة من ملف DOCX
+ * - `mammoth` — استخراج نص DOCX عبر Mammoth
  * - `pdfjs-text-layer` — طبقة النص في PDF.js
  * - `doc-converter-flow` — تحويل doc عبر خدمة خارجية
  * - `ocr-mistral` — التعرف البصري على الحروف عبر Mistral
@@ -45,13 +45,13 @@ export type ImportedFileType =
  * - `app-payload` — حمولة تطبيق أفان تيتر المُشفّرة (Base64 + FNV1a)
  */
 export type ExtractionMethod =
-  | 'native-text'
-  | 'docx-xml-direct'
-  | 'pdfjs-text-layer'
-  | 'doc-converter-flow'
-  | 'ocr-mistral'
-  | 'backend-api'
-  | 'app-payload'
+  | "native-text"
+  | "mammoth"
+  | "pdfjs-text-layer"
+  | "doc-converter-flow"
+  | "ocr-mistral"
+  | "backend-api"
+  | "app-payload";
 
 /**
  * نتيجة استخراج الملف — المُخرج النهائي لعملية الاستخراج
@@ -68,16 +68,16 @@ export type ExtractionMethod =
  * @property payloadVersion - إصدار الحمولة (لحمولات التطبيق، اختياري)
  */
 export interface FileExtractionResult {
-  text: string
-  fileType: ImportedFileType
-  method: ExtractionMethod
-  usedOcr: boolean
-  warnings: string[]
-  attempts: string[]
-  qualityScore?: number
-  normalizationApplied?: string[]
-  structuredBlocks?: ScreenplayBlock[]
-  payloadVersion?: number
+  text: string;
+  fileType: ImportedFileType;
+  method: ExtractionMethod;
+  usedOcr: boolean;
+  warnings: string[];
+  attempts: string[];
+  qualityScore?: number;
+  normalizationApplied?: string[];
+  structuredBlocks?: ScreenplayBlock[];
+  payloadVersion?: number;
 }
 
 /**
@@ -88,9 +88,9 @@ export interface FileExtractionResult {
  * @property fileBase64 - محتوى الملف مُشفّر بـ Base64
  */
 export interface FileExtractionRequest {
-  filename: string
-  extension: ImportedFileType
-  fileBase64: string
+  filename: string;
+  extension: ImportedFileType;
+  fileBase64: string;
 }
 
 /**
@@ -101,9 +101,9 @@ export interface FileExtractionRequest {
  * @property error - رسالة الخطأ (في حالة الفشل)
  */
 export interface FileExtractionResponse {
-  success: boolean
-  data?: FileExtractionResult
-  error?: string
+  success: boolean;
+  data?: FileExtractionResult;
+  error?: string;
 }
 
 /**
@@ -114,36 +114,37 @@ export interface FileExtractionResponse {
  * <input type="file" accept={ACCEPTED_FILE_EXTENSIONS} />
  * ```
  */
-export const ACCEPTED_FILE_EXTENSIONS = '.doc,.docx,.txt,.pdf,.fountain,.fdx' as const
+export const ACCEPTED_FILE_EXTENSIONS =
+  ".doc,.docx,.txt,.pdf,.fountain,.fdx" as const;
 
 /**
  * استخراج نوع الملف من اسمه — يُعيد `null` إذا كان الامتداد غير مدعوم
  *
- * @param filename - اسم الملف الكامل (مثل "script.docx")
+ * @param filename - اسم الملف الكامل (مثل "script.doc")
  * @returns نوع الملف المُطابق أو `null`
  *
  * @example
  * ```typescript
- * getFileType('my-script.docx') // 'docx'
+ * getFileType('my-script.doc')  // 'doc'
  * getFileType('image.png')      // null
  * ```
  */
 export function getFileType(filename: string): ImportedFileType | null {
-  const ext = filename.toLowerCase().split('.').pop()
+  const ext = filename.toLowerCase().split(".").pop();
   switch (ext) {
-    case 'doc':
-      return 'doc'
-    case 'docx':
-      return 'docx'
-    case 'txt':
-      return 'txt'
-    case 'pdf':
-      return 'pdf'
-    case 'fountain':
-      return 'fountain'
-    case 'fdx':
-      return 'fdx'
+    case "doc":
+      return "doc";
+    case "docx":
+      return "docx";
+    case "txt":
+      return "txt";
+    case "pdf":
+      return "pdf";
+    case "fountain":
+      return "fountain";
+    case "fdx":
+      return "fdx";
     default:
-      return null
+      return null;
   }
 }

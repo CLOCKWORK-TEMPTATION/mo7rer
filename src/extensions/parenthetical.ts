@@ -9,9 +9,9 @@
  *
  * سلوك Enter: الانتقال إلى {@link Dialogue} (حوار).
  */
-import { Node, mergeAttributes } from '@tiptap/core'
-import { PARENTHETICAL_RE } from './arabic-patterns'
-import { normalizeLine } from './text-utils'
+import { Node, mergeAttributes } from "@tiptap/core";
+import { PARENTHETICAL_RE } from "./arabic-patterns";
+import { normalizeLine } from "./text-utils";
 
 /**
  * يفحص ما إذا كان السطر إرشاداً تمثيلياً محاطاً بأقواس.
@@ -20,46 +20,41 @@ import { normalizeLine } from './text-utils'
  * @returns `true` إذا طابق {@link PARENTHETICAL_RE}
  */
 export const isParentheticalLine = (text: string): boolean => {
-  const normalized = normalizeLine(text)
-  return PARENTHETICAL_RE.test(normalized)
-}
+  const normalized = normalizeLine(text);
+  return PARENTHETICAL_RE.test(normalized);
+};
 
 /**
  * الإرشاد التمثيلي (Parenthetical)
  * توجيهات أداء داخل الحوار
  */
 export const Parenthetical = Node.create({
-  name: 'parenthetical',
-  group: 'block',
-  content: 'inline*',
+  name: "parenthetical",
+  group: "block",
+  content: "inline*",
   defining: true,
 
   parseHTML() {
-    return [{ tag: 'div[data-type="parenthetical"]' }]
+    return [{ tag: 'div[data-type="parenthetical"]' }];
   },
 
   renderHTML({ HTMLAttributes }) {
     return [
-      'div',
+      "div",
       mergeAttributes(HTMLAttributes, {
-        'data-type': 'parenthetical',
-        class: 'screenplay-parenthetical',
+        "data-type": "parenthetical",
+        class: "screenplay-parenthetical",
       }),
       0,
-    ]
+    ];
   },
 
   addKeyboardShortcuts() {
     return {
       Enter: ({ editor }) => {
-        if (!editor.isActive('parenthetical')) return false
-        return editor
-          .chain()
-          .focus()
-          .splitBlock()
-          .setDialogue()
-          .run()
+        if (!editor.isActive("parenthetical")) return false;
+        return editor.chain().focus().splitBlock().setDialogue().run();
       },
-    }
+    };
   },
-})
+});

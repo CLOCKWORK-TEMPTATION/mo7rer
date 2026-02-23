@@ -5,36 +5,47 @@ Use this map to route questions to the right library folder inside `E:/محرر/
 ## Top-Level Library Folders
 
 1. `React`
+
 - React concepts, hooks, rendering patterns, integration notes.
 
 2. `Vite`
+
 - Build tool setup, dev/build commands, config behavior.
 
 3. `TypeScript`
+
 - Typing rules, config options, tooling guidance.
 
 4. `TailwindCSS`
+
 - Utility classes, config/theme usage, integration setup.
 
 5. `TailwindMerge`
+
 - Class merge conflict resolution, utility merging behavior.
 
 6. `Clsx`
+
 - Conditional className composition patterns.
 
 7. `LucideReact`
+
 - Icon usage in React, sizing/styling/accessibility guidance.
 
 8. `PdfjsDist`
+
 - PDF parsing/rendering APIs and related workflows.
 
 9. `Mammoth`
+
 - DOCX extraction/transform behavior and caveats.
 
 10. `MistralAI`
+
 - API docs and integration details for Mistral services.
 
 11. `Motion`
+
 - Animation APIs and usage patterns.
 
 ## Query Shortcuts

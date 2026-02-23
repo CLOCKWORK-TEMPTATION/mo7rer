@@ -91,10 +91,23 @@
     --view-transition-duration: 0.3s;
 
     /* === App Runtime Fallbacks (can be overridden from App.tsx) === */
-    --filmlane-brand-gradient: linear-gradient(135deg, var(--brand), var(--brand-teal), var(--brand-bronze));
-    --filmlane-brand-gradient-soft: linear-gradient(135deg, var(--brand), var(--brand-teal));
+    --filmlane-brand-gradient: linear-gradient(
+      135deg,
+      var(--brand),
+      var(--brand-teal),
+      var(--brand-bronze)
+    );
+    --filmlane-brand-gradient-soft: linear-gradient(
+      135deg,
+      var(--brand),
+      var(--brand-teal)
+    );
     --filmlane-highlight-primary: color-mix(in oklch, var(--brand) 65%, white);
-    --filmlane-highlight-secondary: color-mix(in oklch, var(--brand-teal) 65%, white);
+    --filmlane-highlight-secondary: color-mix(
+      in oklch,
+      var(--brand-teal) 65%,
+      white
+    );
     --filmlane-palette-dark: #060808;
 
     /* === Border Radius === */

@@ -1,6 +1,6 @@
-const MOBILE_BREAKPOINT = 768
+const MOBILE_BREAKPOINT = 768;
 
-type MobileListener = (isMobile: boolean) => void
+type MobileListener = (isMobile: boolean) => void;
 
 /**
  * @description تفحص ما إذا كانت الشاشة الحالية ضمن نقطة كسر الجوال (أصغر من 768px). تُرجع قيمة ثابتة لحظة الاستدعاء.
@@ -18,9 +18,9 @@ type MobileListener = (isMobile: boolean) => void
  * ```
  */
 export const useIsMobile = (): boolean => {
-  if (typeof window === 'undefined') return false
-  return window.innerWidth < MOBILE_BREAKPOINT
-}
+  if (typeof window === "undefined") return false;
+  return window.innerWidth < MOBILE_BREAKPOINT;
+};
 
 /**
  * @description تشترك في استعلام الوسائط (Media Query) لمعرفة التغيرات في حالة الجوال وتنفذ الدالة الممررة عند كل تغيير خط عرض.
@@ -42,18 +42,20 @@ export const useIsMobile = (): boolean => {
  * ```
  */
 export const subscribeIsMobile = (listener: MobileListener): (() => void) => {
-  if (typeof window === 'undefined') {
-    listener(false)
-    return () => undefined
+  if (typeof window === "undefined") {
+    listener(false);
+    return () => undefined;
   }
 
-  const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-  const onChange = (): void => listener(window.innerWidth < MOBILE_BREAKPOINT)
+  const mediaQuery = window.matchMedia(
+    `(max-width: ${MOBILE_BREAKPOINT - 1}px)`
+  );
+  const onChange = (): void => listener(window.innerWidth < MOBILE_BREAKPOINT);
 
-  mediaQuery.addEventListener('change', onChange)
-  onChange()
+  mediaQuery.addEventListener("change", onChange);
+  onChange();
 
   return () => {
-    mediaQuery.removeEventListener('change', onChange)
-  }
-}
+    mediaQuery.removeEventListener("change", onChange);
+  };
+};

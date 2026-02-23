@@ -1,4 +1,4 @@
-import { createUiPrimitive } from './_factory'
+import { createUiPrimitive } from "./_factory";
 
-export const createInputOtpPrimitive = (text = 'input-otp'): HTMLElement => createUiPrimitive('input-otp', text)
-
+export const createInputOtpPrimitive = (text = "input-otp"): HTMLElement =>
+  createUiPrimitive("input-otp", text);

@@ -12,13 +12,13 @@
  * يتضمن حارس إسقاط ({@link buildProjectionGuardReport}) لمنع
  * الكتابة التدميرية عند انهيار حاد في عدد الكتل.
  */
-import type { ScreenplayBlock } from './document-model'
+import type { ScreenplayBlock } from "./document-model";
 import {
   DEFAULT_STRUCTURE_PIPELINE_POLICY,
   type ProjectionGuardReport,
   type StructurePipelinePolicy,
   type StructurePipelineResult,
-} from '../../types/structure-pipeline'
+} from "../../types/structure-pipeline";
 import {
   DATE_PATTERNS,
   MIXED_NUMBER_RE,
@@ -32,16 +32,16 @@ import {
   SCENE_TIME_RE,
   TIME_PATTERNS,
   convertHindiToArabic,
-} from '../../extensions/arabic-patterns'
+} from "../../extensions/arabic-patterns";
 import {
   hasActionVerbStructure,
   hasSentencePunctuation,
   isActionVerbStart,
   matchesActionStartPattern,
   normalizeLine,
-} from '../../extensions/text-utils'
+} from "../../extensions/text-utils";
 
-type BlockFormatId = ScreenplayBlock['formatId']
+type BlockFormatId = ScreenplayBlock["formatId"];
 
 /**
  * حالة آلة التصنيف المُتبادَلة بين استدعاءات {@link classifyLineLabelOnly}.
@@ -50,115 +50,122 @@ type BlockFormatId = ScreenplayBlock['formatId']
  * @property previousFormat - تنسيق السطر السابق (لتحديد استمرار الحوار)
  */
 type ClassificationState = {
-  expectedSceneHeader: 'scene-header-2' | 'scene-header-3' | null
-  expectingDialogueAfterCue: boolean
-  previousFormat: BlockFormatId | null
-}
+  expectedSceneHeader: "scene-header-2" | "scene-header-3" | null;
+  expectingDialogueAfterCue: boolean;
+  previousFormat: BlockFormatId | null;
+};
 
-const INLINE_SPEAKER_RE = /^([^:：]{1,30})\s*[:：]\s*(.+)$/u
-const SPEAKER_CUE_RE = /^([^:：]{1,30})\s*[:：]\s*$/u
-const TRANSITION_LINE_RE = /^(?:قطع(?:\s+إلى)?|انتقال(?:\s+إلى)?|cut\s+to)\s*[:：]?$/iu
+const INLINE_SPEAKER_RE = /^([^:：]{1,30})\s*[:：]\s*(.+)$/u;
+const SPEAKER_CUE_RE = /^([^:：]{1,30})\s*[:：]\s*$/u;
+const TRANSITION_LINE_RE =
+  /^(?:قطع(?:\s+إلى)?|انتقال(?:\s+إلى)?|cut\s+to)\s*[:：]?$/iu;
 
 const normalizeInlineSpaces = (value: string): string =>
-  value.replace(/\s+/g, ' ').trim()
+  value.replace(/\s+/g, " ").trim();
 
 const normalizeLineForStructure = (line: string): string =>
-  normalizeInlineSpaces(convertHindiToArabic((line ?? '').replace(/\u00A0/g, ' ')))
+  normalizeInlineSpaces(
+    convertHindiToArabic((line ?? "").replace(/\u00A0/g, " "))
+  );
 
-const stripTrailingColon = (line: string): string => line.replace(/[:：]\s*$/u, '').trim()
+const stripTrailingColon = (line: string): string =>
+  line.replace(/[:：]\s*$/u, "").trim();
 
 const SCENE_NUMERIC_LOCATION_RE =
-  /(?:شارع|طريق|مبنى|غرفة|شقة|مكتب|دور|بوابة|باب)\s*[0-9٠-٩]+/iu
+  /(?:شارع|طريق|مبنى|غرفة|شقة|مكتب|دور|بوابة|باب)\s*[0-9٠-٩]+/iu;
 
 const hasTemporalSceneSignal = (line: string): boolean =>
-  DATE_PATTERNS.test(line) || TIME_PATTERNS.test(line)
+  DATE_PATTERNS.test(line) || TIME_PATTERNS.test(line);
 
 const hasSceneNumericSignal = (line: string): boolean =>
-  SCENE_NUMERIC_LOCATION_RE.test(line) || /\b(?:مشهد|scene)\s*[0-9٠-٩]+\b/iu.test(line)
+  SCENE_NUMERIC_LOCATION_RE.test(line) ||
+  /\b(?:مشهد|scene)\s*[0-9٠-٩]+\b/iu.test(line);
 
 const hasUsefulNumericToken = (line: string): boolean =>
-  MIXED_NUMBER_RE.test(line) && line.split(/\s+/).filter(Boolean).length <= 12
+  MIXED_NUMBER_RE.test(line) && line.split(/\s+/).filter(Boolean).length <= 12;
 
 const isLikelySpeakerName = (value: string): boolean => {
-  const name = normalizeInlineSpaces(value)
-  if (!name || name.length > 28) return false
-  if (name.split(' ').length > 4) return false
-  if (!/^[\p{L}\p{N}\s]+$/u.test(name)) return false
-  if (/^(?:مشهد|scene|قطع|انتقال|داخلي|خارجي)$/iu.test(name)) return false
-  return true
-}
+  const name = normalizeInlineSpaces(value);
+  if (!name || name.length > 28) return false;
+  if (name.split(" ").length > 4) return false;
+  if (!/^[\p{L}\p{N}\s]+$/u.test(name)) return false;
+  if (/^(?:مشهد|scene|قطع|انتقال|داخلي|خارجي)$/iu.test(name)) return false;
+  return true;
+};
 
 const isTransitionLine = (line: string): boolean =>
-  TRANSITION_LINE_RE.test(normalizeLine(line))
+  TRANSITION_LINE_RE.test(normalizeLine(line));
 
 const isSceneHeader1Only = (line: string): boolean => {
-  const normalized = normalizeLine(stripTrailingColon(line))
-  if (!SCENE_NUMBER_EXACT_RE.test(normalized)) return false
-  const numberPrefixMatch = normalized.match(/^(?:مشهد|scene)\s*[0-9٠-٩]+/iu)
-  if (!numberPrefixMatch) return false
-  const remainder = normalized.slice(numberPrefixMatch[0].length).trim()
-  return remainder.length === 0
-}
+  const normalized = normalizeLine(stripTrailingColon(line));
+  if (!SCENE_NUMBER_EXACT_RE.test(normalized)) return false;
+  const numberPrefixMatch = normalized.match(/^(?:مشهد|scene)\s*[0-9٠-٩]+/iu);
+  if (!numberPrefixMatch) return false;
+  const remainder = normalized.slice(numberPrefixMatch[0].length).trim();
+  return remainder.length === 0;
+};
 
 const isSceneHeader2Only = (line: string): boolean => {
   const normalized = normalizeLine(stripTrailingColon(line))
-    .replace(/[-–—]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+    .replace(/[-–—]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  if (!normalized) return false
-  if (SCENE_NUMBER_EXACT_RE.test(normalized)) return false
-  return SCENE_TIME_RE.test(normalized) && SCENE_LOCATION_RE.test(normalized)
-}
+  if (!normalized) return false;
+  if (SCENE_NUMBER_EXACT_RE.test(normalized)) return false;
+  return SCENE_TIME_RE.test(normalized) && SCENE_LOCATION_RE.test(normalized);
+};
 
 const isSceneHeaderTopLine = (line: string): boolean => {
-  const normalized = normalizeLine(stripTrailingColon(line))
-  if (!SCENE_NUMBER_EXACT_RE.test(normalized)) return false
+  const normalized = normalizeLine(stripTrailingColon(line));
+  if (!SCENE_NUMBER_EXACT_RE.test(normalized)) return false;
 
-  const numberPrefixMatch = normalized.match(/^(?:مشهد|scene)\s*[0-9٠-٩]+/iu)
-  if (!numberPrefixMatch) return false
+  const numberPrefixMatch = normalized.match(/^(?:مشهد|scene)\s*[0-9٠-٩]+/iu);
+  if (!numberPrefixMatch) return false;
 
-  const remainder = normalized.slice(numberPrefixMatch[0].length).trim()
-  if (!remainder) return false
+  const remainder = normalized.slice(numberPrefixMatch[0].length).trim();
+  if (!remainder) return false;
 
-  const hasTime = SCENE_TIME_RE.test(remainder)
-  const hasLocation = SCENE_LOCATION_RE.test(remainder)
-  return hasTime && hasLocation
-}
+  const hasTime = SCENE_TIME_RE.test(remainder);
+  const hasLocation = SCENE_LOCATION_RE.test(remainder);
+  return hasTime && hasLocation;
+};
 
 const isSceneHeader3Standalone = (line: string): boolean => {
-  const normalized = normalizeLine(stripTrailingColon(line))
-  const wordCount = normalized.split(/\s+/).filter(Boolean).length
+  const normalized = normalizeLine(stripTrailingColon(line));
+  const wordCount = normalized.split(/\s+/).filter(Boolean).length;
 
-  if (!normalized) return false
-  if (wordCount > 14) return false
-  if (hasSentencePunctuation(normalized)) return false
-  if (isTransitionLine(normalized)) return false
-  if (SCENE_NUMBER_EXACT_RE.test(normalized)) return false
-  if (isSceneHeader2Only(normalized)) return false
-  if (isActionVerbStart(normalized)) return false
-  if (matchesActionStartPattern(normalized)) return false
-  if (hasActionVerbStructure(normalized)) return false
+  if (!normalized) return false;
+  if (wordCount > 14) return false;
+  if (hasSentencePunctuation(normalized)) return false;
+  if (isTransitionLine(normalized)) return false;
+  if (SCENE_NUMBER_EXACT_RE.test(normalized)) return false;
+  if (isSceneHeader2Only(normalized)) return false;
+  if (isActionVerbStart(normalized)) return false;
+  if (matchesActionStartPattern(normalized)) return false;
+  if (hasActionVerbStructure(normalized)) return false;
 
-  if (SCENE_HEADER3_PREFIX_RE.test(normalized)) return true
-  if (SCENE_HEADER3_RANGE_RE.test(normalized)) return true
-  if (SCENE_HEADER3_MULTI_LOCATION_EXACT_RE.test(normalized)) return true
-  if (SCENE_HEADER3_MULTI_LOCATION_RE.test(normalized)) return true
-  if (SCENE_HEADER3_KNOWN_PLACES_RE.test(normalized)) return true
-  if (hasTemporalSceneSignal(normalized)) return true
-  if (hasSceneNumericSignal(normalized)) return true
-  if (hasUsefulNumericToken(normalized) && SCENE_LOCATION_RE.test(normalized)) return true
+  if (SCENE_HEADER3_PREFIX_RE.test(normalized)) return true;
+  if (SCENE_HEADER3_RANGE_RE.test(normalized)) return true;
+  if (SCENE_HEADER3_MULTI_LOCATION_EXACT_RE.test(normalized)) return true;
+  if (SCENE_HEADER3_MULTI_LOCATION_RE.test(normalized)) return true;
+  if (SCENE_HEADER3_KNOWN_PLACES_RE.test(normalized)) return true;
+  if (hasTemporalSceneSignal(normalized)) return true;
+  if (hasSceneNumericSignal(normalized)) return true;
+  if (hasUsefulNumericToken(normalized) && SCENE_LOCATION_RE.test(normalized))
+    return true;
 
-  return false
-}
+  return false;
+};
 
 const resolvePolicy = (
-  policy?: Partial<StructurePipelinePolicy>,
+  policy?: Partial<StructurePipelinePolicy>
 ): StructurePipelinePolicy => ({
-  mergePolicy: policy?.mergePolicy ?? DEFAULT_STRUCTURE_PIPELINE_POLICY.mergePolicy,
+  mergePolicy:
+    policy?.mergePolicy ?? DEFAULT_STRUCTURE_PIPELINE_POLICY.mergePolicy,
   classifierRole:
     policy?.classifierRole ?? DEFAULT_STRUCTURE_PIPELINE_POLICY.classifierRole,
-})
+});
 
 /**
  * يُصنّف سطراً واحداً إلى نوع عنصر سيناريو عبر سلسلة أولويات ثابتة.
@@ -172,109 +179,112 @@ const resolvePolicy = (
  */
 const classifyLineLabelOnly = (
   line: string,
-  state: ClassificationState,
+  state: ClassificationState
 ): BlockFormatId => {
   if (/^بسم\b/u.test(line) || /^بسم الله/u.test(line)) {
-    state.expectedSceneHeader = null
-    state.expectingDialogueAfterCue = false
-    return 'basmala'
+    state.expectedSceneHeader = null;
+    state.expectingDialogueAfterCue = false;
+    return "basmala";
   }
 
-  if (state.expectedSceneHeader === 'scene-header-2') {
+  if (state.expectedSceneHeader === "scene-header-2") {
     if (isSceneHeader2Only(line)) {
-      state.expectedSceneHeader = 'scene-header-3'
-      state.expectingDialogueAfterCue = false
-      return 'scene-header-2'
+      state.expectedSceneHeader = "scene-header-3";
+      state.expectingDialogueAfterCue = false;
+      return "scene-header-2";
     }
     if (hasTemporalSceneSignal(line) || hasSceneNumericSignal(line)) {
-      state.expectedSceneHeader = null
-      state.expectingDialogueAfterCue = false
-      return 'scene-header-3'
+      state.expectedSceneHeader = null;
+      state.expectingDialogueAfterCue = false;
+      return "scene-header-3";
     }
     if (isSceneHeader3Standalone(line)) {
-      state.expectedSceneHeader = null
-      state.expectingDialogueAfterCue = false
-      return 'scene-header-3'
+      state.expectedSceneHeader = null;
+      state.expectingDialogueAfterCue = false;
+      return "scene-header-3";
     }
-    state.expectedSceneHeader = null
-  } else if (state.expectedSceneHeader === 'scene-header-3') {
+    state.expectedSceneHeader = null;
+  } else if (state.expectedSceneHeader === "scene-header-3") {
     if (hasTemporalSceneSignal(line) || hasSceneNumericSignal(line)) {
-      state.expectedSceneHeader = null
-      state.expectingDialogueAfterCue = false
-      return 'scene-header-3'
+      state.expectedSceneHeader = null;
+      state.expectingDialogueAfterCue = false;
+      return "scene-header-3";
     }
     if (isSceneHeader3Standalone(line)) {
-      state.expectedSceneHeader = null
-      state.expectingDialogueAfterCue = false
-      return 'scene-header-3'
+      state.expectedSceneHeader = null;
+      state.expectingDialogueAfterCue = false;
+      return "scene-header-3";
     }
     if (isSceneHeader2Only(line)) {
-      state.expectedSceneHeader = 'scene-header-3'
-      state.expectingDialogueAfterCue = false
-      return 'scene-header-2'
+      state.expectedSceneHeader = "scene-header-3";
+      state.expectingDialogueAfterCue = false;
+      return "scene-header-2";
     }
-    state.expectedSceneHeader = null
+    state.expectedSceneHeader = null;
   }
 
   if (isSceneHeaderTopLine(line)) {
-    state.expectedSceneHeader = 'scene-header-3'
-    state.expectingDialogueAfterCue = false
-    return 'scene-header-top-line'
+    state.expectedSceneHeader = "scene-header-3";
+    state.expectingDialogueAfterCue = false;
+    return "scene-header-top-line";
   }
 
   if (isSceneHeader1Only(line)) {
-    state.expectedSceneHeader = 'scene-header-2'
-    state.expectingDialogueAfterCue = false
-    return 'scene-header-1'
+    state.expectedSceneHeader = "scene-header-2";
+    state.expectingDialogueAfterCue = false;
+    return "scene-header-1";
   }
 
   if (isSceneHeader2Only(line)) {
-    state.expectedSceneHeader = 'scene-header-3'
-    state.expectingDialogueAfterCue = false
-    return 'scene-header-2'
+    state.expectedSceneHeader = "scene-header-3";
+    state.expectingDialogueAfterCue = false;
+    return "scene-header-2";
   }
 
   if (isSceneHeader3Standalone(line)) {
-    state.expectedSceneHeader = null
-    state.expectingDialogueAfterCue = false
-    return 'scene-header-3'
+    state.expectedSceneHeader = null;
+    state.expectingDialogueAfterCue = false;
+    return "scene-header-3";
   }
 
   if (isTransitionLine(line)) {
-    state.expectedSceneHeader = null
-    state.expectingDialogueAfterCue = false
-    return 'transition'
+    state.expectedSceneHeader = null;
+    state.expectingDialogueAfterCue = false;
+    return "transition";
   }
 
-  const cueOnlyMatch = line.match(SPEAKER_CUE_RE)
-  if (cueOnlyMatch && isLikelySpeakerName(cueOnlyMatch[1] ?? '')) {
-    state.expectingDialogueAfterCue = true
-    return 'character'
+  const cueOnlyMatch = line.match(SPEAKER_CUE_RE);
+  if (cueOnlyMatch && isLikelySpeakerName(cueOnlyMatch[1] ?? "")) {
+    state.expectingDialogueAfterCue = true;
+    return "character";
   }
 
-  const inlineSpeakerMatch = line.match(INLINE_SPEAKER_RE)
-  if (inlineSpeakerMatch && isLikelySpeakerName(inlineSpeakerMatch[1] ?? '')) {
-    state.expectingDialogueAfterCue = false
-    return 'dialogue'
+  const inlineSpeakerMatch = line.match(INLINE_SPEAKER_RE);
+  if (inlineSpeakerMatch && isLikelySpeakerName(inlineSpeakerMatch[1] ?? "")) {
+    state.expectingDialogueAfterCue = false;
+    return "dialogue";
   }
 
   if (state.expectingDialogueAfterCue) {
-    state.expectedSceneHeader = null
-    state.expectingDialogueAfterCue = false
-    return 'dialogue'
+    state.expectedSceneHeader = null;
+    state.expectingDialogueAfterCue = false;
+    return "dialogue";
   }
 
-  if (state.previousFormat === 'character' || state.previousFormat === 'dialogue') {
-    state.expectedSceneHeader = null
-    return 'dialogue'
+  if (
+    state.previousFormat === "character" ||
+    state.previousFormat === "dialogue"
+  ) {
+    state.expectedSceneHeader = null;
+    return "dialogue";
   }
 
-  state.expectedSceneHeader = null
-  return 'action'
-}
+  state.expectedSceneHeader = null;
+  return "action";
+};
 
 const countNonActionBlocks = (blocks: ScreenplayBlock[]): number =>
-  blocks.filter((block) => block.formatId !== 'action').length
+  blocks.filter((block) => block.formatId !== "action").length;
 
 /**
  * يُطبّع النص لمعالجة البنية: يوحّد فواصل الأسطر ويزيل أحرف التحكم
@@ -284,14 +294,14 @@ const countNonActionBlocks = (blocks: ScreenplayBlock[]): number =>
  * @returns النص المُطبَّع
  */
 export const normalizeTextForStructure = (text: string): string =>
-  (text ?? '')
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .replace(/\u2028|\u2029/g, '\n')
-    .replace(/\u0000/g, '')
-    .replace(/\u000B/g, '\n')
-    .replace(/\f/g, '\n')
-    .replace(/^\uFEFF/, '')
+  (text ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\u2028|\u2029/g, "\n")
+    .replace(/\u0000/g, "")
+    .replace(/\u000B/g, "\n")
+    .replace(/\f/g, "\n")
+    .replace(/^\uFEFF/, "");
 
 /**
  * يُقسّم النص إلى أسطر مُطبَّعة مع حذف الأسطر الفارغة.
@@ -302,9 +312,9 @@ export const normalizeTextForStructure = (text: string): string =>
  */
 export const segmentLinesStrict = (text: string): string[] =>
   normalizeTextForStructure(text)
-    .split('\n')
+    .split("\n")
     .map(normalizeLineForStructure)
-    .filter((line) => line.length > 0)
+    .filter((line) => line.length > 0);
 
 /**
  * يبني كتل سيناريو مُصنَّفة من نص خام عبر خط الأنابيب الكامل.
@@ -324,34 +334,34 @@ export const segmentLinesStrict = (text: string): string[] =>
  */
 export const buildStructuredBlocksFromText = (
   text: string,
-  policy?: Partial<StructurePipelinePolicy>,
+  policy?: Partial<StructurePipelinePolicy>
 ): StructurePipelineResult => {
-  const resolvedPolicy = resolvePolicy(policy)
-  const normalizedText = normalizeTextForStructure(text)
-  const normalizedLines = segmentLinesStrict(normalizedText)
+  const resolvedPolicy = resolvePolicy(policy);
+  const normalizedText = normalizeTextForStructure(text);
+  const normalizedLines = segmentLinesStrict(normalizedText);
 
   const state: ClassificationState = {
     expectedSceneHeader: null,
     expectingDialogueAfterCue: false,
     previousFormat: null,
-  }
+  };
 
   const blocks: ScreenplayBlock[] = normalizedLines.map((line) => {
-    const formatId = classifyLineLabelOnly(line, state)
-    state.previousFormat = formatId
+    const formatId = classifyLineLabelOnly(line, state);
+    state.previousFormat = formatId;
     return {
       formatId,
       text: line,
-    }
-  })
+    };
+  });
 
   return {
     normalizedText,
     normalizedLines,
     blocks,
     policy: resolvedPolicy,
-  }
-}
+  };
+};
 
 /**
  * يبني تقرير حارس الإسقاط لمنع الكتابة التدميرية عند انهيار حاد في عدد الكتل.
@@ -374,48 +384,49 @@ export const buildProjectionGuardReport = ({
   nextBlocks,
   policy,
 }: {
-  inputLineCount: number
-  currentBlocks?: ScreenplayBlock[]
-  nextBlocks: ScreenplayBlock[]
-  policy?: Partial<StructurePipelinePolicy>
+  inputLineCount: number;
+  currentBlocks?: ScreenplayBlock[];
+  nextBlocks: ScreenplayBlock[];
+  policy?: Partial<StructurePipelinePolicy>;
 }): ProjectionGuardReport => {
-  const resolvedPolicy = resolvePolicy(policy)
-  const reasons: string[] = []
-  const safeInputLineCount = Math.max(0, inputLineCount)
-  const outputBlockCount = nextBlocks.length
+  const resolvedPolicy = resolvePolicy(policy);
+  const reasons: string[] = [];
+  const safeInputLineCount = Math.max(0, inputLineCount);
+  const outputBlockCount = nextBlocks.length;
 
   if (safeInputLineCount > 1 && outputBlockCount <= 1) {
-    reasons.push('single-block-output-for-multiline-input')
+    reasons.push("single-block-output-for-multiline-input");
   }
 
   if (
     safeInputLineCount >= 8 &&
     outputBlockCount <= Math.max(1, Math.floor(safeInputLineCount * 0.25))
   ) {
-    reasons.push('sharp-input-output-collapse')
+    reasons.push("sharp-input-output-collapse");
   }
 
-  const currentBlockCount = currentBlocks?.length
+  const currentBlockCount = currentBlocks?.length;
   if (
-    typeof currentBlockCount === 'number' &&
+    typeof currentBlockCount === "number" &&
     currentBlockCount >= 12 &&
     outputBlockCount <= Math.max(1, Math.floor(currentBlockCount * 0.2))
   ) {
-    reasons.push('sharp-document-collapse')
+    reasons.push("sharp-document-collapse");
   }
 
   const currentNonActionCount = currentBlocks
     ? countNonActionBlocks(currentBlocks)
-    : undefined
-  const outputNonActionCount = countNonActionBlocks(nextBlocks)
+    : undefined;
+  const outputNonActionCount = countNonActionBlocks(nextBlocks);
 
   if (
-    resolvedPolicy.classifierRole === 'label-only' &&
-    typeof currentNonActionCount === 'number' &&
+    resolvedPolicy.classifierRole === "label-only" &&
+    typeof currentNonActionCount === "number" &&
     currentNonActionCount >= 3 &&
-    outputNonActionCount <= Math.max(0, Math.floor(currentNonActionCount * 0.15))
+    outputNonActionCount <=
+      Math.max(0, Math.floor(currentNonActionCount * 0.15))
   ) {
-    reasons.push('non-action-structure-loss')
+    reasons.push("non-action-structure-loss");
   }
 
   return {
@@ -427,5 +438,5 @@ export const buildProjectionGuardReport = ({
     currentNonActionCount,
     outputNonActionCount,
     fallbackApplied: false,
-  }
-}
+  };
+};

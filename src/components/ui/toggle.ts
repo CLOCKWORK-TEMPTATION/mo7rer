@@ -1,4 +1,4 @@
-import { createUiButtonPrimitive } from './_factory'
+import { createUiButtonPrimitive } from "./_factory";
 
-export const createTogglePrimitive = (label = 'toggle'): HTMLButtonElement => createUiButtonPrimitive('toggle', label)
-
+export const createTogglePrimitive = (label = "toggle"): HTMLButtonElement =>
+  createUiButtonPrimitive("toggle", label);

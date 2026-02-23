@@ -21,20 +21,20 @@
  * `scene-header-3` | `action` | `character` | `dialogue` | `parenthetical` | `transition`
  */
 export const SCREENPLAY_BLOCK_FORMAT_IDS = [
-  'basmala',
-  'scene-header-top-line',
-  'scene-header-1',
-  'scene-header-2',
-  'scene-header-3',
-  'action',
-  'character',
-  'dialogue',
-  'parenthetical',
-  'transition',
-] as const
+  "basmala",
+  "scene-header-top-line",
+  "scene-header-1",
+  "scene-header-2",
+  "scene-header-3",
+  "action",
+  "character",
+  "dialogue",
+  "parenthetical",
+  "transition",
+] as const;
 
 /** نوع اتحادي حرفي لمعرّفات التنسيق المشتقة من {@link SCREENPLAY_BLOCK_FORMAT_IDS} */
-export type ScreenplayFormatId = (typeof SCREENPLAY_BLOCK_FORMAT_IDS)[number]
+export type ScreenplayFormatId = (typeof SCREENPLAY_BLOCK_FORMAT_IDS)[number];
 
 /**
  * كتلة سيناريو واحدة تربط نصاً بنوع تنسيق.
@@ -42,8 +42,8 @@ export type ScreenplayFormatId = (typeof SCREENPLAY_BLOCK_FORMAT_IDS)[number]
  * @property text - النص الخام للكتلة
  */
 export interface ScreenplayBlock {
-  formatId: ScreenplayFormatId
-  text: string
+  formatId: ScreenplayFormatId;
+  text: string;
 }
 
 /**
@@ -58,74 +58,74 @@ export interface ScreenplayBlock {
  * @property createdAt - طابع زمني ISO 8601
  */
 export interface ScreenplayPayloadV1 {
-  version: 1
-  blocks: ScreenplayBlock[]
-  font: string
-  size: string
-  checksum: string
-  createdAt: string
+  version: 1;
+  blocks: ScreenplayBlock[];
+  font: string;
+  size: string;
+  checksum: string;
+  createdAt: string;
 }
 
 /** رقم إصدار بروتوكول الحمولة الحالي */
-export const SCREENPLAY_PAYLOAD_VERSION = 1 as const
+export const SCREENPLAY_PAYLOAD_VERSION = 1 as const;
 
 /** رمز التعريف المُضمَّن في علامة الحمولة: `[[FILMLANE_PAYLOAD_V1:...]]` */
-export const SCREENPLAY_PAYLOAD_TOKEN = 'FILMLANE_PAYLOAD_V1' as const
+export const SCREENPLAY_PAYLOAD_TOKEN = "FILMLANE_PAYLOAD_V1" as const;
 
 const MARKER_RE = new RegExp(
   String.raw`\[\[${SCREENPLAY_PAYLOAD_TOKEN}:([A-Za-z0-9+/=]+)\]\]`,
-  'u',
-)
+  "u"
+);
 
-const FORMAT_ID_SET = new Set<string>(SCREENPLAY_BLOCK_FORMAT_IDS)
+const FORMAT_ID_SET = new Set<string>(SCREENPLAY_BLOCK_FORMAT_IDS);
 
 const DATA_TYPE_TO_FORMAT_ID: Record<string, ScreenplayFormatId> = {
-  basmala: 'basmala',
-  'scene-header-top-line': 'scene-header-top-line',
-  'scene-header-1': 'scene-header-1',
-  'scene-header-2': 'scene-header-2',
-  'scene-header-3': 'scene-header-3',
-  action: 'action',
-  character: 'character',
-  dialogue: 'dialogue',
-  parenthetical: 'parenthetical',
-  transition: 'transition',
-  sceneHeaderTopLine: 'scene-header-top-line',
-  sceneHeader3: 'scene-header-3',
-}
+  basmala: "basmala",
+  "scene-header-top-line": "scene-header-top-line",
+  "scene-header-1": "scene-header-1",
+  "scene-header-2": "scene-header-2",
+  "scene-header-3": "scene-header-3",
+  action: "action",
+  character: "character",
+  dialogue: "dialogue",
+  parenthetical: "parenthetical",
+  transition: "transition",
+  sceneHeaderTopLine: "scene-header-top-line",
+  sceneHeader3: "scene-header-3",
+};
 
 /** يُطبّع نص كتلة: يحوّل المسافات غير القابلة للكسر إلى عادية ويزيل CR */
 const normalizeBlockText = (value: string): string =>
-  (value ?? '').replace(/\u00A0/g, ' ').replace(/\r/g, '')
+  (value ?? "").replace(/\u00A0/g, " ").replace(/\r/g, "");
 
 /** يهرب محارف HTML الخمسة الخطرة (`& < > " '`) لمنع حقن XSS */
 const escapeHtml = (value: string): string =>
   value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 /** يحوّل سلسلة UTF-8 إلى Base64 عبر TextEncoder + btoa */
 const utf8ToBase64 = (value: string): string => {
-  const bytes = new TextEncoder().encode(value)
-  let binary = ''
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
   bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte)
-  })
-  return btoa(binary)
-}
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
+};
 
 /** يحوّل سلسلة Base64 إلى UTF-8 عبر atob + TextDecoder */
 const base64ToUtf8 = (value: string): string => {
-  const binary = atob(value)
-  const bytes = new Uint8Array(binary.length)
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i)
+    bytes[i] = binary.charCodeAt(i);
   }
-  return new TextDecoder().decode(bytes)
-}
+  return new TextDecoder().decode(bytes);
+};
 
 /**
  * يحسب بصمة FNV-1a (32-بت) لسلسلة نصية.
@@ -134,13 +134,13 @@ const base64ToUtf8 = (value: string): string => {
  * @returns سلسلة هيكساديسيمال مُبطَّنة بأصفار (8 محارف)
  */
 const fnv1a = (input: string): string => {
-  let hash = 0x811c9dc5
+  let hash = 0x811c9dc5;
   for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i)
-    hash = Math.imul(hash, 0x01000193)
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
   }
-  return (hash >>> 0).toString(16).padStart(8, '0')
-}
+  return (hash >>> 0).toString(16).padStart(8, "0");
+};
 
 /**
  * يُطبّع معرّف تنسيق خام إلى {@link ScreenplayFormatId} صالح.
@@ -148,38 +148,40 @@ const fnv1a = (input: string): string => {
  * @returns المعرّف المُطبَّع أو `null` إذا كان غير معروف
  */
 const normalizeFormatId = (value: string): ScreenplayFormatId | null => {
-  if (!value) return null
+  if (!value) return null;
   if (value in DATA_TYPE_TO_FORMAT_ID) {
-    return DATA_TYPE_TO_FORMAT_ID[value]
+    return DATA_TYPE_TO_FORMAT_ID[value];
   }
   if (FORMAT_ID_SET.has(value)) {
-    return value as ScreenplayFormatId
+    return value as ScreenplayFormatId;
   }
-  return null
-}
+  return null;
+};
 
 /**
  * يستخرج معرّف التنسيق من عنصر HTML عبر `data-type` أولاً ثم فئات CSS (`format-*`).
  * @param element - عنصر DOM المراد فحصه
  * @returns المعرّف المُطبَّع أو `null`
  */
-const getFormatIdFromElement = (element: Element): ScreenplayFormatId | null => {
-  const dataType = element.getAttribute('data-type')
+const getFormatIdFromElement = (
+  element: Element
+): ScreenplayFormatId | null => {
+  const dataType = element.getAttribute("data-type");
   if (dataType) {
-    const normalized = normalizeFormatId(dataType)
-    if (normalized) return normalized
+    const normalized = normalizeFormatId(dataType);
+    if (normalized) return normalized;
   }
 
-  const classNames = Array.from(element.classList)
+  const classNames = Array.from(element.classList);
   for (const className of classNames) {
-    if (!className.startsWith('format-')) continue
-    const rawId = className.slice('format-'.length)
-    const normalized = normalizeFormatId(rawId)
-    if (normalized) return normalized
+    if (!className.startsWith("format-")) continue;
+    const rawId = className.slice("format-".length);
+    const normalized = normalizeFormatId(rawId);
+    if (normalized) return normalized;
   }
 
-  return null
-}
+  return null;
+};
 
 /**
  * يفكّ سطر ترويسة مشهد مُركَّب (top-line) إلى أجزائه: رقم المشهد (header-1) وزمن/مكان (header-2).
@@ -188,52 +190,54 @@ const getFormatIdFromElement = (element: Element): ScreenplayFormatId | null => 
  * @returns مصفوفة كتل مقسّمة (1-2 عنصر) أو مصفوفة فارغة
  */
 const splitLegacyTopLineText = (
-  text: string,
-): Array<{ formatId: 'scene-header-1' | 'scene-header-2'; text: string }> => {
-  const normalized = normalizeBlockText(text).replace(/\s+/g, ' ').trim()
-  if (!normalized) return []
+  text: string
+): Array<{ formatId: "scene-header-1" | "scene-header-2"; text: string }> => {
+  const normalized = normalizeBlockText(text).replace(/\s+/g, " ").trim();
+  if (!normalized) return [];
 
   const pairMatch = normalized.match(
-    /^((?:مشهد|scene)\s*[0-9٠-٩]+)\s*(?:[-–—:،]\s*|\s+)(.+)$/iu,
-  )
+    /^((?:مشهد|scene)\s*[0-9٠-٩]+)\s*(?:[-–—:،]\s*|\s+)(.+)$/iu
+  );
   if (pairMatch) {
     return [
-      { formatId: 'scene-header-1', text: pairMatch[1].trim() },
-      { formatId: 'scene-header-2', text: pairMatch[2].trim() },
-    ]
+      { formatId: "scene-header-1", text: pairMatch[1].trim() },
+      { formatId: "scene-header-2", text: pairMatch[2].trim() },
+    ];
   }
 
   if (/^(?:مشهد|scene)\s*[0-9٠-٩]+/iu.test(normalized)) {
-    return [{ formatId: 'scene-header-1', text: normalized }]
+    return [{ formatId: "scene-header-1", text: normalized }];
   }
 
-  return [{ formatId: 'scene-header-2', text: normalized }]
-}
+  return [{ formatId: "scene-header-2", text: normalized }];
+};
 
 /**
  * يُطبّع مصفوفة كتل واردة: يُطبّع المعرّفات، يفكّ أسطر top-line، ويُطبّع النصوص.
  * يُستخدم كبوابة تطبيع موحّدة قبل الترميز أو التحويل إلى HTML.
  */
-const normalizeIncomingBlocks = (blocks: ScreenplayBlock[]): ScreenplayBlock[] => {
-  const normalizedBlocks: ScreenplayBlock[] = []
+const normalizeIncomingBlocks = (
+  blocks: ScreenplayBlock[]
+): ScreenplayBlock[] => {
+  const normalizedBlocks: ScreenplayBlock[] = [];
 
   for (const block of blocks) {
-    const formatId = normalizeFormatId(block.formatId)
-    if (!formatId) continue
+    const formatId = normalizeFormatId(block.formatId);
+    if (!formatId) continue;
 
-    if (formatId === 'scene-header-top-line') {
-      normalizedBlocks.push(...splitLegacyTopLineText(block.text))
-      continue
+    if (formatId === "scene-header-top-line") {
+      normalizedBlocks.push(...splitLegacyTopLineText(block.text));
+      continue;
     }
 
     normalizedBlocks.push({
       formatId,
       text: normalizeBlockText(block.text),
-    })
+    });
   }
 
-  return normalizedBlocks
-}
+  return normalizedBlocks;
+};
 
 /**
  * يستخرج أسطر النص من عنصر DOM (يفضّل `innerText` على `textContent`).
@@ -241,23 +245,23 @@ const normalizeIncomingBlocks = (blocks: ScreenplayBlock[]): ScreenplayBlock[] =
  */
 const toLineTextsFromNode = (element: Element): string[] => {
   const rawText =
-    element instanceof HTMLElement && typeof element.innerText === 'string'
+    element instanceof HTMLElement && typeof element.innerText === "string"
       ? element.innerText
-      : element.textContent || ''
+      : element.textContent || "";
 
   const lines = normalizeBlockText(rawText)
-    .split('\n')
-    .map((line) => line.trim())
+    .split("\n")
+    .map((line) => line.trim());
 
-  return lines.length > 0 ? lines : ['']
-}
+  return lines.length > 0 ? lines : [""];
+};
 
 /** يحسب بصمة FNV1a للحمولة بدون حقل checksum عبر تسلسل JSON */
 const computePayloadChecksum = (
-  payload: Omit<ScreenplayPayloadV1, 'checksum'>,
+  payload: Omit<ScreenplayPayloadV1, "checksum">
 ): string => {
-  return fnv1a(JSON.stringify(payload))
-}
+  return fnv1a(JSON.stringify(payload));
+};
 
 /**
  * يُطبّع الحمولة ويعيد حساب بصمة التحقق FNV1a.
@@ -267,7 +271,7 @@ const computePayloadChecksum = (
  * @returns حمولة كاملة من نوع {@link ScreenplayPayloadV1} ببصمة صحيحة
  */
 export const ensurePayloadChecksum = (
-  payload: Omit<ScreenplayPayloadV1, 'checksum'> & { checksum?: string },
+  payload: Omit<ScreenplayPayloadV1, "checksum"> & { checksum?: string }
 ): ScreenplayPayloadV1 => {
   const unsignedPayload = {
     version: SCREENPLAY_PAYLOAD_VERSION,
@@ -275,20 +279,20 @@ export const ensurePayloadChecksum = (
     font: payload.font,
     size: payload.size,
     createdAt: payload.createdAt,
-  } as const
+  } as const;
 
   return {
     ...unsignedPayload,
     checksum: computePayloadChecksum(unsignedPayload),
-  }
-}
+  };
+};
 
 /**
  * يبني علامة الحمولة الكاملة: `[[FILMLANE_PAYLOAD_V1:<encodedPayload>]]`
  * @param encodedPayload - الحمولة المشفّرة بـ Base64
  */
 export const buildPayloadMarker = (encodedPayload: string): string =>
-  `[[${SCREENPLAY_PAYLOAD_TOKEN}:${encodedPayload}]]`
+  `[[${SCREENPLAY_PAYLOAD_TOKEN}:${encodedPayload}]]`;
 
 /**
  * يستخرج الجزء المشفّر بـ Base64 من علامة الحمولة في النص.
@@ -296,9 +300,9 @@ export const buildPayloadMarker = (encodedPayload: string): string =>
  * @returns السلسلة المشفّرة أو `null` إذا لم تُوجد علامة
  */
 export const extractEncodedPayloadMarker = (text: string): string | null => {
-  const match = (text ?? '').match(MARKER_RE)
-  return match?.[1] ?? null
-}
+  const match = (text ?? "").match(MARKER_RE);
+  return match?.[1] ?? null;
+};
 
 /**
  * يُرمّز حمولة السيناريو إلى سلسلة Base64 عبر تسلسل JSON ثم UTF-8→Base64.
@@ -306,7 +310,7 @@ export const extractEncodedPayloadMarker = (text: string): string | null => {
  * @returns سلسلة Base64 جاهزة للتضمين في علامة الحمولة
  */
 export const encodeScreenplayPayload = (payload: ScreenplayPayloadV1): string =>
-  utf8ToBase64(JSON.stringify(payload))
+  utf8ToBase64(JSON.stringify(payload));
 
 /**
  * يفكّ ترميز حمولة سيناريو من سلسلة Base64 ويتحقق من سلامتها.
@@ -321,35 +325,36 @@ export const encodeScreenplayPayload = (payload: ScreenplayPayloadV1): string =>
  * @returns حمولة صالحة أو `null` إذا فشل أي تحقق
  */
 export const decodeScreenplayPayload = (
-  encodedPayload: string,
+  encodedPayload: string
 ): ScreenplayPayloadV1 | null => {
   try {
-    const decoded = base64ToUtf8(encodedPayload)
-    const parsed = JSON.parse(decoded) as Partial<ScreenplayPayloadV1>
+    const decoded = base64ToUtf8(encodedPayload);
+    const parsed = JSON.parse(decoded) as Partial<ScreenplayPayloadV1>;
 
     if (
       parsed?.version !== SCREENPLAY_PAYLOAD_VERSION ||
       !Array.isArray(parsed.blocks) ||
-      typeof parsed.font !== 'string' ||
-      typeof parsed.size !== 'string' ||
-      typeof parsed.createdAt !== 'string' ||
-      typeof parsed.checksum !== 'string'
+      typeof parsed.font !== "string" ||
+      typeof parsed.size !== "string" ||
+      typeof parsed.createdAt !== "string" ||
+      typeof parsed.checksum !== "string"
     ) {
-      return null
+      return null;
     }
 
-    const sanitizedBlocks: ScreenplayBlock[] = []
+    const sanitizedBlocks: ScreenplayBlock[] = [];
     for (const block of parsed.blocks) {
-      if (!block || typeof block !== 'object') continue
-      if (typeof block.text !== 'string' || typeof block.formatId !== 'string') continue
+      if (!block || typeof block !== "object") continue;
+      if (typeof block.text !== "string" || typeof block.formatId !== "string")
+        continue;
 
-      const normalized = normalizeFormatId(block.formatId)
-      if (!normalized) continue
+      const normalized = normalizeFormatId(block.formatId);
+      if (!normalized) continue;
 
       sanitizedBlocks.push({
         formatId: normalized,
         text: normalizeBlockText(block.text),
-      })
+      });
     }
 
     const rebuilt = ensurePayloadChecksum({
@@ -358,17 +363,17 @@ export const decodeScreenplayPayload = (
       font: parsed.font,
       size: parsed.size,
       createdAt: parsed.createdAt,
-    })
+    });
 
     if (rebuilt.checksum !== parsed.checksum) {
-      return null
+      return null;
     }
 
-    return rebuilt
+    return rebuilt;
   } catch {
-    return null
+    return null;
   }
-}
+};
 
 /**
  * يستخرج ويفكّ ترميز حمولة السيناريو من نص يحتوي علامة حمولة.
@@ -377,11 +382,13 @@ export const decodeScreenplayPayload = (
  * @param text - النص الذي قد يحتوي `[[FILMLANE_PAYLOAD_V1:...]]`
  * @returns حمولة صالحة أو `null` إذا لم تُوجد علامة أو فشل فك الترميز
  */
-export const extractPayloadFromText = (text: string): ScreenplayPayloadV1 | null => {
-  const encoded = extractEncodedPayloadMarker(text)
-  if (!encoded) return null
-  return decodeScreenplayPayload(encoded)
-}
+export const extractPayloadFromText = (
+  text: string
+): ScreenplayPayloadV1 | null => {
+  const encoded = extractEncodedPayloadMarker(text);
+  if (!encoded) return null;
+  return decodeScreenplayPayload(encoded);
+};
 
 /**
  * يحوّل سلسلة HTML إلى مصفوفة كتل سيناريو عبر DOMParser.
@@ -397,86 +404,86 @@ export const extractPayloadFromText = (text: string): ScreenplayPayloadV1 | null
  * @returns مصفوفة كتل مُطبَّعة (فارغة إذا كان HTML فارغاً أو DOMParser غير متاح)
  */
 export const htmlToScreenplayBlocks = (html: string): ScreenplayBlock[] => {
-  if (!html || !html.trim()) return []
-  if (typeof DOMParser === 'undefined') return []
+  if (!html || !html.trim()) return [];
+  if (typeof DOMParser === "undefined") return [];
 
-  const parser = new DOMParser()
+  const parser = new DOMParser();
   const documentRef = parser.parseFromString(
     `<div id="screenplay-model-root">${html}</div>`,
-    'text/html',
-  )
-  const root = documentRef.getElementById('screenplay-model-root')
-  if (!root) return []
+    "text/html"
+  );
+  const root = documentRef.getElementById("screenplay-model-root");
+  if (!root) return [];
 
-  const blocks: ScreenplayBlock[] = []
+  const blocks: ScreenplayBlock[] = [];
 
   root.childNodes.forEach((node) => {
     if (node.nodeType === Node.TEXT_NODE) {
-      const textLines = normalizeBlockText(node.textContent || '')
-        .split('\n')
+      const textLines = normalizeBlockText(node.textContent || "")
+        .split("\n")
         .map((line) => line.trim())
-        .filter((line) => line.length > 0)
+        .filter((line) => line.length > 0);
 
       textLines.forEach((line) => {
-        blocks.push({ formatId: 'action', text: line })
-      })
-      return
+        blocks.push({ formatId: "action", text: line });
+      });
+      return;
     }
 
-    if (node.nodeType !== Node.ELEMENT_NODE) return
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
 
-    const element = node as HTMLElement
-    const formatId = getFormatIdFromElement(element) ?? 'action'
+    const element = node as HTMLElement;
+    const formatId = getFormatIdFromElement(element) ?? "action";
 
-    if (formatId === 'scene-header-top-line') {
-      const directChildren = Array.from(element.children)
+    if (formatId === "scene-header-top-line") {
+      const directChildren = Array.from(element.children);
       const sceneHeader1 = directChildren.find((child) => {
-        const id = getFormatIdFromElement(child)
-        return id === 'scene-header-1'
-      })
+        const id = getFormatIdFromElement(child);
+        return id === "scene-header-1";
+      });
       const sceneHeader2 = directChildren.find((child) => {
-        const id = getFormatIdFromElement(child)
-        return id === 'scene-header-2'
-      })
+        const id = getFormatIdFromElement(child);
+        return id === "scene-header-2";
+      });
 
       if (sceneHeader1) {
         toLineTextsFromNode(sceneHeader1).forEach((line) => {
-          blocks.push({ formatId: 'scene-header-1', text: line })
-        })
+          blocks.push({ formatId: "scene-header-1", text: line });
+        });
       }
 
       if (sceneHeader2) {
         toLineTextsFromNode(sceneHeader2).forEach((line) => {
-          blocks.push({ formatId: 'scene-header-2', text: line })
-        })
+          blocks.push({ formatId: "scene-header-2", text: line });
+        });
       }
 
       if (!sceneHeader1 && !sceneHeader2) {
-        blocks.push(...splitLegacyTopLineText(element.textContent || ''))
+        blocks.push(...splitLegacyTopLineText(element.textContent || ""));
       }
 
-      return
+      return;
     }
 
     toLineTextsFromNode(element).forEach((line) => {
-      blocks.push({ formatId, text: line })
-    })
-  })
+      blocks.push({ formatId, text: line });
+    });
+  });
 
-  return normalizeIncomingBlocks(blocks)
-}
+  return normalizeIncomingBlocks(blocks);
+};
 
 /**
  * يبني HTML لعنصر top-line مركّب من header-1 و header-2 مع تهريب XSS.
  * @internal يُستخدم حصرياً من {@link screenplayBlocksToHtml}
  */
 const renderTopLineBlock = (header1: string, header2: string): string => {
-  const top = normalizeBlockText(header1).trim()
-  const bottom = normalizeBlockText(header2).trim()
+  const top = normalizeBlockText(header1).trim();
+  const bottom = normalizeBlockText(header2).trim();
   return `<div data-type="scene-header-top-line"><div data-type="scene-header-1">${
-    top ? escapeHtml(top) : ''
-  }</div><div data-type="scene-header-2">${bottom ? escapeHtml(bottom) : ''}</div></div>`
-}
+    top ? escapeHtml(top) : ""
+  }</div><div data-type="scene-header-2">${bottom ? escapeHtml(bottom) : ""}</div></div>`;
+};
 
 /**
  * يحوّل مصفوفة كتل سيناريو إلى سلسلة HTML جاهزة لمحرر Tiptap.
@@ -496,47 +503,49 @@ export const screenplayBlocksToHtml = (blocks: ScreenplayBlock[]): string => {
     (blocks ?? []).filter(
       (block): block is ScreenplayBlock =>
         Boolean(block) &&
-        typeof block.text === 'string' &&
-        typeof block.formatId === 'string',
-    ),
-  )
+        typeof block.text === "string" &&
+        typeof block.formatId === "string"
+    )
+  );
 
-  const html: string[] = []
+  const html: string[] = [];
 
   for (let i = 0; i < normalized.length; i++) {
-    const current = normalized[i]
-    const next = normalized[i + 1]
+    const current = normalized[i];
+    const next = normalized[i + 1];
 
-    if (current.formatId === 'scene-header-top-line') {
-      const parts = splitLegacyTopLineText(current.text)
-      const header1 = parts.find((part) => part.formatId === 'scene-header-1')?.text ?? ''
-      const header2 = parts.find((part) => part.formatId === 'scene-header-2')?.text ?? ''
-      html.push(renderTopLineBlock(header1, header2))
-      continue
+    if (current.formatId === "scene-header-top-line") {
+      const parts = splitLegacyTopLineText(current.text);
+      const header1 =
+        parts.find((part) => part.formatId === "scene-header-1")?.text ?? "";
+      const header2 =
+        parts.find((part) => part.formatId === "scene-header-2")?.text ?? "";
+      html.push(renderTopLineBlock(header1, header2));
+      continue;
     }
 
-    if (current.formatId === 'scene-header-1') {
-      if (next && next.formatId === 'scene-header-2') {
-        html.push(renderTopLineBlock(current.text, next.text))
-        i += 1
-        continue
+    if (current.formatId === "scene-header-1") {
+      if (next && next.formatId === "scene-header-2") {
+        html.push(renderTopLineBlock(current.text, next.text));
+        i += 1;
+        continue;
       }
-      html.push(renderTopLineBlock(current.text, ''))
-      continue
+      html.push(renderTopLineBlock(current.text, ""));
+      continue;
     }
 
-    if (current.formatId === 'scene-header-2') {
-      html.push(renderTopLineBlock('', current.text))
-      continue
+    if (current.formatId === "scene-header-2") {
+      html.push(renderTopLineBlock("", current.text));
+      continue;
     }
 
-    const text = normalizeBlockText(current.text)
-    const htmlText = text ? escapeHtml(text).replace(/\n/g, '<br>') : ''
-    html.push(`<div data-type="${current.formatId}">${htmlText}</div>`)
+    const text = normalizeBlockText(current.text);
+    const htmlText = text ? escapeHtml(text).replace(/\n/g, "<br>") : "";
+    html.push(`<div data-type="${current.formatId}">${htmlText}</div>`);
   }
 
-  return html.join('')
-}
+  return html.join("");
+};
 
 /**
  * يبني حمولة سيناريو كاملة من مصفوفة كتل مع بصمة FNV1a.
@@ -550,19 +559,19 @@ export const screenplayBlocksToHtml = (blocks: ScreenplayBlock[]): string => {
 export const createPayloadFromBlocks = (
   blocks: ScreenplayBlock[],
   options?: {
-    font?: string
-    size?: string
-    createdAt?: string
-  },
+    font?: string;
+    size?: string;
+    createdAt?: string;
+  }
 ): ScreenplayPayloadV1 => {
   return ensurePayloadChecksum({
     version: SCREENPLAY_PAYLOAD_VERSION,
     blocks: normalizeIncomingBlocks(blocks),
-    font: options?.font ?? 'AzarMehrMonospaced-San',
-    size: options?.size ?? '12pt',
+    font: options?.font ?? "AzarMehrMonospaced-San",
+    size: options?.size ?? "12pt",
     createdAt: options?.createdAt ?? new Date().toISOString(),
-  })
-}
+  });
+};
 
 /**
  * يبني حمولة سيناريو كاملة من سلسلة HTML.
@@ -575,11 +584,11 @@ export const createPayloadFromBlocks = (
 export const createPayloadFromHtml = (
   html: string,
   options?: {
-    font?: string
-    size?: string
-    createdAt?: string
-  },
+    font?: string;
+    size?: string;
+    createdAt?: string;
+  }
 ): ScreenplayPayloadV1 => {
-  const blocks = htmlToScreenplayBlocks(html)
-  return createPayloadFromBlocks(blocks, options)
-}
+  const blocks = htmlToScreenplayBlocks(html);
+  return createPayloadFromBlocks(blocks, options);
+};

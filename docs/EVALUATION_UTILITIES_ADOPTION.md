@@ -32,4 +32,3 @@
 1. عند زيادة حجم المستندات أو latency في `auto-live`: نضيف طبقة rules منفصلة.
 2. عند إدخال LLM طويل السياق: نفعّل `context-window` كطبقة مستقلة.
 3. عند تعدد مصادر التخزين (cloud drafts): نفصل `storage` إلى service مستقل.
-

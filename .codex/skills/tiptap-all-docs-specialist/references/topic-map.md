@@ -11,38 +11,47 @@ Most files follow:
 ## Main Families
 
 1. `collaboration_*`
+
 - Collaboration service setup, authentication, webhooks, REST API, snapshots.
 - Use for multi-user editing and document sync.
 
 2. `comments_*`
+
 - Threaded comments, styling threads, integration commands, webhook, REST API.
 - Use for annotation workflows.
 
 3. `content-ai_*`
+
 - Agent APIs, AI toolkit workflows, suggestions, reviews, provider integrations.
 - Use for AI generation/review/tool streaming questions.
 
 4. `ui-components_*`
+
 - UI component installation, primitives, templates, node components.
 - Use for editor UI integration and component behavior.
 
 5. `pages_*`
+
 - Print/page layout, page format, headers/footers, page breaks, utilities.
 - Use for A4/pagination/print-ready flows.
 
 6. `hocuspocus_*`
+
 - Provider/server setup, hooks, scaling, persistence, custom extensions.
 - Use for collaboration backend infrastructure.
 
 7. `guides_*`
+
 - Migration guides, performance, output formats, authentication, FAQ.
 - Use for “how-to”, best practices, and troubleshooting.
 
 8. `examples_*`
+
 - Example implementations and experiments.
 - Use for quick patterns and starter direction.
 
 9. `resources_*`
+
 - Changelog, incidents, trial notes, “what’s new”.
 - Use for release notes and operational context.
 

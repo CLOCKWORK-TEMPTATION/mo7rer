@@ -1,5 +1,5 @@
-import process from 'node:process';
-import { Mistral } from '@mistralai/mistralai';
+import process from "node:process";
+import { Mistral } from "@mistralai/mistralai";
 
 const MISTRAL_OCR_MODEL = process.env.MISTRAL_OCR_MODEL || "mistral-ocr-latest";
 const OCR_TIMEOUT_MS = 60_000;
@@ -116,7 +116,7 @@ function withTimeout(promise, timeoutMs) {
         timeoutError.name = "TimeoutError";
         reject(timeoutError);
       }, timeoutMs)
-    )
+    ),
   ]);
 }
 

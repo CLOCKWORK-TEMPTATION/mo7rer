@@ -1,19 +1,19 @@
-import React, { useMemo, useState } from 'react'
-import { HoverBorderGradient } from '../ui/hover-border-gradient'
+import React, { useMemo, useState } from "react";
+import { HoverBorderGradient } from "../ui/hover-border-gradient";
 
 export interface AppSidebarSection {
-  id: string
-  label: string
-  icon: React.ElementType
-  items: readonly string[]
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  items: readonly string[];
 }
 
-interface AppSidebarProps {
-  sections: readonly AppSidebarSection[]
-  openSectionId: string | null
-  onToggleSection: (sectionId: string) => void
-  onItemAction: (sectionId: string, itemLabel: string) => void
-  settingsPanel: React.ReactNode
+export interface AppSidebarProps {
+  sections: readonly AppSidebarSection[];
+  openSectionId: string | null;
+  onToggleSection: (sectionId: string) => void;
+  onItemAction: (sectionId: string, itemLabel: string) => void;
+  settingsPanel: React.ReactNode;
 }
 
 export function AppSidebar({
@@ -23,8 +23,8 @@ export function AppSidebar({
   onItemAction,
   settingsPanel,
 }: AppSidebarProps): React.JSX.Element {
-  const [searchQuery, setSearchQuery] = useState('')
-  const normalizedQuery = searchQuery.trim().toLowerCase()
+  const [searchQuery, setSearchQuery] = useState("");
+  const normalizedQuery = searchQuery.trim().toLowerCase();
 
   const visibleSections = useMemo(
     () =>
@@ -33,14 +33,18 @@ export function AppSidebar({
         filteredItems:
           normalizedQuery.length === 0
             ? section.items
-            : section.items.filter((item) => item.toLowerCase().includes(normalizedQuery)),
+            : section.items.filter((item) =>
+                item.toLowerCase().includes(normalizedQuery)
+              ),
       })),
-    [normalizedQuery, sections],
-  )
+    [normalizedQuery, sections]
+  );
 
   const hasAnySearchResult =
     normalizedQuery.length === 0 ||
-    visibleSections.some((section) => section.filteredItems.length > 0 || section.id === 'settings')
+    visibleSections.some(
+      (section) => section.filteredItems.length > 0 || section.id === "settings"
+    );
 
   return (
     <aside className="app-sidebar hidden w-72 flex-col p-6 lg:flex">
@@ -81,14 +85,17 @@ export function AppSidebar({
           )}
 
           {visibleSections.map((section) => {
-            const SIcon = section.icon
-            const isOpen = openSectionId === section.id
-            const visibleItems = section.filteredItems
-            const hasItems = visibleItems.length > 0
-            const shouldRenderSection = normalizedQuery.length === 0 || hasItems || section.id === 'settings'
+            const SIcon = section.icon;
+            const isOpen = openSectionId === section.id;
+            const visibleItems = section.filteredItems;
+            const hasItems = visibleItems.length > 0;
+            const shouldRenderSection =
+              normalizedQuery.length === 0 ||
+              hasItems ||
+              section.id === "settings";
 
             if (!shouldRenderSection) {
-              return null
+              return null;
             }
 
             return (
@@ -98,25 +105,29 @@ export function AppSidebar({
                   duration={1}
                   containerClassName="w-full rounded-xl"
                   className={`group flex w-full items-center gap-3 rounded-[inherit] bg-neutral-900/90 p-3 transition-all duration-200 ${
-                    isOpen ? 'text-white' : 'text-neutral-500 hover:text-neutral-200'
+                    isOpen
+                      ? "text-white"
+                      : "text-neutral-500 hover:text-neutral-200"
                   }`}
                   onClick={() => onToggleSection(section.id)}
                 >
                   <SIcon
                     className={`size-[18px] transition-colors ${
                       isOpen
-                        ? 'text-neutral-300'
-                        : 'text-neutral-500 group-hover:text-neutral-200'
+                        ? "text-neutral-300"
+                        : "text-neutral-500 group-hover:text-neutral-200"
                     }`}
                   />
-                  <span className="flex-1 text-right text-sm font-medium">{section.label}</span>
+                  <span className="flex-1 text-right text-sm font-medium">
+                    {section.label}
+                  </span>
                   {section.items.length > 0 && (
                     <span
                       className={`text-neutral-600 transition-transform duration-300 ${
-                        isOpen ? '-rotate-90' : ''
+                        isOpen ? "-rotate-90" : ""
                       }`}
                     >
-                      {hasItems ? '‹' : '·'}
+                      {hasItems ? "‹" : "·"}
                     </span>
                   )}
                 </HoverBorderGradient>
@@ -136,15 +147,18 @@ export function AppSidebar({
                   </div>
                 )}
 
-                {isOpen && !hasItems && section.id !== 'settings' && normalizedQuery.length > 0 && (
-                  <div className="mt-2 rounded-lg border border-white/10 bg-neutral-900/60 px-3 py-2 text-right text-[11px] text-neutral-500">
-                    لا توجد عناصر لهذا القسم حسب البحث الحالي.
-                  </div>
-                )}
+                {isOpen &&
+                  !hasItems &&
+                  section.id !== "settings" &&
+                  normalizedQuery.length > 0 && (
+                    <div className="mt-2 rounded-lg border border-white/10 bg-neutral-900/60 px-3 py-2 text-right text-[11px] text-neutral-500">
+                      لا توجد عناصر لهذا القسم حسب البحث الحالي.
+                    </div>
+                  )}
 
-                {isOpen && section.id === 'settings' && settingsPanel}
+                {isOpen && section.id === "settings" && settingsPanel}
               </div>
-            )
+            );
           })}
         </div>
 
@@ -155,7 +169,7 @@ export function AppSidebar({
             containerClassName="w-full rounded-2xl"
             className="flex w-full flex-col items-start rounded-[inherit] bg-neutral-900/90 p-4"
           >
-            <span className="mb-2 text-base text-primary">✦</span>
+            <span className="text-primary mb-2 text-base">✦</span>
             <p className="text-xs font-light leading-relaxed text-[var(--muted-foreground)]">
               تم تفعيل وضع التركيز الذكي. استمتع بتجربة كتابة خالية من المشتتات.
             </p>
@@ -163,5 +177,5 @@ export function AppSidebar({
         </div>
       </HoverBorderGradient>
     </aside>
-  )
+  );
 }

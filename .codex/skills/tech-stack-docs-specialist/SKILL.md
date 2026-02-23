@@ -13,6 +13,7 @@ Return concise, practical answers with exact local file references.
 ## Core Workflow
 
 1. Route the request by library/domain:
+
 - React
 - Vite
 - TypeScript
@@ -24,15 +25,18 @@ Return concise, practical answers with exact local file references.
 - Motion
 
 2. Run local search first:
+
 - Use `scripts/search_tech_stack_docs.ps1 -Query "<user request>"`.
 - Open top matching files only.
 
 3. Synthesize implementation guidance:
+
 - Provide steps or code-oriented recommendations.
 - Attach source bullets with local file paths.
 - Mark inferred conclusions explicitly.
 
 4. Handle ambiguity:
+
 - If there are conflicting docs, prefer the most specific page.
 - If no match exists, state that clearly and suggest closest available section.
 
@@ -50,6 +54,7 @@ Return concise, practical answers with exact local file references.
 ## Output Contract
 
 When answering:
+
 1. Give direct answer first.
 2. Add minimal implementation steps.
 3. End with source bullets containing local file paths.

@@ -4,12 +4,12 @@
  * لنقطة النهاية `/api/agent/review` التي تستخدم Claude Opus 4.6
  *
  * يُفعّل الوكيل فقط عندما:
- * - درجة الشك (totalSuspicion) ≥ 74
- * - عدد إشارات الشك ≥ 2
- * - المهلة الزمنية: 8 ثوانٍ
+ * - يجتاز السطر جدول التصفية (routing) في مرحلة PostClassificationReviewer
+ * - يقع ضمن سقف الإرسال للوكيل (وفق profile التشغيل)
+ * - لا يتجاوز زمن التنفيذ الإجمالي للوكيل حد المهلة المعتمد
  */
 
-import type { LineType } from './screenplay'
+import type { LineType } from "./screenplay";
 
 /**
  * سطر سياقي محيط بالسطر المشبوه — يُرسل للوكيل لتوفير سياق القرار
@@ -19,9 +19,9 @@ import type { LineType } from './screenplay'
  * @property text - النص الحرفي للسطر
  */
 export interface AgentReviewContextLine {
-  lineIndex: number
-  assignedType: LineType
-  text: string
+  lineIndex: number;
+  assignedType: LineType;
+  text: string;
 }
 
 /**
@@ -34,15 +34,23 @@ export interface AgentReviewContextLine {
  * @property totalSuspicion - درجة الشك الإجمالية (0-100)
  * @property reasons - أسباب الشك من الكاشفات الخمسة
  * @property contextLines - أسطر محيطة لتوفير السياق
+ * @property escalationScore - (اختياري) سكور التصعيد النهائي بعد المزج الرقمي
+ * @property routingBand - (اختياري) مسار التصفية الذي صعّد السطر
+ * @property criticalMismatch - (اختياري) هل السطر ينتمي لحالة mismatch حرجة
+ * @property distinctDetectors - (اختياري) عدد الكواشف المختلفة التي أطلقت الشك
  */
 export interface AgentSuspiciousLinePayload {
-  itemIndex: number
-  lineIndex: number
-  text: string
-  assignedType: LineType
-  totalSuspicion: number
-  reasons: string[]
-  contextLines: AgentReviewContextLine[]
+  itemIndex: number;
+  lineIndex: number;
+  text: string;
+  assignedType: LineType;
+  totalSuspicion: number;
+  reasons: string[];
+  contextLines: AgentReviewContextLine[];
+  escalationScore?: number;
+  routingBand?: "agent-candidate" | "agent-forced";
+  criticalMismatch?: boolean;
+  distinctDetectors?: number;
 }
 
 /**
@@ -54,10 +62,10 @@ export interface AgentSuspiciousLinePayload {
  * @property suspiciousLines - الأسطر التي تجاوزت عتبة الشك
  */
 export interface AgentReviewRequestPayload {
-  sessionId: string
-  totalReviewed: number
-  reviewPacketText?: string
-  suspiciousLines: AgentSuspiciousLinePayload[]
+  sessionId: string;
+  totalReviewed: number;
+  reviewPacketText?: string;
+  suspiciousLines: AgentSuspiciousLinePayload[];
 }
 
 /**
@@ -69,10 +77,10 @@ export interface AgentReviewRequestPayload {
  * @property reason - تبرير القرار (نص حر)
  */
 export interface AgentReviewDecision {
-  itemIndex: number
-  finalType: LineType
-  confidence: number
-  reason: string
+  itemIndex: number;
+  finalType: LineType;
+  confidence: number;
+  reason: string;
 }
 
 /**
@@ -89,9 +97,9 @@ export interface AgentReviewDecision {
  * @property latencyMs - زمن الاستجابة بالمللي ثانية
  */
 export interface AgentReviewResponsePayload {
-  status: 'applied' | 'skipped' | 'warning' | 'error'
-  model: string
-  decisions: AgentReviewDecision[]
-  message: string
-  latencyMs: number
+  status: "applied" | "skipped" | "warning" | "error";
+  model: string;
+  decisions: AgentReviewDecision[];
+  message: string;
+  latencyMs: number;
 }

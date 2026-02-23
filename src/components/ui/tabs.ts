@@ -1,4 +1,4 @@
-import { createUiPrimitive } from './_factory'
+import { createUiPrimitive } from "./_factory";
 
-export const createTabsPrimitive = (text = 'tabs'): HTMLElement => createUiPrimitive('tabs', text)
-
+export const createTabsPrimitive = (text = "tabs"): HTMLElement =>
+  createUiPrimitive("tabs", text);

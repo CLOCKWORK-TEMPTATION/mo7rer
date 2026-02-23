@@ -1,25 +1,29 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const doubles = vi.hoisted(() => {
-  const stripTags = (value: string): string => value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-  let html = '<div data-type="action"></div>'
-  let text = ''
+  const stripTags = (value: string): string =>
+    value
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  let html = '<div data-type="action"></div>';
+  let text = "";
 
   const chain = {
     focus: vi.fn(() => chain),
     insertContent: vi.fn((value: string) => {
-      html += value
-      text = `${text} ${stripTags(value)}`.trim()
-      return chain
+      html += value;
+      text = `${text} ${stripTags(value)}`.trim();
+      return chain;
     }),
     run: vi.fn(() => true),
-  }
+  };
 
   const editor = {
     commands: {
       setContent: vi.fn((value: string) => {
-        html = value
-        text = stripTags(value)
+        html = value;
+        text = stripTags(value);
       }),
       focus: vi.fn(),
       selectAll: vi.fn(),
@@ -47,94 +51,112 @@ const doubles = vi.hoisted(() => {
     state: {
       selection: { empty: true, from: 0, to: 0 },
       doc: {
-        textBetween: vi.fn(() => ''),
+        textBetween: vi.fn(() => ""),
       },
     },
     destroy: vi.fn(),
-  }
+  };
 
-  const applyPasteClassifierFlowToView = vi.fn<
-    (view: unknown, text: string, options?: { from?: number; to?: number }) => Promise<boolean>
-  >()
+  const applyPasteClassifierFlowToView =
+    vi.fn<
+      (
+        view: unknown,
+        text: string,
+        options?: { from?: number; to?: number }
+      ) => Promise<boolean>
+    >();
 
   return {
     editor,
     chain,
     applyPasteClassifierFlowToView,
     reset: () => {
-      html = '<div data-type="action"></div>'
-      text = ''
-      chain.focus.mockClear()
-      chain.insertContent.mockClear()
-      chain.run.mockClear()
-      editor.commands.setContent.mockClear()
-      editor.chain.mockClear()
-      editor.on.mockClear()
-      editor.off.mockClear()
-      editor.destroy.mockClear()
-      applyPasteClassifierFlowToView.mockReset()
+      html = '<div data-type="action"></div>';
+      text = "";
+      chain.focus.mockClear();
+      chain.insertContent.mockClear();
+      chain.run.mockClear();
+      editor.commands.setContent.mockClear();
+      editor.chain.mockClear();
+      editor.on.mockClear();
+      editor.off.mockClear();
+      editor.destroy.mockClear();
+      applyPasteClassifierFlowToView.mockReset();
     },
-  }
-})
+  };
+});
 
-vi.mock('../../../src/editor', () => ({
+vi.mock("../../../src/editor", () => ({
   createScreenplayEditor: vi.fn(() => doubles.editor),
   SCREENPLAY_ELEMENTS: [],
-}))
+}));
 
-vi.mock('../../../src/extensions/paste-classifier', () => ({
+vi.mock("../../../src/extensions/paste-classifier", () => ({
   applyPasteClassifierFlowToView: doubles.applyPasteClassifierFlowToView,
-}))
+  PASTE_CLASSIFIER_ERROR_EVENT: "paste-classifier:error",
+}));
 
-import { EditorArea } from '../../../src/components/editor/EditorArea'
+import { EditorArea } from "../../../src/components/editor/EditorArea";
 
-describe('EditorArea import regression', () => {
+describe("EditorArea import regression", () => {
   beforeEach(() => {
-    doubles.reset()
-  })
+    doubles.reset();
+  });
 
-  it('fails hard when remote review path fails', async () => {
-    doubles.applyPasteClassifierFlowToView.mockRejectedValueOnce(new Error('agent down'))
+  it("fails hard when remote review path fails", async () => {
+    doubles.applyPasteClassifierFlowToView.mockRejectedValueOnce(
+      new Error("agent down")
+    );
 
-    const mount = document.createElement('div')
-    document.body.appendChild(mount)
-    const area = new EditorArea({ mount })
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const area = new EditorArea({ mount });
 
-    await expect(area.importClassifiedText('مرحبا', 'replace')).rejects.toThrow('agent down')
+    await expect(area.importClassifiedText("مرحبا", "replace")).rejects.toThrow(
+      "agent down"
+    );
     expect(doubles.applyPasteClassifierFlowToView).toHaveBeenCalledWith(
       doubles.editor.view,
-      'مرحبا',
-      expect.objectContaining({ from: 0, to: 10 }),
-    )
+      "مرحبا",
+      expect.objectContaining({ from: 0, to: 10 })
+    );
 
-    expect(doubles.editor.commands.setContent).not.toHaveBeenCalled()
+    expect(doubles.editor.commands.setContent).not.toHaveBeenCalled();
 
-    area.destroy()
-    mount.remove()
-  })
+    area.destroy();
+    mount.remove();
+  });
 
-  it('imports structured blocks in insert mode through editor chain', () => {
-    const mount = document.createElement('div')
-    document.body.appendChild(mount)
-    const area = new EditorArea({ mount })
+  it("imports structured blocks in insert mode through classifier flow", async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const area = new EditorArea({ mount });
 
-    area.importStructuredBlocks([{ formatId: 'dialogue', text: 'هذا اختبار' }], 'insert')
-    expect(doubles.chain.insertContent).toHaveBeenCalledTimes(1)
-    expect(String(doubles.chain.insertContent.mock.calls[0]?.[0])).toContain('data-type="dialogue"')
+    doubles.applyPasteClassifierFlowToView.mockResolvedValueOnce(true);
+    await area.importStructuredBlocks(
+      [{ formatId: "dialogue", text: "هذا اختبار" }],
+      "insert"
+    );
+    expect(doubles.applyPasteClassifierFlowToView).toHaveBeenCalledWith(
+      doubles.editor.view,
+      "هذا اختبار",
+      expect.objectContaining({ from: 2, to: 4 })
+    );
+    expect(doubles.chain.insertContent).not.toHaveBeenCalled();
 
-    area.destroy()
-    mount.remove()
-  })
+    area.destroy();
+    mount.remove();
+  });
 
-  it('ignores empty structured blocks payload', () => {
-    const mount = document.createElement('div')
-    document.body.appendChild(mount)
-    const area = new EditorArea({ mount })
+  it("ignores empty structured blocks payload", async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const area = new EditorArea({ mount });
 
-    area.importStructuredBlocks([], 'replace')
-    expect(doubles.editor.commands.setContent).not.toHaveBeenCalled()
+    await area.importStructuredBlocks([], "replace");
+    expect(doubles.editor.commands.setContent).not.toHaveBeenCalled();
 
-    area.destroy()
-    mount.remove()
-  })
-})
+    area.destroy();
+    mount.remove();
+  });
+});

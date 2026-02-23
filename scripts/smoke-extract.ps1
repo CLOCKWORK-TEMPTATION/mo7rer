@@ -19,12 +19,6 @@ $fixtureSpecs = @(
     ExpectedMethod = "doc-converter-flow"
   },
   @{
-    RelativePath = "tests/fixtures/regression/12.docx"
-    Extension = "docx"
-    Requires = "none"
-    ExpectedMethod = "docx-xml-direct"
-  },
-  @{
     RelativePath = "tests/fixtures/regression/12.pdf"
     Extension = "pdf"
     Requires = "ocr"

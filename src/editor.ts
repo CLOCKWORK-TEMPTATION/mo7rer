@@ -14,43 +14,44 @@
  *   - `@tiptap/core` — محرك المحرر الأساسي.
  *   - `@tiptap-pro/extension-pages` — نظام تقسيم الصفحات.
  *   - `./extensions/*` — 10 امتدادات مخصصة لعناصر السيناريو + الأوامر + مصنف اللصق.
- *   - `./constants/page` — ثوابت أبعاد الصفحة (A4 @ 96 PPI).
+ *   - `./constants` — ثوابت أبعاد الصفحة والتخطيط (A4 @ 96 PPI).
  *
  * @usedBy
  *   - `components/editor/EditorArea.ts` — يستدعي `createScreenplayEditor` لتركيب المحرر.
  *   - `toolbar.ts` — يستورد `SCREENPLAY_ELEMENTS` لبناء القائمة المنسدلة.
  *   - `App.tsx` — يستورد `SCREENPLAY_ELEMENTS` لربط الاختصارات وعرض التسميات.
  */
-import { Editor } from '@tiptap/core'
-import { Basmala } from './extensions/basmala'
-import { SceneHeaderTopLine } from './extensions/scene-header-top-line'
-import { SceneHeader1 } from './extensions/scene-header-1'
-import { SceneHeader2 } from './extensions/scene-header-2'
-import { SceneHeader3 } from './extensions/scene-header-3'
-import { Action } from './extensions/action'
-import { Character } from './extensions/character'
-import { Dialogue } from './extensions/dialogue'
-import { Parenthetical } from './extensions/parenthetical'
-import { Transition } from './extensions/transition'
-import { ScreenplayCommands } from './extensions/screenplay-commands'
-import { PasteClassifier } from './extensions/paste-classifier'
-import { Pages } from '@tiptap-pro/extension-pages'
+import { Editor } from "@tiptap/core";
+import { Basmala } from "./extensions/basmala";
+import { SceneHeaderTopLine } from "./extensions/scene-header-top-line";
+import { SceneHeader1 } from "./extensions/scene-header-1";
+import { SceneHeader2 } from "./extensions/scene-header-2";
+import { SceneHeader3 } from "./extensions/scene-header-3";
+import { Action } from "./extensions/action";
+import { Character } from "./extensions/character";
+import { Dialogue } from "./extensions/dialogue";
+import { Parenthetical } from "./extensions/parenthetical";
+import { Transition } from "./extensions/transition";
+import { ScreenplayCommands } from "./extensions/screenplay-commands";
+import { PasteClassifier } from "./extensions/paste-classifier";
+import { Pages } from "@tiptap-pro/extension-pages";
 import {
   FOOTER_HEIGHT_PX,
+  HEADER_HEIGHT_PX,
   PAGE_GAP_PX,
   PAGE_HEIGHT_PX,
   PAGE_MARGIN_LEFT_PX,
   PAGE_MARGIN_RIGHT_PX,
   PAGE_WIDTH_PX,
-} from './constants/page'
+} from "./constants";
 
 // الامتدادات الأساسية من Tiptap
-import Document from '@tiptap/extension-document'
-import Text from '@tiptap/extension-text'
-import Bold from '@tiptap/extension-bold'
-import Italic from '@tiptap/extension-italic'
-import Underline from '@tiptap/extension-underline'
-import TextAlign from '@tiptap/extension-text-align'
+import Document from "@tiptap/extension-document";
+import Text from "@tiptap/extension-text";
+import Bold from "@tiptap/extension-bold";
+import Italic from "@tiptap/extension-italic";
+import Underline from "@tiptap/extension-underline";
+import TextAlign from "@tiptap/extension-text-align";
 
 /**
  * @description قائمة عناصر السيناريو المتاحة مع البيانات الوصفية لكل عنصر.
@@ -82,15 +83,45 @@ import TextAlign from '@tiptap/extension-text-align'
  * }
  */
 export const SCREENPLAY_ELEMENTS = [
-  { name: 'basmala', label: 'بسملة', shortcut: 'Ctrl+0', icon: '﷽' },
-  { name: 'sceneHeaderTopLine', label: 'سطر رأس المشهد', shortcut: 'Ctrl+1', icon: '🎬' },
-  { name: 'sceneHeader3', label: 'رأس المشهد (3)', shortcut: 'Ctrl+2', icon: '📍' },
-  { name: 'action', label: 'حركة (Action)', shortcut: 'Ctrl+3', icon: '📝' },
-  { name: 'character', label: 'شخصية (Character)', shortcut: 'Ctrl+4', icon: '👤' },
-  { name: 'dialogue', label: 'حوار (Dialogue)', shortcut: 'Ctrl+5', icon: '💬' },
-  { name: 'parenthetical', label: 'توصيف (Parenthetical)', shortcut: 'Ctrl+6', icon: '🎭' },
-  { name: 'transition', label: 'انتقال (Transition)', shortcut: 'Ctrl+7', icon: '🔀' },
-] as const
+  { name: "basmala", label: "بسملة", shortcut: "Ctrl+0", icon: "﷽" },
+  {
+    name: "sceneHeaderTopLine",
+    label: "سطر رأس المشهد",
+    shortcut: "Ctrl+1",
+    icon: "🎬",
+  },
+  {
+    name: "sceneHeader3",
+    label: "رأس المشهد (3)",
+    shortcut: "Ctrl+2",
+    icon: "📍",
+  },
+  { name: "action", label: "حركة (Action)", shortcut: "Ctrl+3", icon: "📝" },
+  {
+    name: "character",
+    label: "شخصية (Character)",
+    shortcut: "Ctrl+4",
+    icon: "👤",
+  },
+  {
+    name: "dialogue",
+    label: "حوار (Dialogue)",
+    shortcut: "Ctrl+5",
+    icon: "💬",
+  },
+  {
+    name: "parenthetical",
+    label: "توصيف (Parenthetical)",
+    shortcut: "Ctrl+6",
+    icon: "🎭",
+  },
+  {
+    name: "transition",
+    label: "انتقال (Transition)",
+    shortcut: "Ctrl+7",
+    icon: "🔀",
+  },
+] as const;
 
 /**
  * @description تنسيق الصفحة المخصص لسيناريوهات Filmlane بمقاس A4 عند 96 PPI.
@@ -101,7 +132,7 @@ export const SCREENPLAY_ELEMENTS = [
  * @see PAGE_HEIGHT_PX — ارتفاع الصفحة (1123px).
  */
 const SCREENPLAY_PAGE_FORMAT = {
-  id: 'FilmlaneA4',
+  id: "FilmlaneA4",
   width: PAGE_WIDTH_PX,
   height: PAGE_HEIGHT_PX,
   margins: {
@@ -111,18 +142,18 @@ const SCREENPLAY_PAGE_FORMAT = {
     bottom: 0,
     left: PAGE_MARGIN_LEFT_PX,
   },
-} as const
+} as const;
 
 /** ارتفاع كتلة رأس الصفحة بالبكسل — يوفر مساحة فارغة أعلى كل صفحة */
-const PAGES_HEADER_HEIGHT_PX = 77
+const PAGES_HEADER_HEIGHT_PX = HEADER_HEIGHT_PX;
 /** قالب HTML لرأس الصفحة — مساحة فارغة بارتفاع ثابت */
-const PAGES_HEADER_TEMPLATE_V2 = `<div class="filmlane-pages-header-spacer-v2" style="min-height:${PAGES_HEADER_HEIGHT_PX}px;"></div>`
+const PAGES_HEADER_TEMPLATE_V2 = `<div class="filmlane-pages-header-spacer-v2" style="min-height:${PAGES_HEADER_HEIGHT_PX}px;"></div>`;
 
 /**
  * قالب HTML لذيل الصفحة — يعرض رقم الصفحة.
  * العنصر النائب `{page}` يُستبدل تلقائياً بواسطة امتداد Pages.
  */
-const PAGES_FOOTER_TEMPLATE = `<div class="filmlane-pages-footer-spacer" style="min-height:${FOOTER_HEIGHT_PX}px;"><span class="filmlane-pages-footer-number">{page}.</span></div>`
+const PAGES_FOOTER_TEMPLATE = `<div class="filmlane-pages-footer-spacer" style="min-height:${FOOTER_HEIGHT_PX}px;"><span class="filmlane-pages-footer-number">{page}.</span></div>`;
 
 /**
  * إنشاء محرر السيناريو
@@ -130,8 +161,9 @@ const PAGES_FOOTER_TEMPLATE = `<div class="filmlane-pages-footer-spacer" style="
 export function createScreenplayEditor(element: HTMLElement): Editor {
   // تخصيص مستند (Document) لقبول عناصر السيناريو فقط
   const ScreenplayDocument = Document.extend({
-    content: '(basmala | sceneHeaderTopLine | sceneHeader3 | action | character | dialogue | parenthetical | transition)+',
-  })
+    content:
+      "(basmala | sceneHeaderTopLine | sceneHeader3 | action | character | dialogue | parenthetical | transition)+",
+  });
 
   const editor = new Editor({
     element,
@@ -143,25 +175,25 @@ export function createScreenplayEditor(element: HTMLElement): Editor {
       Underline,
       TextAlign.configure({
         types: [
-          'basmala',
-          'sceneHeaderTopLine',
-          'sceneHeader1',
-          'sceneHeader2',
-          'sceneHeader3',
-          'action',
-          'character',
-          'dialogue',
-          'parenthetical',
-          'transition',
+          "basmala",
+          "sceneHeaderTopLine",
+          "sceneHeader1",
+          "sceneHeader2",
+          "sceneHeader3",
+          "action",
+          "character",
+          "dialogue",
+          "parenthetical",
+          "transition",
         ],
-        alignments: ['left', 'center', 'right'],
+        alignments: ["left", "center", "right"],
       }),
       Pages.configure({
         pageFormat: SCREENPLAY_PAGE_FORMAT,
         pageGap: PAGE_GAP_PX,
         headerTopMargin: 0,
         footerBottomMargin: 0,
-        pageBreakBackground: '#060808',
+        pageBreakBackground: "#060808",
         header: PAGES_HEADER_TEMPLATE_V2,
         footer: PAGES_FOOTER_TEMPLATE,
       }),
@@ -184,15 +216,15 @@ export function createScreenplayEditor(element: HTMLElement): Editor {
     content: getDefaultContent(),
     editorProps: {
       attributes: {
-        class: 'tiptap',
-        spellcheck: 'true',
-        dir: 'rtl',
+        class: "tiptap",
+        spellcheck: "true",
+        dir: "rtl",
       },
     },
     autofocus: true,
-  })
+  });
 
-  return editor
+  return editor;
 }
 
 /**
@@ -216,5 +248,5 @@ function getDefaultContent(): string {
     <div data-type="scene-header-top-line"><div data-type="scene-header-1">مشهد 2</div><div data-type="scene-header-2">ليل - خارجي</div></div>
     <div data-type="scene-header-3">أمام المنزل - الباب الرئيسي</div>
     <div data-type="action">سارة تقف أمام الباب، تحمل حقيبة سفر. تبدو مرهقة.</div>
-  `.trim()
+  `.trim();
 }
