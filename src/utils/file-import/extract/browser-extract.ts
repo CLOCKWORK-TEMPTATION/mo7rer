@@ -5,9 +5,9 @@
  * الأنواع المدعومة:
  * - `txt` / `fountain` / `fdx` — قراءة نصية مباشرة مع كشف ترميز ذكي
  *   (UTF-8 → windows-1256 → ISO-8859-1) للنصوص العربية
- * - `docx` — عبر مكتبة mammoth (extractRawText)
+ * - `docx` — عبر mammoth (convertToHtml -> html->text) مع fallback إلى extractRawText
  * - `pdf` — عبر pdfjs-dist (text layer فقط، بدون OCR)
- * - `doc` — غير مدعوم في المتصفح (يحتاج Backend)
+ * - `doc` — استخراج best-effort من النصوص المرئية (Fallback)
  *
  * كل مسار يفحص وجود Filmlane Payload Marker قبل إرجاع النص الخام.
  */
@@ -18,10 +18,26 @@ import type {
 import {
   extractPayloadFromText,
 } from '../document-model'
+import { normalizeExtractedDocxText } from './docx-html-to-text.mjs'
+import { extractDocxFromXml } from './docx-xml-extract'
 
 /** يوحّد فواصل الأسطر إلى `\n` */
 const normalizeNewlines = (value: string): string =>
   (value ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+
+/**
+ * تنظيف best-effort لملفات DOC عند الاستخراج داخل المتصفح:
+ * - إزالة المحارف الثنائية غير القابلة للعرض.
+ * - الحفاظ على العربية/الإنجليزية وعلامات الترقيم الشائعة.
+ * - ضغط الفراغات المتكررة دون الإضرار بفواصل الأسطر.
+ */
+const normalizeLegacyDocBestEffortText = (value: string): string =>
+  normalizeNewlines(value)
+    .replace(/[^\u0009\u000A\u000D\u0020-\u007E\u00A0-\u00FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 
 /**
  * يحاول فكّ ترميز مصفوفة بايت بترميز محدد.
@@ -80,28 +96,58 @@ const toPayloadResult = (
 })
 
 /**
- * يستخرج النص الخام من ملف DOCX عبر مكتبة mammoth (extractRawText).
- * @throws {Error} إذا تعذّر تحميل الدالة من المكتبة
+ * يستخرج نص DOCX عبر مسار أساسي:
+ * `mammoth.convertToHtml -> htmlToText` للحفاظ على `<br/>`.
+ * عند الفشل، يهبط إلى `extractRawText`.
+ * @throws {Error} إذا فشل المساران أو تعذّر تحميل دوال mammoth
  */
-async function extractDocxText(file: File): Promise<{ text: string; attempts: string[] }> {
+async function extractDocxText(
+  file: File,
+): Promise<{ text: string; attempts: string[]; warnings: string[] }> {
+  const arrayBuffer = await file.arrayBuffer()
+  const attempts: string[] = []
+  const warnings: string[] = []
+
+  // المسار الأساسي: استخراج XML مباشر (بدون Mammoth HTML)
+  attempts.push('docx-xml-direct')
+  try {
+    const xmlResult = await extractDocxFromXml(arrayBuffer)
+    warnings.push(...xmlResult.warnings)
+
+    if (xmlResult.text.trim()) {
+      return { text: xmlResult.text, attempts, warnings }
+    }
+    warnings.push('docx-xml-direct أعاد نصًا فارغًا؛ الهبوط إلى Mammoth.')
+  } catch (xmlError) {
+    warnings.push(
+      `فشل docx-xml-direct: ${xmlError instanceof Error ? xmlError.message : String(xmlError)}; الهبوط إلى Mammoth.`,
+    )
+  }
+
+  // المسار الاحتياطي: Mammoth extractRawText فقط
   const mammoth = (await import('mammoth')) as {
     extractRawText?: (input: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }>
     default?: {
       extractRawText?: (input: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }>
     }
   }
-
   const extractRawText = mammoth.extractRawText ?? mammoth.default?.extractRawText
-  if (!extractRawText) {
-    throw new Error('تعذر تحميل دالة extractRawText من مكتبة mammoth.')
+  if (extractRawText) {
+    try {
+      const result = await extractRawText({ arrayBuffer })
+      const text = normalizeExtractedDocxText(result.value ?? '')
+      attempts.push('mammoth-raw-fallback')
+      if (text.trim()) {
+        return { text, attempts, warnings }
+      }
+    } catch (error) {
+      warnings.push(
+        `فشل mammoth-raw-fallback: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
   }
 
-  const arrayBuffer = await file.arrayBuffer()
-  const result = await extractRawText({ arrayBuffer })
-  return {
-    text: normalizeNewlines(result.value ?? ''),
-    attempts: ['mammoth'],
-  }
+  throw new Error(`فشل استخراج DOCX عبر جميع المسارات: ${warnings.join(' | ') || 'غير معروف'}`)
 }
 
 /**
@@ -152,32 +198,42 @@ async function extractPdfTextLayer(file: File): Promise<{ text: string; attempts
       attempts: ['pdfjs-text-layer'],
     }
   } finally {
+    // أخطاء cleanup لا ينبغي أن تُفشل الاستخراج الناجح.
     if (typeof documentRef.destroy === 'function') {
-      await documentRef.destroy()
+      try {
+        await documentRef.destroy()
+      } catch {
+        // noop
+      }
     }
-    await task.destroy()
+    try {
+      await task.destroy()
+    } catch {
+      // noop
+    }
   }
 }
 
 /**
  * يتحقق ممّا إذا كان نوع الملف مدعوماً للاستخراج في المتصفح.
- * ملفات DOC غير مدعومة (تحتاج Backend).
+ * جميع الأنواع المعروفة مدعومة، وملف DOC يعمل بوضع best-effort.
  */
 export const isBrowserExtractionSupported = (fileType: ImportedFileType): boolean =>
-  fileType !== 'doc'
+  Boolean(fileType)
 
 /**
  * يستخرج نص الملف داخل المتصفح حسب نوعه:
  * - `txt`/`fountain`/`fdx` → قراءة نصية مع كشف ترميز
  * - `docx` → mammoth
  * - `pdf` → pdfjs-dist text layer
+ * - `doc` → best-effort text extraction
  *
  * يفحص وجود Filmlane Payload Marker قبل إرجاع النص الخام.
  *
  * @param file - كائن الملف
  * @param fileType - نوع الملف المُحدد
  * @returns نتيجة الاستخراج
- * @throws {Error} للأنواع غير المدعومة (doc) أو أخطاء المكتبات
+ * @throws {Error} للأنواع غير المدعومة أو أخطاء المكتبات
  */
 export const extractFileInBrowser = async (
   file: File,
@@ -207,17 +263,14 @@ export const extractFileInBrowser = async (
 
   if (fileType === 'docx') {
     const extracted = await extractDocxText(file)
-    const payload = extractPayloadFromText(extracted.text)
-    if (payload) {
-      return toPayloadResult(payload, fileType, [...extracted.attempts, 'payload-marker'])
-    }
-
     return {
       text: extracted.text,
       fileType,
-      method: 'mammoth',
+      method: extracted.attempts.includes('mammoth-raw-fallback')
+        ? 'mammoth'
+        : 'docx-xml-direct',
       usedOcr: false,
-      warnings: [],
+      warnings: extracted.warnings,
       attempts: extracted.attempts,
     }
   }
@@ -231,6 +284,29 @@ export const extractFileInBrowser = async (
       usedOcr: false,
       warnings: [],
       attempts: extracted.attempts,
+    }
+  }
+
+  if (fileType === 'doc') {
+    const arrayBuffer = await file.arrayBuffer()
+    const text = normalizeLegacyDocBestEffortText(decodeTextBuffer(arrayBuffer))
+
+    if (!text) {
+      throw new Error('تعذر استخراج نص قابل للقراءة من ملف DOC داخل المتصفح.')
+    }
+
+    const payload = extractPayloadFromText(text)
+    if (payload) {
+      return toPayloadResult(payload, fileType, ['doc-browser-best-effort', 'payload-marker'])
+    }
+
+    return {
+      text,
+      fileType,
+      method: 'native-text',
+      usedOcr: false,
+      warnings: ['تم استخدام استخراج DOC داخل المتصفح بوضع best-effort. للحصول على دقة أعلى استخدم Backend.'],
+      attempts: ['doc-browser-best-effort'],
     }
   }
 

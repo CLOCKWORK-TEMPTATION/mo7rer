@@ -57,7 +57,7 @@ type ClassificationState = {
 
 const INLINE_SPEAKER_RE = /^([^:：]{1,30})\s*[:：]\s*(.+)$/u
 const SPEAKER_CUE_RE = /^([^:：]{1,30})\s*[:：]\s*$/u
-const TRANSITION_LINE_RE = /^(?:قطع|انتقال(?:\s+إلى)?|cut\s+to)\s*[:：]?$/iu
+const TRANSITION_LINE_RE = /^(?:قطع(?:\s+إلى)?|انتقال(?:\s+إلى)?|cut\s+to)\s*[:：]?$/iu
 
 const normalizeInlineSpaces = (value: string): string =>
   value.replace(/\s+/g, ' ').trim()

@@ -26,6 +26,9 @@ export interface ImportPreprocessResult {
 const normalizeNewlines = (value: string): string =>
   (value ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
+const stripDirectionalMarks = (value: string): string =>
+  (value ?? '').replace(/[\u200E\u200F\u061C\uFEFF]/g, '')
+
 const SCENE_STATUS_TOKENS =
   'نهار|ليل|صباح|مساء|فجر|داخلي|خارجي|داخل\\s*[-/]\\s*خارجي|خارج\\s*[-/]\\s*داخلي'
 
@@ -62,7 +65,8 @@ const normalizeSceneHeaderSpacing = (line: string): string => {
 }
 
 const looksLikeCharacterCue = (line: string): boolean =>
-  /[:：]\s*$/.test(line.trim()) && line.trim().length <= 48
+  /[:：]\s*$/.test(stripDirectionalMarks(line).trim()) &&
+  stripDirectionalMarks(line).trim().length <= 48
 
 const BULLET_PREFIX_REGEX =
   /^[\s\u200E\u200F\u061C\uFEFF]*[•·∙⋅●○◦■□▪▫◆◇–—−‒―‣⁃*+\-]+\s*/u
@@ -86,12 +90,31 @@ const stripBulletPrefix = (
  * الشروط: ≤28 حرفاً، ≤4 كلمات، أحرف وأرقام فقط، ليست كلمة مفتاحية محجوزة.
  */
 const isLikelySpeakerName = (value: string): boolean => {
-  const name = value.replace(/\s+/g, ' ').trim()
+  const name = stripDirectionalMarks(value).replace(/\s+/g, ' ').trim()
   if (!name || name.length > 28) return false
   if (name.split(' ').length > 4) return false
   if (!/^[\p{L}\p{N}\s]+$/u.test(name)) return false
   if (/^(?:مشهد|scene|قطع|انتقال|داخلي|خارجي)$/iu.test(name)) return false
   return true
+}
+
+const hasLikelyNarrativeSignal = (line: string): boolean => {
+  const normalized = stripDirectionalMarks(line).trim()
+  if (!normalized) return false
+  return (
+    /(?:^|\s)(?:وهو|وهي|ثم|بينما|بعد|قبل)(?:\s|$)/u.test(normalized) ||
+    /(?:^|\s)[يتنأ][\u0600-\u06FF]{2,}(?:\s|$)/u.test(normalized)
+  )
+}
+
+const endsWithLikelyActionTail = (value: string): boolean =>
+  /(?:ا|اً|ان|ين|ه|ها|هم|ني|نا|ك|كم|كن)$/u.test((value ?? '').trim())
+
+const isSafeStandaloneCue = (value: string): boolean => {
+  const wordCount = stripDirectionalMarks(value).split(/\s+/).filter(Boolean).length
+  if (wordCount <= 2) return true
+  if (wordCount === 3 && !hasLikelyNarrativeSignal(value)) return true
+  return false
 }
 
 /**
@@ -104,7 +127,9 @@ const normalizeDialogueBulletLine = (line: string): string[] => {
   if (cueOnlyMatch) {
     const speaker = cueOnlyMatch[1]?.trim() ?? ''
     if (speaker && isLikelySpeakerName(speaker)) {
-      return [`${speaker}:`]
+      if (isSafeStandaloneCue(speaker)) {
+        return [`${speaker}:`]
+      }
     }
   }
 
@@ -119,11 +144,56 @@ const normalizeDialogueBulletLine = (line: string): string[] => {
 }
 
 /**
+ * يفصل اسم شخصية ملتصق بنهاية سطر سرد (مثل: "يرفع يده معترضامحمود:")
+ * إلى سطرين مستقلين: "يرفع يده معترضا" ثم "محمود:"
+ * حتى لا يُصنف السطر كاملًا كـ character.
+ */
+const splitAttachedSpeakerCueLine = (line: string): string[] => {
+  const normalizedLine = stripDirectionalMarks(line).replace(/\s+/g, ' ').trim()
+  if (!normalizedLine) return [line]
+  if (!/[:：]\s*$/.test(normalizedLine)) return [line]
+
+  const withoutColon = normalizedLine.replace(/[:：]\s*$/u, '').trim()
+  if (!withoutColon) return [line]
+  if (isLikelySpeakerName(withoutColon)) {
+    if (isSafeStandaloneCue(withoutColon)) {
+      return [`${withoutColon}:`]
+    }
+  }
+
+  const words = withoutColon.split(/\s+/).filter(Boolean)
+  if (words.length < 2) return [line]
+
+  // حالة التصاق اسم الشخصية بآخر كلمة: "... معترضامحمود:"
+  const lastToken = words[words.length - 1] ?? ''
+  const basePrefix = words.slice(0, -1).join(' ').trim()
+  if (lastToken.length >= 6 && basePrefix.split(/\s+/).filter(Boolean).length >= 2) {
+    const minSpeakerLength = 4
+    const maxSpeakerLength = Math.min(8, lastToken.length - 2)
+    for (let speakerLength = minSpeakerLength; speakerLength <= maxSpeakerLength; speakerLength += 1) {
+      const tokenPrefix = lastToken.slice(0, -speakerLength)
+      const speaker = lastToken.slice(-speakerLength)
+      if (!tokenPrefix || !speaker) continue
+      if (!isLikelySpeakerName(speaker)) continue
+      if (!endsWithLikelyActionTail(tokenPrefix)) continue
+
+      const narrativePrefix = `${basePrefix} ${tokenPrefix}`.trim()
+      if (narrativePrefix.split(/\s+/).filter(Boolean).length < 3) continue
+      if (!hasLikelyNarrativeSignal(narrativePrefix)) continue
+
+      return [narrativePrefix, `${speaker}:`]
+    }
+  }
+
+  return [line]
+}
+
+/**
  * يتحقق ممّا إذا كان السطر حدّاً بنيوياً (سطر فارغ، انتقال، ترويسة مشهد، أو إشارة متحدث).
  * يُستخدم في {@link shouldJoinWrappedLine} لمنع دمج الأسطر عبر حدود البنية.
  */
 const looksLikeBoundaryLine = (line: string): boolean => {
-  const trimmed = line.trim()
+  const trimmed = stripDirectionalMarks(line).trim()
   if (!trimmed) return true
   if (/^(?:قطع|cut\s+to|انتقال)/iu.test(trimmed)) return true
   if (/^(?:مشهد|scene)\s*[0-9٠-٩]+/iu.test(trimmed)) return true
@@ -134,7 +204,7 @@ const looksLikeBoundaryLine = (line: string): boolean => {
 }
 
 const endsWithStrongPunctuation = (line: string): boolean =>
-  /[.!؟?!…:：]\s*$/u.test(line.trim())
+  /[.!؟?!…:：]\s*$/u.test(stripDirectionalMarks(line).trim())
 
 /**
  * يُقرر ما إذا كان يجب دمج سطرين متتاليين (السطر الحالي مع السابق).
@@ -167,14 +237,15 @@ const mergeWrappedLines = (rawText: string): string => {
   const output: string[] = []
 
   for (const sourceLine of inputLines) {
-    const cleanedLine = sourceLine
-      .replace(/\u200E|\u200F/g, '')
+    const cleanedLine = stripDirectionalMarks(sourceLine)
       .replace(/\t+/g, '    ')
       .trim()
     const sceneNormalizedLine = normalizeSceneHeaderSpacing(cleanedLine)
     const collapsedLine = sceneNormalizedLine.replace(/\s+/g, ' ').trim()
     const { line: withoutBullet } = stripBulletPrefix(collapsedLine)
-    const normalizedSegments = normalizeDialogueBulletLine(withoutBullet)
+    const normalizedSegments = normalizeDialogueBulletLine(withoutBullet).flatMap(
+      splitAttachedSpeakerCueLine,
+    )
 
     if (normalizedSegments.every((segment) => !segment.trim())) {
       if (output.length > 0 && output[output.length - 1] !== '') {
@@ -275,12 +346,17 @@ export const preprocessImportedTextForClassifier = (
     case 'doc':
       return normalizeDocTextFromAntiword(text)
     case 'docx': {
-      const merged = mergeWrappedLines(text)
-      const applied =
-        merged !== text
-          ? ['docx-tab-spacing-normalization', 'docx-wrapped-lines-normalized']
-          : ['docx-tab-spacing-normalization']
-      return { text: merged.trim(), applied }
+      // DOCX XML يحفظ حدود الفقرات بدقة — تطبيع خفيف فقط بدون دمج أسطر
+      const normalized = normalizeNewlines(text)
+        .replace(/\t+/g, '    ')
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+      return {
+        text: normalized,
+        applied: normalized !== text ? ['docx-lightweight-normalization'] : [],
+      }
     }
     case 'pdf':
       return preprocessPdfText(text)

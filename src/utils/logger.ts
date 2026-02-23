@@ -23,6 +23,7 @@ export type LogLevel = 'info' | 'warn' | 'error' | 'debug'
 export interface LogContext {
   scope?: string
   data?: unknown
+  tags?: string[]
 }
 
 /** يسمح بتسجيل debug فقط في بيئة التطوير */
@@ -32,6 +33,45 @@ const canDebug = import.meta.env.DEV
 const withScope = (message: string, scope?: string): string => {
   if (!scope) return message
   return `[${scope}] ${message}`
+}
+
+const normalizeLogData = (data: unknown): unknown => {
+  if (data instanceof Error) {
+    return {
+      name: data.name,
+      message: data.message,
+      stack: data.stack,
+    }
+  }
+  return data
+}
+
+const normalizeTags = (tags?: string[]): string =>
+  Array.isArray(tags) && tags.length > 0 ? ` tags=${tags.join(',')}` : ''
+
+const writeLog = (level: Exclude<LogLevel, 'debug'> | 'debug', message: string, context?: LogContext): void => {
+  const formatted = `${new Date().toISOString()} ${withScope(message, context?.scope)}${normalizeTags(context?.tags)}`
+  const payload = normalizeLogData(context?.data)
+
+  if (level === 'info') {
+    // eslint-disable-next-line no-console
+    console.info(formatted, payload ?? '')
+    return
+  }
+  if (level === 'warn') {
+    // eslint-disable-next-line no-console
+    console.warn(formatted, payload ?? '')
+    return
+  }
+  if (level === 'error') {
+    // eslint-disable-next-line no-console
+    console.error(formatted, payload ?? '')
+    return
+  }
+  if (canDebug) {
+    // eslint-disable-next-line no-console
+    console.debug(formatted, payload ?? '')
+  }
 }
 
 /**
@@ -45,23 +85,41 @@ const withScope = (message: string, scope?: string): string => {
  */
 export const logger = {
   info(message: string, context?: LogContext): void {
-    // eslint-disable-next-line no-console
-    console.info(withScope(message, context?.scope), context?.data ?? '')
+    writeLog('info', message, context)
   },
 
   warn(message: string, context?: LogContext): void {
-    // eslint-disable-next-line no-console
-    console.warn(withScope(message, context?.scope), context?.data ?? '')
+    writeLog('warn', message, context)
   },
 
   error(message: string, context?: LogContext): void {
-    // eslint-disable-next-line no-console
-    console.error(withScope(message, context?.scope), context?.data ?? '')
+    writeLog('error', message, context)
   },
 
   debug(message: string, context?: LogContext): void {
-    if (!canDebug) return
-    // eslint-disable-next-line no-console
-    console.debug(withScope(message, context?.scope), context?.data ?? '')
+    writeLog('debug', message, context)
+  },
+
+  telemetry(event: string, data?: unknown, context?: Omit<LogContext, 'data'>): void {
+    writeLog('info', `telemetry:${event}`, {
+      scope: context?.scope,
+      tags: context?.tags,
+      data,
+    })
+  },
+
+  createScope(scope: string) {
+    return {
+      info: (message: string, data?: unknown): void =>
+        logger.info(message, { scope, data }),
+      warn: (message: string, data?: unknown): void =>
+        logger.warn(message, { scope, data }),
+      error: (message: string, data?: unknown): void =>
+        logger.error(message, { scope, data }),
+      debug: (message: string, data?: unknown): void =>
+        logger.debug(message, { scope, data }),
+      telemetry: (event: string, data?: unknown): void =>
+        logger.telemetry(event, data, { scope }),
+    }
   },
 }

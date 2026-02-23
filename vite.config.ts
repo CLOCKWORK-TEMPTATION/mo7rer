@@ -12,6 +12,18 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  test: {
+    globals: true,
+    setupFiles: ['./tests/setup/vitest.setup.ts'],
+    environment: 'jsdom',
+    include: ['tests/**/*.test.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'json-summary'],
+      include: ['src/**/*.ts', 'src/**/*.tsx', 'server/**/*.mjs'],
+      exclude: ['src/main.tsx'],
+    },
+  },
   server: {
     port: 3000,
     open: false,

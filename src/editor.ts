@@ -50,6 +50,7 @@ import Text from '@tiptap/extension-text'
 import Bold from '@tiptap/extension-bold'
 import Italic from '@tiptap/extension-italic'
 import Underline from '@tiptap/extension-underline'
+import TextAlign from '@tiptap/extension-text-align'
 
 /**
  * @description قائمة عناصر السيناريو المتاحة مع البيانات الوصفية لكل عنصر.
@@ -140,6 +141,21 @@ export function createScreenplayEditor(element: HTMLElement): Editor {
       Bold,
       Italic,
       Underline,
+      TextAlign.configure({
+        types: [
+          'basmala',
+          'sceneHeaderTopLine',
+          'sceneHeader1',
+          'sceneHeader2',
+          'sceneHeader3',
+          'action',
+          'character',
+          'dialogue',
+          'parenthetical',
+          'transition',
+        ],
+        alignments: ['left', 'center', 'right'],
+      }),
       Pages.configure({
         pageFormat: SCREENPLAY_PAGE_FORMAT,
         pageGap: PAGE_GAP_PX,

@@ -12,12 +12,34 @@
 import type {
   FileExtractionResponse,
   FileExtractionResult,
+  ExtractionMethod,
   ImportedFileType,
 } from '../../../types/file-import'
 
 /** نقطة نهاية Backend المأخوذة من متغير البيئة */
+const DEV_DEFAULT_BACKEND_ENDPOINT = 'http://127.0.0.1:8787/api/file-extract'
 const ENV_BACKEND_ENDPOINT =
-  (import.meta.env.VITE_FILE_IMPORT_BACKEND_URL as string | undefined)?.trim() || ''
+  (import.meta.env.VITE_FILE_IMPORT_BACKEND_URL as string | undefined)?.trim() ||
+  (import.meta.env.DEV ? DEV_DEFAULT_BACKEND_ENDPOINT : '')
+
+const EXTRACTION_METHODS = new Set<ExtractionMethod>([
+  'native-text',
+  'mammoth',
+  'pdfjs-text-layer',
+  'doc-converter-flow',
+  'ocr-mistral',
+  'backend-api',
+  'app-payload',
+])
+
+const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((entry) => typeof entry === 'string')
+
+const isExtractionMethod = (value: unknown): value is ExtractionMethod =>
+  typeof value === 'string' && EXTRACTION_METHODS.has(value as ExtractionMethod)
 
 /**
  * يحوّل ArrayBuffer إلى سلسلة Base64 عبر تقطيع القطع (chunks)
@@ -36,7 +58,21 @@ const arrayBufferToBase64 = (arrayBuffer: ArrayBuffer): string => {
     binary += String.fromCharCode(...chunk)
   }
 
-  return btoa(binary)
+  if (typeof btoa === 'function') {
+    return btoa(binary)
+  }
+
+  const runtimeBuffer = (globalThis as {
+    Buffer?: {
+      from: (input: string, encoding: string) => { toString: (encoding: string) => string }
+    }
+  }).Buffer
+
+  if (runtimeBuffer) {
+    return runtimeBuffer.from(binary, 'binary').toString('base64')
+  }
+
+  throw new Error('No base64 encoder is available in the current runtime.')
 }
 
 /** يزيل الشرطة المائلة الزائدة من نهاية عنوان URL */
@@ -77,6 +113,44 @@ const resolveBackendExtractionEndpoint = (endpoint?: string): string => {
   return normalizeEndpoint(resolved)
 }
 
+const parseBackendExtractionResult = (
+  fileType: ImportedFileType,
+  body: FileExtractionResponse,
+): FileExtractionResult => {
+  if (!body.success || !body.data) {
+    throw new Error(body.error || 'Backend extraction failed without details.')
+  }
+
+  const data = body.data
+  if (!isObjectRecord(data)) {
+    throw new Error('Backend extraction response has invalid shape.')
+  }
+  if (typeof data.text !== 'string') {
+    throw new Error('Backend extraction response is missing text field.')
+  }
+  if (!isStringArray(data.warnings ?? [])) {
+    throw new Error('Backend extraction response has invalid warnings field.')
+  }
+  if (!isStringArray(data.attempts ?? [])) {
+    throw new Error('Backend extraction response has invalid attempts field.')
+  }
+  if (!isExtractionMethod(data.method ?? 'backend-api')) {
+    throw new Error(`Backend extraction response returned unknown method: ${String(data.method)}`)
+  }
+  if (typeof data.usedOcr !== 'boolean') {
+    throw new Error('Backend extraction response has invalid usedOcr field.')
+  }
+
+  return {
+    ...data,
+    fileType,
+    method: data.method,
+    warnings: data.warnings,
+    attempts: data.attempts,
+    usedOcr: data.usedOcr,
+  }
+}
+
 /**
  * يستخرج نص الملف عبر Backend API.
  *
@@ -98,7 +172,7 @@ export const extractFileWithBackend = async (
 
   const timeoutMs = options?.timeoutMs ?? 45_000
   const controller = new AbortController()
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const arrayBuffer = await file.arrayBuffer()
@@ -122,24 +196,16 @@ export const extractFileWithBackend = async (
     }
 
     const body = (await response.json()) as FileExtractionResponse
-    if (!body.success || !body.data) {
-      throw new Error(body.error || 'Backend extraction failed without details.')
-    }
-
-    return {
-      ...body.data,
-      fileType,
-      method: body.data.method ?? 'backend-api',
-      warnings: body.data.warnings ?? [],
-      attempts: body.data.attempts ?? ['backend-api'],
-      usedOcr: Boolean(body.data.usedOcr),
-    }
+    return parseBackendExtractionResult(fileType, body)
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('Backend extraction timed out.')
     }
+    if (error instanceof TypeError) {
+      throw new Error(`تعذر الاتصال بخدمة Backend extraction على ${endpoint}.`)
+    }
     throw error
   } finally {
-    window.clearTimeout(timeoutId)
+    globalThis.clearTimeout(timeoutId)
   }
 }

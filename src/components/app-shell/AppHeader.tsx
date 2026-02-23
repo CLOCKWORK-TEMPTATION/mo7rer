@@ -6,7 +6,9 @@ export interface AppShellMenuItem {
   label: string
   actionId: string
   shortcut?: string
-  accentColor?: string
+  icon?: React.ElementType
+  iconGlyph?: string
+  disabled?: boolean
 }
 
 export interface AppShellMenuSection {
@@ -61,12 +63,7 @@ export function AppHeader({
           </HoverBorderGradient>
         </HoverBorderGradient>
 
-        <HoverBorderGradient
-          as="div"
-          duration={1}
-          containerClassName="relative z-50 h-11 rounded-full"
-          className="flex h-full items-center gap-1.5 rounded-[inherit] bg-neutral-950/80 p-1.5 backdrop-blur-2xl"
-        >
+        <div className="relative z-50 flex h-11 items-center gap-1 rounded-full border border-white/10 bg-neutral-950/90 p-1 shadow-[0_12px_30px_-14px_rgba(0,0,0,0.9)] backdrop-blur-2xl">
           {menuSections.map((section) => (
             <div
               key={section.label}
@@ -75,37 +72,41 @@ export function AppHeader({
                 event.stopPropagation()
               }}
             >
-              <HoverBorderGradient
-                as="button"
-                duration={1}
-                containerClassName="h-full rounded-full"
-                className={`flex h-full min-w-[72px] justify-center items-center rounded-[inherit] px-4 text-[13px] font-medium transition-all ${
+              <button
+                className={`flex h-full min-w-[72px] items-center justify-center rounded-full px-4 text-[13px] font-medium transition-all ${
                   activeMenu === section.label
                     ? 'bg-neutral-800 text-white'
-                    : 'bg-neutral-900/90 text-neutral-400 hover:bg-neutral-800 group-hover:text-white'
+                    : 'bg-transparent text-neutral-400 hover:bg-neutral-900 hover:text-white group-hover:text-white'
                 }`}
                 onClick={() => onToggleMenu(section.label)}
               >
                 {section.label}
-              </HoverBorderGradient>
+              </button>
 
               {activeMenu === section.label && (
-                <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--popover)]/95 p-1 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
+                <div className="absolute right-0 top-full z-50 mt-2 min-w-[220px] overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/95 p-1.5 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.9)] backdrop-blur-2xl">
                   {section.items.map((item) => (
                     <button
                       key={`${section.label}-${item.label}`}
+                      disabled={item.disabled}
                       onClick={() => onAction(item.actionId)}
-                      className="flex w-full items-center gap-2 rounded-[var(--radius-md)] px-3 py-2 text-right text-[13px] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/50 hover:text-[var(--foreground)]"
+                      className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-right text-[13px] transition-colors ${
+                        item.disabled
+                          ? 'cursor-not-allowed text-neutral-600'
+                          : 'text-neutral-300 hover:bg-white/5 hover:text-white'
+                      }`}
                     >
-                      {item.accentColor && (
-                        <span
-                          className="h-2 w-2 flex-shrink-0 rounded-full"
-                          style={{ backgroundColor: item.accentColor }}
-                        />
-                      )}
                       <span className="flex-1 text-right">{item.label}</span>
                       {item.shortcut && (
-                        <span className="text-[10px] text-[var(--muted-foreground)]">{item.shortcut}</span>
+                        <span className="text-[10px] text-neutral-500">{item.shortcut}</span>
+                      )}
+                      {item.iconGlyph && (
+                        <span className="w-4 text-center text-[13px] text-neutral-400">
+                          {item.iconGlyph}
+                        </span>
+                      )}
+                      {item.icon && (
+                        <item.icon className="size-4 text-neutral-400" />
                       )}
                     </button>
                   ))}
@@ -113,7 +114,7 @@ export function AppHeader({
               )}
             </div>
           ))}
-        </HoverBorderGradient>
+        </div>
       </div>
 
       <HoverBorderGradient

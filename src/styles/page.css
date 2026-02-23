@@ -190,15 +190,23 @@
 
 /* الوصف / الحركة (Action) */
 .screenplay-action {
-  text-align: justify;
-  text-align-last: right;
-  text-justify: inter-word;
   width: 100%;
   margin: var(--fmt-action-margin, 0);
   min-height: var(--editor-line-height, 15pt);
   line-height: var(--editor-line-height, 15pt);
   padding: var(--fmt-action-padding, 0);
   font-weight: normal;
+}
+
+/*
+ * افتراضياً: action يكون مبرّرًا مثل Filmlane.
+ * عند تطبيق محاذاة من شريط الأدوات (Tiptap يضيف style="text-align: ..."),
+ * لا نفرض text-align-last حتى لا نكسر left/center/right.
+ */
+.screenplay-action:not([style*='text-align']) {
+  text-align: justify;
+  text-align-last: right;
+  text-justify: inter-word;
 }
 
 /* اسم الشخصية (Character) */

@@ -1,7 +1,6 @@
 import { createScreenplayEditor, SCREENPLAY_ELEMENTS } from '../../editor'
-import { ensureCharacterTrailingColon } from '../../extensions/character'
-import { classifyText, classifyTextWithAgentReview } from '../../extensions/paste-classifier'
-import { isElementType, type ClassifiedDraft, type ElementType } from '../../extensions/classification-types'
+import { applyPasteClassifierFlowToView } from '../../extensions/paste-classifier'
+import { isElementType, type ElementType } from '../../extensions/classification-types'
 import {
   CONTENT_HEIGHT_PX,
   FOOTER_HEIGHT_PX,
@@ -23,21 +22,6 @@ import { FILMLANE_CLIPBOARD_MIME, type ClipboardOrigin, type EditorClipboardPayl
 import type { RunEditorCommandOptions } from '../../types/editor-engine'
 import type { DocumentStats, EditorAreaProps, EditorCommand, EditorHandle, FileImportMode } from './editor-area.types'
 
-/**
- * @description هروب (Escape) للنصوص لضمان خلوها من وسوم HTML ضارة قبل حقنها.
- *
- * @param {string} value - النص الأصلي.
- * @returns {string} النص بعد استبدال العلامات الخاصة.
- */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
 const hashText = (value: string): string => {
   let hash = 0x811c9dc5
   for (let index = 0; index < value.length; index += 1) {
@@ -56,48 +40,6 @@ const isValidClipboardPayload = (value: unknown): value is EditorClipboardPayloa
   if (candidate.sourceKind !== 'selection' && candidate.sourceKind !== 'document') return false
   if (candidate.blocks && !Array.isArray(candidate.blocks)) return false
   return true
-}
-
-/**
- * @description تحويل السطر المُصنّف إلى شكل HTML جاهز للاستخدام داخل محرر Tiptap، مع الحفاظ على التنسيقات وتحديد نوع العنصر.
- *
- * @param {ClassifiedDraft} item - السطر وحالة تصنيفه.
- * @returns {string} وسوم HTML مع الكلاسات المناسبة.
- */
-function classifiedLineToHtml(item: ClassifiedDraft): string {
-  switch (item.type) {
-    case 'sceneHeaderTopLine': {
-      const h1 = escapeHtml(item.header1 ?? '')
-      const h2 = escapeHtml(item.header2 ?? '')
-      return `<div data-type="scene-header-top-line"><div data-type="scene-header-1">${h1}</div><div data-type="scene-header-2">${h2}</div></div>`
-    }
-
-    case 'character': {
-      const text = escapeHtml(ensureCharacterTrailingColon(item.text))
-      return `<div data-type="character">${text}</div>`
-    }
-
-    case 'sceneHeader3':
-      return `<div data-type="scene-header-3">${escapeHtml(item.text)}</div>`
-
-    case 'basmala':
-      return `<div data-type="basmala">${escapeHtml(item.text)}</div>`
-
-    case 'action':
-      return `<div data-type="action">${escapeHtml(item.text)}</div>`
-
-    case 'dialogue':
-      return `<div data-type="dialogue">${escapeHtml(item.text)}</div>`
-
-    case 'parenthetical':
-      return `<div data-type="parenthetical">${escapeHtml(item.text)}</div>`
-
-    case 'transition':
-      return `<div data-type="transition">${escapeHtml(item.text)}</div>`
-
-    default:
-      return `<div data-type="action">${escapeHtml(item.text)}</div>`
-  }
 }
 
 const commandNameByFormat: Record<ElementType, string> = {
@@ -210,6 +152,12 @@ export class EditorArea implements EditorHandle {
         return this.editor.chain().focus().toggleItalic().run()
       case 'underline':
         return this.editor.chain().focus().toggleUnderline().run()
+      case 'align-right':
+        return this.applyTextAlignCommand('right')
+      case 'align-center':
+        return this.applyTextAlignCommand('center')
+      case 'align-left':
+        return this.applyTextAlignCommand('left')
       case 'undo': {
         const undo = (this.editor.commands as Record<string, unknown>).undo
         return typeof undo === 'function' ? (undo as () => boolean)() : false
@@ -227,6 +175,65 @@ export class EditorArea implements EditorHandle {
       default:
         return false
     }
+  }
+
+  private applyTextAlignCommand(alignment: 'left' | 'center' | 'right'): boolean {
+    const chain = this.editor.chain().focus() as unknown as {
+      setTextAlign?: (value: 'left' | 'center' | 'right') => { run: () => boolean }
+      run: () => boolean
+    }
+
+    if (typeof chain.setTextAlign === 'function') {
+      const result = chain.setTextAlign(alignment).run()
+      if (result) return true
+    }
+
+    const setTextAlign = (this.editor.commands as Record<string, unknown>).setTextAlign
+    if (typeof setTextAlign === 'function') {
+      const result = (setTextAlign as (value: 'left' | 'center' | 'right') => boolean)(alignment)
+      if (result) return true
+    }
+
+    return this.applyTextAlignDomFallback(alignment)
+  }
+
+  private applyTextAlignDomFallback(alignment: 'left' | 'center' | 'right'): boolean {
+    const domSelection =
+      typeof window !== 'undefined' && typeof window.getSelection === 'function'
+        ? window.getSelection()
+        : null
+
+    let targetElement: HTMLElement | null = null
+    const anchorNode = domSelection?.anchorNode ?? null
+
+    if (anchorNode) {
+      const anchorElement =
+        anchorNode instanceof HTMLElement ? anchorNode : anchorNode.parentElement
+      targetElement = anchorElement?.closest<HTMLElement>('[data-type]') ?? null
+    }
+
+    if (!targetElement) {
+      const fromPos = this.editor.state.selection.from
+      const nodeAtPos = this.editor.view.nodeDOM(fromPos)
+      const baseElement =
+        nodeAtPos instanceof HTMLElement ? nodeAtPos : nodeAtPos?.parentElement ?? null
+      targetElement = baseElement?.closest<HTMLElement>('[data-type]') ?? null
+    }
+
+    if (!targetElement) return false
+
+    targetElement.style.textAlign = alignment
+    if (targetElement.getAttribute('data-type') === 'action') {
+      if (alignment === 'right') {
+        targetElement.style.textAlignLast = 'right'
+        targetElement.style.setProperty('text-justify', 'inter-word')
+      } else {
+        targetElement.style.textAlignLast = 'auto'
+        targetElement.style.setProperty('text-justify', 'auto')
+      }
+    }
+
+    return true
   }
 
   setFormat = (format: ElementType): boolean => {
@@ -250,25 +257,33 @@ export class EditorArea implements EditorHandle {
   }
 
   importClassifiedText = async (text: string, mode: FileImportMode = 'replace'): Promise<void> => {
-    let classified: ClassifiedDraft[]
-    try {
-      classified = await classifyTextWithAgentReview(text)
-    } catch {
-      classified = classifyText(text)
-    }
+    // ضمان تفعيل دورة القياس في امتداد الصفحات قبل/بعد إدراج النص.
+    this.editor.commands.focus(mode === 'replace' ? 'start' : 'end')
 
-    if (classified.length === 0) return
+    const state = this.editor.view.state
+    const replaceAllFrom = 0
+    const replaceAllTo = state.doc.content.size
+    const from = mode === 'replace' ? replaceAllFrom : state.selection.from
+    const to = mode === 'replace' ? replaceAllTo : state.selection.to
 
-    const html = classified.map(classifiedLineToHtml).join('')
+    const applied = await applyPasteClassifierFlowToView(this.editor.view, text, {
+      from,
+      to,
+    })
+    if (!applied) return
 
-    if (mode === 'replace') {
-      this.editor.commands.setContent(html)
-    } else {
-      this.editor.chain().focus().insertContent(html).run()
-    }
-
+    this.editor.commands.focus(mode === 'replace' ? 'start' : 'end')
     this.refreshPageModel(true)
+    this.scheduleCharacterWidowFix()
     this.emitState()
+
+    if (typeof window !== 'undefined') {
+      window.requestAnimationFrame(() => {
+        this.refreshPageModel(true)
+        this.scheduleCharacterWidowFix()
+        this.emitState()
+      })
+    }
   }
 
   importStructuredBlocks = (blocks: ScreenplayBlock[], mode: FileImportMode = 'replace'): void => {

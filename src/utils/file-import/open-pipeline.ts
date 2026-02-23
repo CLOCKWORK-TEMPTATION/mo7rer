@@ -63,6 +63,12 @@ export type FileOpenPipelineAction =
   | ImportClassifiedAction
   | RejectAction
 
+const FORCE_PASTE_CLASSIFIER_FILE_TYPES = new Set<FileExtractionResult['fileType']>([
+  'doc',
+  'docx',
+  'pdf',
+])
+
 /** يُرجع تسمية الوضع بالعربية: "تم فتح" أو "تم إدراج" */
 const buildModeLabel = (mode: FileImportMode): string =>
   mode === 'replace' ? 'تم فتح' : 'تم إدراج'
@@ -86,6 +92,7 @@ const buildTelemetry = (
  * يبني الإجراء النهائي لخط أنابيب فتح الملف.
  *
  * - إذا وُجدت كتل بنيوية → `import-structured-blocks`
+ *   (باستثناء `doc|docx|pdf` حيث يُفرض مسار `paste-classifier`)
  * - إذا وُجد نص فقط → `import-classified-text`
  * - إذا كان الملف فارغاً → `reject`
  *
@@ -106,7 +113,9 @@ export function buildFileOpenPipelineAction(
     }))
     .filter((block) => block.text.length > 0)
 
-  if (normalizedBlocks.length > 0) {
+  const forcePasteClassifier = FORCE_PASTE_CLASSIFIER_FILE_TYPES.has(extraction.fileType)
+
+  if (normalizedBlocks.length > 0 && !forcePasteClassifier) {
     let description = `${modeLabel} الملف بنجاح\nتم استيراد التنسيق البنيوي مباشرة`
     if (extraction.usedOcr) {
       description += ' (تم استخدام OCR)'
@@ -149,7 +158,11 @@ export function buildFileOpenPipelineAction(
     description += ' (تم استخدام OCR)'
   }
   if (extraction.method === 'app-payload') {
-    description += '\n(لم تتوفر كتل بنيوية قابلة للاسترجاع المباشر)'
+    if (forcePasteClassifier) {
+      description += '\n(تم فرض مسار اللصق الموحّد لهذا النوع من الملفات)'
+    } else {
+      description += '\n(لم تتوفر كتل بنيوية قابلة للاسترجاع المباشر)'
+    }
   }
   if (extraction.warnings.length > 0) {
     description += `\n⚠️ ${extraction.warnings[0]}`

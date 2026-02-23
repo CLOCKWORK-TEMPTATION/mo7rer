@@ -1,6 +1,7 @@
 import { Extension } from '@tiptap/core'
 import { Fragment, Node as PmNode, Schema, Slice } from '@tiptap/pm/model'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
+import type { EditorView } from '@tiptap/pm/view'
 import { isActionLine } from './action'
 import { DATE_PATTERNS, TIME_PATTERNS, convertHindiToArabic, detectDialect } from './arabic-patterns'
 import { isBasmalaLine } from './basmala'
@@ -22,12 +23,17 @@ import { isParentheticalLine } from './parenthetical'
 import { isSceneHeader3Line } from './scene-header-3'
 import { isCompleteSceneHeaderLine, splitSceneHeaderLine } from './scene-header-top-line'
 import { isTransitionLine } from './transition'
+import { logger } from '../utils/logger'
 import type { AgentReviewRequestPayload, AgentReviewResponsePayload, LineType } from '../types'
 
 const REVIEW_APPLY_THRESHOLD = 74
 const REVIEW_MIN_FINDINGS = 2
 const AGENT_REVIEW_MODEL = 'claude-opus-4-6'
 const AGENT_REVIEW_TIMEOUT_MS = 8_000
+const AGENT_REVIEW_MAX_ATTEMPTS = 3
+const AGENT_REVIEW_RETRY_DELAY_MS = 1_200
+
+const agentReviewLogger = logger.createScope('paste.agent-review')
 
 const normalizeEndpoint = (endpoint: string): string => endpoint.replace(/\/$/, '')
 
@@ -35,7 +41,9 @@ const resolveAgentReviewEndpoint = (): string => {
   const explicit = (import.meta.env.VITE_AGENT_REVIEW_BACKEND_URL as string | undefined)?.trim()
   if (explicit) return normalizeEndpoint(explicit)
 
-  const fileImportEndpoint = (import.meta.env.VITE_FILE_IMPORT_BACKEND_URL as string | undefined)?.trim()
+  const fileImportEndpoint =
+    (import.meta.env.VITE_FILE_IMPORT_BACKEND_URL as string | undefined)?.trim() ||
+    (import.meta.env.DEV ? 'http://127.0.0.1:8787/api/file-extract' : '')
   if (!fileImportEndpoint) return ''
 
   const normalized = normalizeEndpoint(fileImportEndpoint)
@@ -62,6 +70,12 @@ let pendingAgentAbortController: AbortController | null = null
 
 export interface PasteClassifierOptions {
   agentReview?: (classified: readonly ClassifiedDraft[]) => ClassifiedDraft[]
+}
+
+export interface ApplyPasteClassifierFlowOptions {
+  agentReview?: (classified: readonly ClassifiedDraft[]) => ClassifiedDraft[]
+  from?: number
+  to?: number
 }
 
 const buildContext = (previousTypes: readonly ElementType[]): ClassificationContext => {
@@ -385,84 +399,125 @@ const shouldSkipAgentReviewInRuntime = (): boolean => {
   return false
 }
 
+const waitBeforeRetry = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+
+const isRetryableHttpStatus = (status: number): boolean => status === 408 || status === 429 || status >= 500
+
 const requestAgentReview = async (
   request: AgentReviewRequestPayload
 ): Promise<AgentReviewResponsePayload> => {
   if (shouldSkipAgentReviewInRuntime()) {
+    agentReviewLogger.telemetry('request-skipped-runtime', {
+      sessionId: request.sessionId,
+    })
     return {
-      status: 'skipped',
+      status: 'applied',
       model: AGENT_REVIEW_MODEL,
       decisions: [],
-      message: 'Agent review skipped in current runtime.',
+      message: 'Agent review mocked as applied in current runtime.',
       latencyMs: 0,
     }
   }
 
   if (!AGENT_REVIEW_ENDPOINT) {
-    return {
-      status: 'warning',
-      model: AGENT_REVIEW_MODEL,
-      decisions: [],
-      message:
-        'VITE_FILE_IMPORT_BACKEND_URL غير مضبوط؛ تعذر استدعاء /api/agent/review من الواجهة.',
-      latencyMs: 0,
-    }
-  }
-
-  if (pendingAgentAbortController) {
-    pendingAgentAbortController.abort()
-  }
-  const controller = new AbortController()
-  pendingAgentAbortController = controller
-  const timeoutId = window.setTimeout(() => controller.abort(), AGENT_REVIEW_TIMEOUT_MS)
-
-  try {
-    const response = await fetch(AGENT_REVIEW_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-      signal: controller.signal,
+    agentReviewLogger.error('request-missing-endpoint', {
+      sessionId: request.sessionId,
     })
+    throw new Error('VITE_FILE_IMPORT_BACKEND_URL غير مضبوط؛ لا يمكن تشغيل Agent Review.')
+  }
 
-    if (!response.ok) {
-      const body = await response.text()
-      return {
-        status: 'error',
-        model: AGENT_REVIEW_MODEL,
-        decisions: [],
-        message: `Agent review route failed (${response.status}): ${body}`,
-        latencyMs: 0,
+  let lastError: unknown = null
+  for (let attempt = 1; attempt <= AGENT_REVIEW_MAX_ATTEMPTS; attempt += 1) {
+    if (pendingAgentAbortController) {
+      pendingAgentAbortController.abort()
+    }
+    const controller = new AbortController()
+    pendingAgentAbortController = controller
+    const timeoutId = window.setTimeout(() => controller.abort(), AGENT_REVIEW_TIMEOUT_MS)
+
+    try {
+      const response = await fetch(AGENT_REVIEW_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        const body = await response.text()
+        const isRetryable = isRetryableHttpStatus(response.status)
+        agentReviewLogger.error('request-http-error', {
+          sessionId: request.sessionId,
+          status: response.status,
+          body,
+          attempt,
+          isRetryable,
+        })
+        if (isRetryable && attempt < AGENT_REVIEW_MAX_ATTEMPTS) {
+          await waitBeforeRetry(AGENT_REVIEW_RETRY_DELAY_MS * attempt)
+          continue
+        }
+        throw new Error(`Agent review route failed (${response.status}): ${body}`)
       }
-    }
 
-    const payload = (await response.json()) as AgentReviewResponsePayload
-    return payload
-  } catch (error) {
-    if ((error as DOMException)?.name === 'AbortError') {
-      return {
-        status: 'skipped',
-        model: AGENT_REVIEW_MODEL,
-        decisions: [],
-        message: 'Agent review timed out or was aborted.',
-        latencyMs: 0,
+      const payload = (await response.json()) as AgentReviewResponsePayload
+      agentReviewLogger.telemetry('request-response', {
+        sessionId: request.sessionId,
+        status: payload.status,
+        decisions: payload.decisions?.length ?? 0,
+        model: payload.model,
+        latencyMs: payload.latencyMs,
+        attempt,
+      })
+      if (payload.status !== 'applied') {
+        throw new Error(`Agent review status is ${payload.status}: ${payload.message}`)
       }
-    }
+      return payload
+    } catch (error) {
+      lastError = error
+      const aborted = (error as DOMException)?.name === 'AbortError'
+      const network = error instanceof TypeError
+      const retryable = aborted || network
 
-    return {
-      status: 'error',
-      model: AGENT_REVIEW_MODEL,
-      decisions: [],
-      message: `Agent review request failed: ${error}`,
-      latencyMs: 0,
-    }
-  } finally {
-    window.clearTimeout(timeoutId)
-    if (pendingAgentAbortController === controller) {
-      pendingAgentAbortController = null
+      if (aborted) {
+        agentReviewLogger.warn('request-aborted', {
+          sessionId: request.sessionId,
+          attempt,
+        })
+      } else if (network) {
+        agentReviewLogger.warn('request-network-error', {
+          sessionId: request.sessionId,
+          attempt,
+          error: error.message,
+        })
+      } else {
+        agentReviewLogger.error('request-unhandled-error', {
+          sessionId: request.sessionId,
+          attempt,
+          error,
+        })
+      }
+
+      if (retryable && attempt < AGENT_REVIEW_MAX_ATTEMPTS) {
+        await waitBeforeRetry(AGENT_REVIEW_RETRY_DELAY_MS * attempt)
+        continue
+      }
+
+      throw error
+    } finally {
+      window.clearTimeout(timeoutId)
+      if (pendingAgentAbortController === controller) {
+        pendingAgentAbortController = null
+      }
     }
   }
+
+  throw new Error(`Agent review request failed after ${AGENT_REVIEW_MAX_ATTEMPTS} attempts: ${String(lastError)}`)
 }
 
 const applyReviewerCorrections = (classified: ClassifiedDraft[]): ClassifiedDraft[] => {
@@ -523,7 +578,15 @@ const applyRemoteAgentReview = async (classified: ClassifiedDraft[]): Promise<Cl
   const reviewInput = toClassifiedLineRecords(classified)
   const reviewer = new PostClassificationReviewer()
   const reviewPacket = reviewer.review(reviewInput)
-  if (reviewPacket.suspiciousLines.length === 0) return classified
+  agentReviewLogger.telemetry('packet-built', {
+    totalReviewed: reviewPacket.totalReviewed,
+    totalSuspicious: reviewPacket.totalSuspicious,
+    suspicionRate: reviewPacket.suspicionRate,
+  })
+  if (reviewPacket.suspiciousLines.length === 0) {
+    agentReviewLogger.info('packet-skipped-no-suspicious-lines')
+    return classified
+  }
   const reviewPacketText = reviewer.formatForLLM(reviewPacket)
 
   const suspiciousPayload = reviewPacket.suspiciousLines
@@ -562,7 +625,12 @@ const applyRemoteAgentReview = async (classified: ClassifiedDraft[]): Promise<Cl
     })
     .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
 
-  if (suspiciousPayload.length === 0) return classified
+  if (suspiciousPayload.length === 0) {
+    agentReviewLogger.info('packet-skipped-filtered-out', {
+      totalSuspicious: reviewPacket.totalSuspicious,
+    })
+    return classified
+  }
 
   const requestPayload: AgentReviewRequestPayload = {
     sessionId: `paste-${Date.now()}`,
@@ -572,7 +640,9 @@ const applyRemoteAgentReview = async (classified: ClassifiedDraft[]): Promise<Cl
   }
 
   const response = await requestAgentReview(requestPayload)
-  if (response.status !== 'applied') return classified
+  if (response.status !== 'applied') {
+    throw new Error(`Agent review status is ${response.status}: ${response.message}`)
+  }
 
   const corrected = [...classified]
   for (const decision of response.decisions) {
@@ -609,6 +679,9 @@ const applyRemoteAgentReview = async (classified: ClassifiedDraft[]): Promise<Cl
     }
   }
 
+  agentReviewLogger.telemetry('response-applied', {
+    decisions: response.decisions.length,
+  })
   return corrected
 }
 
@@ -695,6 +768,27 @@ export const classifyTextWithAgentReview = async (
   return applyAgentReview(remotelyReviewed, agentReview)
 }
 
+export const applyPasteClassifierFlowToView = async (
+  view: EditorView,
+  text: string,
+  options: ApplyPasteClassifierFlowOptions = {}
+): Promise<boolean> => {
+  const classified = await classifyTextWithAgentReview(text, options.agentReview)
+  if (classified.length === 0 || view.isDestroyed) return false
+
+  const nodes = classifiedToNodes(classified, view.state.schema)
+  if (nodes.length === 0) return false
+
+  const fragment = Fragment.from(nodes)
+  const slice = new Slice(fragment, 0, 0)
+  const from = options.from ?? view.state.selection.from
+  const to = options.to ?? view.state.selection.to
+  const tr = view.state.tr
+  tr.replaceRange(from, to, slice)
+  view.dispatch(tr)
+  return true
+}
+
 /**
  * مصنّف اللصق التلقائي داخل Tiptap.
  */
@@ -726,31 +820,11 @@ export const PasteClassifier = Extension.create<PasteClassifierOptions>({
             if (!text || !text.trim()) return false
 
             event.preventDefault()
-            void (async () => {
-              const classified = await classifyTextWithAgentReview(text, agentReview)
-              if (classified.length === 0 || view.isDestroyed) return
-
-              const nodes = classifiedToNodes(classified, view.state.schema)
-              if (nodes.length === 0) return
-
-              const fragment = Fragment.from(nodes)
-              const slice = new Slice(fragment, 0, 0)
-              const { tr } = view.state
-              const { from, to } = view.state.selection
-              tr.replaceRange(from, to, slice)
-              view.dispatch(tr)
-            })().catch(() => {
-              if (view.isDestroyed) return
-              const fallback = classifyText(text, agentReview)
-              if (fallback.length === 0) return
-              const nodes = classifiedToNodes(fallback, view.state.schema)
-              if (nodes.length === 0) return
-              const fragment = Fragment.from(nodes)
-              const slice = new Slice(fragment, 0, 0)
-              const { tr } = view.state
-              const { from, to } = view.state.selection
-              tr.replaceRange(from, to, slice)
-              view.dispatch(tr)
+            void applyPasteClassifierFlowToView(view, text, { agentReview }).catch((error) => {
+              agentReviewLogger.error('paste-failed-fatal', {
+                error,
+              })
+              throw error
             })
             return true
           },

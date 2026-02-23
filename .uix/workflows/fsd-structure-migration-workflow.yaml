@@ -1,0 +1,208 @@
+
+
+name: fsd-structure-migration-workflow
+description: >
+  Multi-agent orchestration workflow to safely migrate a React + Vite + TypeScript + Tiptap
+  project into Feature-Sliced Design (FSD) architecture with strict checkpoints
+  and behavior preservation.
+
+version: 1.0
+
+orchestrator:
+  agent: OrchestratorAgent
+  responsibilities:
+    - enforce_phase_order
+    - validate_checkpoints
+    - block_on_failure
+    - collect_reports
+    - trigger_next_agent
+
+agents:
+
+  - name: BaselineAgent
+    role: baseline_and_boundaries
+    phases:
+      - id: phase-1
+        name: baseline_and_tooling
+        actions:
+          - create_git_branch: refactor/structure-migration
+          - install_dependencies:
+              - "@total-typescript/ts-reset"
+              - "depcheck"
+              - "knip"
+              - "eslint-plugin-boundaries"
+              - "@feature-sliced/eslint-config"
+              - "vite-plugin-checker"
+          - run_commands:
+              - pnpm run build
+              - pnpm run lint
+              - pnpm run test
+      - id: phase-2
+        name: eslint_boundaries
+        actions:
+          - configure_eslint_boundaries
+          - run_commands:
+              - pnpm run lint
+    outputs:
+      - baseline_report
+      - boundaries_config
+      - structural_violations_list
+    stop_on_failure: true
+
+  - name: StructureAgent
+    role: fsd_structure_and_aliases
+    phases:
+      - id: phase-3
+        name: fsd_skeleton
+        actions:
+          - create_directories:
+              - src/app
+              - src/pages
+              - src/widgets
+              - src/features
+              - src/entities
+              - src/shared
+          - create_placeholders
+          - create_file: docs/refactor-migration-map.md
+      - id: phase-4
+        name: path_aliases
+        actions:
+          - configure_vite_aliases
+          - configure_tsconfig_paths
+          - run_commands:
+              - pnpm run build
+          - convert_imports_to_aliases
+    outputs:
+      - directory_tree
+      - alias_configuration
+      - migration_map
+    stop_on_failure: true
+
+  - name: TypeSafetyAgent
+    role: typescript_strategy
+    phases:
+      - id: phase-5
+        name: typescript_strict_strategy
+        actions:
+          - analyze_typescript_config
+          - decide_strict_strategy
+          - apply_incremental_type_fixes
+    outputs:
+      - strict_strategy_decision
+      - tsconfig_changes
+      - blocking_type_fixes
+    stop_on_failure: true
+
+  - name: EditorAgent
+    role: tiptap_extraction
+    phases:
+      - id: phase-6
+        name: tiptap_centralization
+        actions:
+          - create_widget_editor_structure
+          - implement_useEditor_hook
+          - move_extensions_to_shared
+          - verify_editor_behavior
+    outputs:
+      - widgets_editor_implementation
+      - shared_tiptap_library
+      - editor_verification_report
+    stop_on_failure: true
+
+  - name: UIAgent
+    role: shared_ui_primitives
+    phases:
+      - id: phase-7
+        name: shared_ui
+        actions:
+          - create_shared_button
+          - ensure_cn_utility
+          - incremental_button_replacement
+    outputs:
+      - shared_ui_components
+      - replaced_usages_list
+    stop_on_failure: true
+
+  - name: FeatureAgent
+    role: feature_and_entities_extraction
+    phases:
+      - id: phase-8
+        name: feature_extraction
+        actions:
+          - extract_editor_formatting_feature
+          - extract_editor_comments_feature
+      - id: phase-9
+        name: entities_layer
+        actions:
+          - create_document_entities
+          - deduplicate_types
+    outputs:
+      - features_structure
+      - entities_document_model
+    stop_on_failure: true
+
+  - name: AppWiringAgent
+    role: app_and_pages_wiring
+    phases:
+      - id: phase-10
+        name: app_pages_wiring
+        actions:
+          - move_providers_to_app
+          - move_routes_to_app
+          - thin_pages_refactor
+    outputs:
+      - app_providers
+      - app_routes
+      - updated_pages
+    stop_on_failure: true
+
+  - name: CleanupAgent
+    role: post_stability_cleanup
+    phases:
+      - id: phase-11
+        name: cleanup
+        actions:
+          - run_knip_analysis
+          - apply_safe_fixes
+          - run_depcheck
+    outputs:
+      - cleanup_report
+      - deleted_items_list
+    stop_on_failure: true
+
+  - name: QAAgent
+    role: testing_and_verification
+    phases:
+      - id: phase-12
+        name: testing
+        actions:
+          - add_tiptap_tests
+          - run_tests
+      - id: phase-13
+        name: final_verification
+        actions:
+          - run_commands:
+              - pnpm run build
+              - pnpm run lint
+              - pnpm run test
+    outputs:
+      - test_results
+      - final_verification_status
+    stop_on_failure: true
+
+  - name: ReportAgent
+    role: final_reporting
+    phases:
+      - id: phase-14
+        name: final_report
+        actions:
+          - collect_all_reports
+          - generate_final_report
+    outputs:
+      - final_execution_report
+    stop_on_failure: false
+
+execution:
+  mode: sequential
+  checkpoint_policy: strict
+  failure_policy: halt

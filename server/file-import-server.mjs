@@ -7,7 +7,15 @@ import { tmpdir } from 'node:os'
 import { basename, extname, join } from 'node:path'
 import { config as loadEnv } from 'dotenv'
 import mammoth from 'mammoth'
-import { Mistral } from '@mistralai/mistralai'
+import { extractPdfTextWithOcr, getPdfOcrModel } from './pdf-ocr.mjs'
+import { normalizeExtractedDocxText } from '../src/utils/file-import/extract/docx-html-to-text.mjs'
+import { extractDocxFromXmlBuffer } from './docx-xml-extract.mjs'
+import {
+  AgentReviewValidationError,
+  getAnthropicReviewModel,
+  requestAnthropicReview,
+  validateAgentReviewRequestBody,
+} from './agent-review.mjs'
 
 loadEnv()
 
@@ -15,10 +23,7 @@ const HOST = process.env.FILE_IMPORT_HOST || '127.0.0.1'
 const PORT = Number(process.env.FILE_IMPORT_PORT || 8787)
 const MAX_BODY_SIZE = 40 * 1024 * 1024
 
-const OCR_MODEL = process.env.MISTRAL_OCR_MODEL || 'mistral-ocr-latest'
-const ANTHROPIC_REVIEW_MODEL = process.env.ANTHROPIC_REVIEW_MODEL || 'claude-opus-4-6'
-const REVIEW_TEMPERATURE = 0.0
-const REVIEW_TIMEOUT_MS = 60_000
+const OCR_MODEL = getPdfOcrModel()
 
 const DOC_CONVERTER_TIMEOUT_MS = 30_000
 const DOC_CONVERTER_MAX_BUFFER = 64 * 1024 * 1024
@@ -26,52 +31,37 @@ const DEFAULT_ANTIWORD_PATH = 'antiword'
 const DEFAULT_ANTIWORD_HOME = '/usr/share/antiword'
 
 const SUPPORTED_EXTENSIONS = new Set(['txt', 'fountain', 'fdx', 'docx', 'pdf', 'doc'])
-const ALLOWED_LINE_TYPES = new Set([
-  'action',
-  'dialogue',
-  'character',
-  'scene-header-1',
-  'scene-header-2',
-  'scene-header-3',
-  'scene-header-top-line',
-  'transition',
-  'parenthetical',
-  'basmala',
+const SUPPORTED_EXTRACTION_METHODS = new Set([
+  'native-text',
+  'mammoth',
+  'docx-xml-direct',
+  'pdfjs-text-layer',
+  'doc-converter-flow',
+  'ocr-mistral',
+  'backend-api',
+  'app-payload',
 ])
-
-const REVIEW_SYSTEM_PROMPT = `أنت مراجع نهائي لتصنيفات سيناريو عربي.
-
-المطلوب:
-- استلام فقط السطور المشتبه فيها مع سياقها.
-- القرار يكون تصحيح نوع السطر أو تأكيده.
-- لا تضف أي شرح خارج JSON.
-- لا تستخدم أي نوع خارج القائمة المسموحة.
-
-القائمة المسموحة للنوع النهائي:
-action, dialogue, character, scene-header-1, scene-header-2, scene-header-3, scene-header-top-line, transition, parenthetical, basmala
-
-صيغة الإخراج الإلزامية (JSON فقط):
-{
-  "decisions": [
-    {
-      "itemIndex": 12,
-      "finalType": "action",
-      "confidence": 0.96,
-      "reason": "سبب قصير"
-    }
-  ]
-}
-
-قواعد مهمة:
-- confidence رقم بين 0 و 1.
-- itemIndex لازم يطابق المدخل.
-- لا ترجع أي مفاتيح إضافية.
-- لو مافيش تعديل، ارجع نفس النوع الحالي.`
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
   'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+class RequestValidationError extends Error {
+  constructor(message) {
+    super(message)
+    this.name = 'RequestValidationError'
+    this.statusCode = 400
+  }
+}
+
+const isObjectRecord = (value) => typeof value === 'object' && value !== null
+const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0
+
+const normalizeIncomingText = (value, maxLength = 50_000) => {
+  if (typeof value !== 'string') return ''
+  return value.trim().slice(0, maxLength)
 }
 
 const normalizeText = (value) =>
@@ -81,6 +71,46 @@ const normalizeText = (value) =>
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+
+const extractDocxBufferToText = async (buffer) => {
+  const attempts = []
+  const warnings = []
+
+  // المسار الأساسي: استخراج XML مباشر
+  attempts.push('docx-xml-direct')
+  try {
+    const result = await extractDocxFromXmlBuffer(buffer)
+    warnings.push(...result.warnings)
+
+    if (result.text.trim()) {
+      return { text: result.text, attempts, warnings }
+    }
+    warnings.push('docx-xml-direct أعاد نصًا فارغًا؛ الهبوط إلى Mammoth.')
+  } catch (xmlError) {
+    warnings.push(
+      `فشل docx-xml-direct: ${xmlError instanceof Error ? xmlError.message : String(xmlError)}; الهبوط إلى Mammoth.`,
+    )
+  }
+
+  // المسار الاحتياطي: Mammoth extractRawText فقط
+  const extractRawText = mammoth.extractRawText
+  if (extractRawText) {
+    try {
+      const result = await extractRawText({ buffer })
+      const text = normalizeExtractedDocxText(result.value ?? '')
+      attempts.push('mammoth-raw-fallback')
+      if (text) {
+        return { text, attempts, warnings }
+      }
+    } catch (error) {
+      warnings.push(
+        `فشل mammoth-raw-fallback: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  }
+
+  throw new Error(`فشل استخراج DOCX عبر جميع المسارات: ${warnings.join(' | ')}`)
+}
 
 const sendJson = (res, statusCode, payload) => {
   res.writeHead(statusCode, {
@@ -117,6 +147,60 @@ const readBody = async (req) =>
     req.on('error', reject)
   })
 
+const validateExtractRequestBody = (rawBody) => {
+  if (!isObjectRecord(rawBody)) {
+    throw new RequestValidationError('Invalid extract request body.')
+  }
+
+  const filename = normalizeIncomingText(rawBody.filename, 512) || 'document'
+  const extension =
+    typeof rawBody.extension === 'string' ? rawBody.extension.trim().toLowerCase() : ''
+  const fileBase64 =
+    typeof rawBody.fileBase64 === 'string' ? rawBody.fileBase64.trim() : ''
+
+  if (!SUPPORTED_EXTENSIONS.has(extension)) {
+    throw new RequestValidationError(`Unsupported extension: ${extension || 'unknown'}`)
+  }
+  if (!fileBase64) {
+    throw new RequestValidationError('Missing fileBase64.')
+  }
+
+  return {
+    filename,
+    extension,
+    fileBase64,
+  }
+}
+
+const normalizeExtractionResponseData = (result, fileType) => {
+  if (!isObjectRecord(result)) {
+    throw new Error('Extraction returned invalid payload.')
+  }
+
+  const text = typeof result.text === 'string' ? result.text : ''
+  const method = normalizeIncomingText(result.method, 64)
+  const usedOcr = Boolean(result.usedOcr)
+  const attempts = Array.isArray(result.attempts)
+    ? result.attempts.filter((entry) => isNonEmptyString(entry)).slice(0, 24)
+    : []
+  const warnings = Array.isArray(result.warnings)
+    ? result.warnings.filter((entry) => isNonEmptyString(entry)).slice(0, 24)
+    : []
+
+  if (!SUPPORTED_EXTRACTION_METHODS.has(method)) {
+    throw new Error(`Extraction returned unsupported method: ${method}`)
+  }
+
+  return {
+    text,
+    fileType,
+    method,
+    usedOcr,
+    warnings,
+    attempts,
+  }
+}
+
 const decodeBase64 = (input) => {
   if (!input || typeof input !== 'string') {
     throw new Error('Missing fileBase64.')
@@ -134,200 +218,6 @@ const decodeUtf8Buffer = (value) => {
   if (!value) return ''
   if (typeof value === 'string') return value
   return new TextDecoder('utf-8').decode(value)
-}
-
-const extractTextFromAnthropicBlocks = (content) => {
-  if (!Array.isArray(content)) return ''
-  const chunks = []
-  for (const block of content) {
-    if (block?.type === 'text' && typeof block.text === 'string') {
-      chunks.push(block.text)
-    }
-  }
-  return chunks.join('')
-}
-
-const clampConfidence = (value) => {
-  if (!Number.isFinite(value)) return 0.5
-  if (value < 0) return 0
-  if (value > 1) return 1
-  return value
-}
-
-const parseReviewDecisions = (rawText) => {
-  const source = String(rawText ?? '').trim()
-  if (!source) return []
-
-  const parseCandidate = (candidate) => {
-    const parsed = JSON.parse(candidate)
-    const decisions = Array.isArray(parsed?.decisions) ? parsed.decisions : []
-    const normalized = []
-
-    for (const decision of decisions) {
-      if (!decision || typeof decision !== 'object') continue
-
-      const itemIndex =
-        typeof decision.itemIndex === 'number' ? Math.trunc(decision.itemIndex) : -1
-      const finalType =
-        typeof decision.finalType === 'string' ? decision.finalType.trim() : ''
-      const reason =
-        typeof decision.reason === 'string'
-          ? decision.reason.trim()
-          : 'قرار بدون سبب مفصل'
-      const confidenceRaw =
-        typeof decision.confidence === 'number' ? decision.confidence : 0.5
-
-      if (itemIndex < 0) continue
-      if (!ALLOWED_LINE_TYPES.has(finalType)) continue
-
-      normalized.push({
-        itemIndex,
-        finalType,
-        confidence: clampConfidence(confidenceRaw),
-        reason,
-      })
-    }
-
-    return normalized
-  }
-
-  try {
-    return parseCandidate(source)
-  } catch {
-    const start = source.indexOf('{')
-    const end = source.lastIndexOf('}')
-    if (start === -1 || end === -1 || end <= start) {
-      return []
-    }
-
-    try {
-      return parseCandidate(source.slice(start, end + 1))
-    } catch {
-      return []
-    }
-  }
-}
-
-const buildReviewUserPrompt = (request) => {
-  const reviewPacketText =
-    typeof request?.reviewPacketText === 'string' ? request.reviewPacketText.trim() : ''
-
-  const payload = {
-    totalReviewed: request.totalReviewed,
-    suspiciousLines: request.suspiciousLines,
-  }
-
-  if (reviewPacketText) {
-    return `راجع عناصر التصنيف المشتبه فيها فقط، وارجع JSON بالمخطط المطلوب حرفيًا.
-
-السياق المنسق:
-${reviewPacketText}
-
-البيانات الهيكلية:
-${JSON.stringify(payload, null, 2)}`
-  }
-
-  return `راجع عناصر التصنيف المشتبه فيها فقط، وارجع JSON بالمخطط المطلوب حرفيًا.\n\n${JSON.stringify(payload, null, 2)}`
-}
-
-const requestAnthropicReview = async (request) => {
-  const startedAt = Date.now()
-  const apiKey = process.env.ANTHROPIC_API_KEY
-
-  if (!apiKey) {
-    return {
-      status: 'warning',
-      model: ANTHROPIC_REVIEW_MODEL,
-      decisions: [],
-      message: 'ANTHROPIC_API_KEY غير موجود؛ تم تخطي مرحلة الوكيل.',
-      latencyMs: Date.now() - startedAt,
-    }
-  }
-
-  if (!Array.isArray(request?.suspiciousLines) || request.suspiciousLines.length === 0) {
-    return {
-      status: 'skipped',
-      model: ANTHROPIC_REVIEW_MODEL,
-      decisions: [],
-      message: 'لا توجد سطور مشتبه فيها لإرسالها للوكيل.',
-      latencyMs: Date.now() - startedAt,
-    }
-  }
-
-  const maxTokens = Math.min(3000, Math.max(600, request.suspiciousLines.length * 180))
-  const params = {
-    model: ANTHROPIC_REVIEW_MODEL,
-    max_tokens: maxTokens,
-    temperature: REVIEW_TEMPERATURE,
-    system: REVIEW_SYSTEM_PROMPT,
-    messages: [
-      {
-        role: 'user',
-        content: buildReviewUserPrompt(request),
-      },
-    ],
-  }
-
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), REVIEW_TIMEOUT_MS)
-
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(params),
-      signal: controller.signal,
-    })
-
-    if (!response.ok) {
-      const body = await response.text()
-      return {
-        status: 'error',
-        model: ANTHROPIC_REVIEW_MODEL,
-        decisions: [],
-        message: `فشل الوكيل: HTTP ${response.status} - ${body}`,
-        latencyMs: Date.now() - startedAt,
-      }
-    }
-
-    const payload = await response.json()
-    const text = extractTextFromAnthropicBlocks(payload?.content)
-    const decisions = parseReviewDecisions(text).filter((decision) =>
-      request.suspiciousLines.some((line) => line.itemIndex === decision.itemIndex),
-    )
-
-    if (decisions.length === 0) {
-      return {
-        status: 'skipped',
-        model: ANTHROPIC_REVIEW_MODEL,
-        decisions: [],
-        message: 'الوكيل لم يرجع قرارات قابلة للتطبيق.',
-        latencyMs: Date.now() - startedAt,
-      }
-    }
-
-    return {
-      status: 'applied',
-      model: ANTHROPIC_REVIEW_MODEL,
-      decisions,
-      message: `تم استلام ${decisions.length} قرار من الوكيل.`,
-      latencyMs: Date.now() - startedAt,
-    }
-  } catch (error) {
-    return {
-      status: 'error',
-      model: ANTHROPIC_REVIEW_MODEL,
-      decisions: [],
-      message: `فشل الوكيل: ${error instanceof Error ? error.message : String(error)}`,
-      latencyMs: Date.now() - startedAt,
-    }
-  } finally {
-    clearTimeout(timeoutId)
-  }
 }
 
 const resolveAntiwordRuntime = () => {
@@ -484,59 +374,6 @@ const convertDocBufferToText = async (buffer, filename) => {
   }
 }
 
-let mistralClient = null
-const getMistralClient = () => {
-  const apiKey = process.env.MISTRAL_API_KEY
-  if (!apiKey) {
-    throw new Error('MISTRAL_API_KEY is not configured on backend.')
-  }
-
-  if (!mistralClient) {
-    mistralClient = new Mistral({ apiKey })
-  }
-
-  return mistralClient
-}
-
-const mapOcrResponseToText = (response) => {
-  const pages = Array.isArray(response?.pages) ? response.pages : []
-  if (pages.length === 0) {
-    throw new Error('Mistral OCR returned no readable pages.')
-  }
-
-  const merged = pages
-    .map((page) => ({
-      index: Number.isFinite(page?.index) ? page.index : Number.MAX_SAFE_INTEGER,
-      markdown: typeof page?.markdown === 'string' ? page.markdown : '',
-    }))
-    .sort((a, b) => a.index - b.index)
-    .map((page) => page.markdown)
-    .join('\n\n')
-
-  const cleaned = normalizeText(merged)
-  if (!cleaned) {
-    throw new Error('Mistral OCR returned empty text.')
-  }
-
-  return cleaned
-}
-
-const runMistralOcr = async (buffer, mimeType) => {
-  const client = getMistralClient()
-  const documentUrl = `data:${mimeType};base64,${buffer.toString('base64')}`
-
-  const response = await client.ocr.process({
-    document: {
-      type: 'document_url',
-      documentUrl,
-    },
-    model: OCR_MODEL,
-    includeImageBase64: false,
-  })
-
-  return mapOcrResponseToText(response)
-}
-
 const decodeUtf8Fallback = (buffer) => {
   const utf8Text = buffer.toString('utf8')
   const hasReplacementChars = utf8Text.includes('\uFFFD') || utf8Text.includes('�')
@@ -556,18 +393,18 @@ const extractByType = async (buffer, extension, filename) => {
   }
 
   if (extension === 'docx') {
-    const result = await mammoth.extractRawText({ buffer })
+    const result = await extractDocxBufferToText(buffer)
     return {
-      text: normalizeText(result.value ?? ''),
-      method: 'mammoth',
+      text: result.text,
+      method: result.attempts.includes('mammoth-raw-fallback') ? 'mammoth' : 'docx-xml-direct',
       usedOcr: false,
-      attempts: ['mammoth'],
-      warnings: [],
+      attempts: result.attempts,
+      warnings: result.warnings,
     }
   }
 
   if (extension === 'pdf') {
-    const text = await runMistralOcr(buffer, 'application/pdf')
+    const text = await extractPdfTextWithOcr(buffer, normalizeText)
     return {
       text,
       method: 'ocr-mistral',
@@ -597,38 +434,23 @@ const extractByType = async (buffer, extension, filename) => {
 const handleExtract = async (req, res) => {
   try {
     const body = await readBody(req)
+    const { filename, extension, fileBase64 } = validateExtractRequestBody(body)
 
-    const filename = typeof body?.filename === 'string' ? body.filename : 'document'
-    const extension = typeof body?.extension === 'string' ? body.extension.toLowerCase() : ''
-
-    if (!SUPPORTED_EXTENSIONS.has(extension)) {
-      sendJson(res, 400, {
-        success: false,
-        error: `Unsupported extension: ${extension || 'unknown'}`,
-      })
-      return
-    }
-
-    const buffer = decodeBase64(body?.fileBase64)
+    const buffer = decodeBase64(fileBase64)
     const extracted = await extractByType(buffer, extension, filename)
+    const normalizedData = normalizeExtractionResponseData(extracted, extension)
 
     sendJson(res, 200, {
       success: true,
-      data: {
-        text: extracted.text,
-        fileType: extension,
-        method: extracted.method,
-        usedOcr: extracted.usedOcr,
-        warnings: extracted.warnings,
-        attempts: extracted.attempts,
-      },
+      data: normalizedData,
       meta: {
         filename,
       },
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown server error'
-    sendJson(res, 500, {
+    const statusCode = error instanceof RequestValidationError ? error.statusCode : 500
+    sendJson(res, statusCode, {
       success: false,
       error: message,
     })
@@ -637,14 +459,16 @@ const handleExtract = async (req, res) => {
 
 const handleAgentReview = async (req, res) => {
   try {
-    const body = await readBody(req)
+    const rawBody = await readBody(req)
+    const body = validateAgentReviewRequestBody(rawBody)
     const response = await requestAnthropicReview(body)
     sendJson(res, 200, response)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    sendJson(res, 500, {
+    const statusCode = error instanceof AgentReviewValidationError ? error.statusCode : 500
+    sendJson(res, statusCode, {
       status: 'error',
-      model: ANTHROPIC_REVIEW_MODEL,
+      model: getAnthropicReviewModel(),
       decisions: [],
       message,
       latencyMs: 0,
@@ -678,7 +502,7 @@ const server = http.createServer(async (req, res) => {
       antiwordWarnings: ANTIWORD_PREFLIGHT.warnings,
       agentReviewConfigured: Boolean(process.env.ANTHROPIC_API_KEY),
       model: OCR_MODEL,
-      reviewModel: ANTHROPIC_REVIEW_MODEL,
+      reviewModel: getAnthropicReviewModel(),
     })
     return
   }

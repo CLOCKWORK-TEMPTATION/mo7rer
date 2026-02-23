@@ -47,6 +47,7 @@ export type ImportedFileType =
 export type ExtractionMethod =
   | 'native-text'
   | 'mammoth'
+  | 'docx-xml-direct'
   | 'pdfjs-text-layer'
   | 'doc-converter-flow'
   | 'ocr-mistral'

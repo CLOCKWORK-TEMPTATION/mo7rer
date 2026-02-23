@@ -17,7 +17,15 @@ export interface DocumentStats {
 /**
  * @description الأوامر المدعومة من المحرر لتنسيق النص أو التراجع.
  */
-export type EditorCommand = 'bold' | 'italic' | 'underline' | 'undo' | 'redo'
+export type EditorCommand =
+  | 'bold'
+  | 'italic'
+  | 'underline'
+  | 'align-right'
+  | 'align-center'
+  | 'align-left'
+  | 'undo'
+  | 'redo'
 
 /**
  * @description أوضاع استيراد الملفات إلى المحرر (استبدال كامل أو إدراج في موقع المؤشر).

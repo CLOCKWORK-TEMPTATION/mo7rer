@@ -151,3 +151,6 @@ build/
 # Ignore documentation folders
 tech_stack_docs/
 tiptap_all_docs/
+
+# Ignore .tools directory
+.tools

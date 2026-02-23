@@ -2,7 +2,9 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "C:/Users/Mohmed Aimen Raed/cowork"
 		}
-	],
-	"settings": {}
+	]
 }
