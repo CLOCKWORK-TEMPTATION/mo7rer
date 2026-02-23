@@ -74,10 +74,10 @@ describe('extract index orchestration', () => {
     const backendDocxResult: FileExtractionResult = {
       text: 'سطر أول\r\n\r\nسطر ثاني\r\n',
       fileType: 'docx',
-      method: 'mammoth',
+      method: 'docx-xml-direct',
       usedOcr: false,
       warnings: [],
-      attempts: ['mammoth'],
+      attempts: ['docx-xml-direct'],
     }
     doubles.extractFileWithBackend.mockResolvedValueOnce(backendDocxResult)
 

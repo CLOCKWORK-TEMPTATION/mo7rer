@@ -9,7 +9,7 @@ interface FixtureSpec {
   name: string
   extension: 'doc' | 'docx' | 'pdf'
   relativePath: string
-  expectedMethod: 'doc-converter-flow' | 'mammoth' | 'docx-xml-direct' | 'ocr-mistral'
+  expectedMethod: 'doc-converter-flow' | 'docx-xml-direct' | 'ocr-mistral'
   requires: 'none' | 'antiword' | 'ocr'
 }
 

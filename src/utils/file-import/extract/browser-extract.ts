@@ -5,7 +5,7 @@
  * الأنواع المدعومة:
  * - `txt` / `fountain` / `fdx` — قراءة نصية مباشرة مع كشف ترميز ذكي
  *   (UTF-8 → windows-1256 → ISO-8859-1) للنصوص العربية
- * - `docx` — عبر mammoth (convertToHtml -> html->text) مع fallback إلى extractRawText
+ * - `docx` — عبر `word/document.xml` مباشرة (بدون Mammoth أو HTML وسيط)
  * - `pdf` — عبر pdfjs-dist (text layer فقط، بدون OCR)
  * - `doc` — استخراج best-effort من النصوص المرئية (Fallback)
  *
@@ -18,8 +18,7 @@ import type {
 import {
   extractPayloadFromText,
 } from '../document-model'
-import { normalizeExtractedDocxText } from './docx-html-to-text.mjs'
-import { extractDocxFromXml } from './docx-xml-extract'
+import { extractDocxTextDirectly } from './docx-xml-extract'
 
 /** يوحّد فواصل الأسطر إلى `\n` */
 const normalizeNewlines = (value: string): string =>
@@ -96,58 +95,21 @@ const toPayloadResult = (
 })
 
 /**
- * يستخرج نص DOCX عبر مسار أساسي:
- * `mammoth.convertToHtml -> htmlToText` للحفاظ على `<br/>`.
- * عند الفشل، يهبط إلى `extractRawText`.
- * @throws {Error} إذا فشل المساران أو تعذّر تحميل دوال mammoth
+ * يستخرج نص DOCX مباشرة من `word/document.xml` بدون تحويل HTML.
+ * @throws {Error} إذا كان الملف غير صالح أو فشل فك محتوى DOCX
  */
 async function extractDocxText(
   file: File,
 ): Promise<{ text: string; attempts: string[]; warnings: string[] }> {
-  const arrayBuffer = await file.arrayBuffer()
-  const attempts: string[] = []
-  const warnings: string[] = []
-
-  // المسار الأساسي: استخراج XML مباشر (بدون Mammoth HTML)
-  attempts.push('docx-xml-direct')
-  try {
-    const xmlResult = await extractDocxFromXml(arrayBuffer)
-    warnings.push(...xmlResult.warnings)
-
-    if (xmlResult.text.trim()) {
-      return { text: xmlResult.text, attempts, warnings }
-    }
-    warnings.push('docx-xml-direct أعاد نصًا فارغًا؛ الهبوط إلى Mammoth.')
-  } catch (xmlError) {
-    warnings.push(
-      `فشل docx-xml-direct: ${xmlError instanceof Error ? xmlError.message : String(xmlError)}; الهبوط إلى Mammoth.`,
-    )
+  const result = await extractDocxTextDirectly(file)
+  if (!result.text.trim()) {
+    throw new Error('استخراج DOCX أعاد نصًا فارغًا.')
   }
-
-  // المسار الاحتياطي: Mammoth extractRawText فقط
-  const mammoth = (await import('mammoth')) as {
-    extractRawText?: (input: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }>
-    default?: {
-      extractRawText?: (input: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }>
-    }
+  return {
+    text: result.text,
+    attempts: ['docx-xml-direct'],
+    warnings: result.warnings,
   }
-  const extractRawText = mammoth.extractRawText ?? mammoth.default?.extractRawText
-  if (extractRawText) {
-    try {
-      const result = await extractRawText({ arrayBuffer })
-      const text = normalizeExtractedDocxText(result.value ?? '')
-      attempts.push('mammoth-raw-fallback')
-      if (text.trim()) {
-        return { text, attempts, warnings }
-      }
-    } catch (error) {
-      warnings.push(
-        `فشل mammoth-raw-fallback: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
-  }
-
-  throw new Error(`فشل استخراج DOCX عبر جميع المسارات: ${warnings.join(' | ') || 'غير معروف'}`)
 }
 
 /**
@@ -224,7 +186,7 @@ export const isBrowserExtractionSupported = (fileType: ImportedFileType): boolea
 /**
  * يستخرج نص الملف داخل المتصفح حسب نوعه:
  * - `txt`/`fountain`/`fdx` → قراءة نصية مع كشف ترميز
- * - `docx` → mammoth
+ * - `docx` → XML مباشر
  * - `pdf` → pdfjs-dist text layer
  * - `doc` → best-effort text extraction
  *
@@ -266,9 +228,7 @@ export const extractFileInBrowser = async (
     return {
       text: extracted.text,
       fileType,
-      method: extracted.attempts.includes('mammoth-raw-fallback')
-        ? 'mammoth'
-        : 'docx-xml-direct',
+      method: 'docx-xml-direct',
       usedOcr: false,
       warnings: extracted.warnings,
       attempts: extracted.attempts,

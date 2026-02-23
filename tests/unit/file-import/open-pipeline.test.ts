@@ -5,10 +5,10 @@ import type { FileExtractionResult } from '../../../src/types/file-import'
 const baseResult: FileExtractionResult = {
   text: 'نص مستخرج',
   fileType: 'docx',
-  method: 'mammoth',
+  method: 'docx-xml-direct',
   usedOcr: false,
   warnings: [],
-  attempts: ['mammoth'],
+  attempts: ['docx-xml-direct'],
 }
 
 describe('open-pipeline', () => {

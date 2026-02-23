@@ -1,25 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import JSZip from 'jszip'
 
 const pdfGetDocumentMock = vi.hoisted(() => vi.fn())
-const mammothConvertToHtmlMock = vi.hoisted(() => vi.fn())
-const mammothExtractRawTextMock = vi.hoisted(() => vi.fn())
 
 vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => ({
   getDocument: pdfGetDocumentMock,
 }))
 
-vi.mock('mammoth', () => ({
-  convertToHtml: mammothConvertToHtmlMock,
-  extractRawText: mammothExtractRawTextMock,
-}))
-
 import { extractFileInBrowser } from '../../../src/utils/file-import/extract/browser-extract'
+
+const createDocxFile = async (xml: string, name = 'sample.docx'): Promise<File> => {
+  const zip = new JSZip()
+  zip.file('word/document.xml', xml)
+  const bytes = await zip.generateAsync({ type: 'uint8array' })
+  return new File([bytes], name, {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  })
+}
 
 describe('browser-extract', () => {
   beforeEach(() => {
     pdfGetDocumentMock.mockReset()
-    mammothConvertToHtmlMock.mockReset()
-    mammothExtractRawTextMock.mockReset()
   })
 
   it('extracts DOC in best-effort mode when using browser path', async () => {
@@ -66,40 +67,31 @@ describe('browser-extract', () => {
     expect(result.text).toContain('مرحبا PDF')
   })
 
-  it('falls back to mammoth raw when XML extraction fails on non-ZIP data', async () => {
-    mammothExtractRawTextMock.mockResolvedValueOnce({
-      value: 'وهي تنهض لتواجههم\nبوسي:',
-    })
+  it('extracts DOCX directly from XML while preserving paragraph and soft break boundaries', async () => {
+    const xml =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+      '<w:body>' +
+      '<w:p><w:r><w:t>مشهد 1</w:t></w:r></w:p>' +
+      '<w:p><w:r><w:t>بوسي:</w:t></w:r><w:r><w:br/></w:r><w:r><w:t>وهي تنهض لتواجههم</w:t></w:r></w:p>' +
+      '</w:body></w:document>'
 
-    const file = new File(
-      ['dummy'],
-      'sample.docx',
-      { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
-    )
-
+    const file = await createDocxFile(xml)
     const result = await extractFileInBrowser(file, 'docx')
+
     expect(result.fileType).toBe('docx')
-    expect(result.method).toBe('mammoth')
-    expect(result.attempts).toContain('docx-xml-direct')
-    expect(result.attempts).toContain('mammoth-raw-fallback')
-    expect(result.text).toBe('وهي تنهض لتواجههم\nبوسي:')
+    expect(result.method).toBe('docx-xml-direct')
+    expect(result.attempts).toEqual(['docx-xml-direct'])
+    expect(result.text).toBe('مشهد 1\nبوسي:\nوهي تنهض لتواجههم')
   })
 
-  it('reports XML failure in warnings when falling back to mammoth', async () => {
-    mammothExtractRawTextMock.mockResolvedValueOnce({
-      value: 'اطلع من البلدثم يخرج ورقه مكتوب عليها عنوان',
-    })
-
+  it('throws when DOCX payload is not a valid zip', async () => {
     const file = new File(
       ['dummy'],
       'sample.docx',
       { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
     )
 
-    const result = await extractFileInBrowser(file, 'docx')
-    expect(result.fileType).toBe('docx')
-    expect(result.method).toBe('mammoth')
-    expect(result.warnings.join('\n')).toContain('فشل docx-xml-direct')
-    expect(result.attempts).toContain('mammoth-raw-fallback')
+    await expect(extractFileInBrowser(file, 'docx')).rejects.toThrow()
   })
 })

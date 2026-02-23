@@ -53,10 +53,10 @@ export const OPEN_PIPELINE_CASES: readonly OpenPipelineHarnessCase[] = [
     extraction: {
       text: 'نص خام',
       fileType: 'docx',
-      method: 'mammoth',
+      method: 'docx-xml-direct',
       usedOcr: false,
       warnings: [],
-      attempts: ['mammoth'],
+      attempts: ['docx-xml-direct'],
     },
     expectedKind: 'import-classified-text',
   },

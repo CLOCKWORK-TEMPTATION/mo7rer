@@ -17,8 +17,8 @@ import { promisify } from "util";
 import { fileURLToPath } from "url";
 import { config } from "dotenv";
 import axios from "axios";
-import * as mammoth from "mammoth";
 import iconv from "iconv-lite";
+import { extractDocxFromXmlBuffer } from "./docx-xml-extract.mjs";
 /* eslint-disable no-console */
 import Anthropic from "@anthropic-ai/sdk";
 // تحميل متغيرات البيئة
@@ -429,7 +429,7 @@ const parseReviewDecisions = (rawText) => {
  *
  * @dependencies
  * - @anthropic-ai/sdk: للتواصل مع Claude API
- * - mammoth: لقراءة ملفات .docx
+ * - docx XML extractor: لقراءة ملفات .docx مباشرة من word/document.xml
  * - antiword (عبر WSL): لقراءة ملفات .doc
  * - axios: للـ REST fallback
  * - iconv-lite: لتحويل الترميزات
@@ -508,11 +508,12 @@ export class ScreenplayClassifier {
         if (![".doc", ".docx"].includes(ext)) {
             throw new Error(`نوع الملف غير مدعوم: ${ext}`);
         }
-        // ملفات .docx - استخدام mammoth
+        // ملفات .docx - استخراج مباشر من XML
         if (ext === ".docx") {
             try {
-                const result = await mammoth.extractRawText({ path: resolvedPath });
-                return result.value;
+                const buffer = await fs.readFile(resolvedPath);
+                const extracted = await extractDocxFromXmlBuffer(buffer);
+                return extracted.text;
             }
             catch (e) {
                 throw new Error(`خطأ في قراءة ملف docx: ${e}`, { cause: e });
@@ -1024,4 +1025,3 @@ if (isDirectExecution()) {
         process.exit(1);
     });
 }
-
