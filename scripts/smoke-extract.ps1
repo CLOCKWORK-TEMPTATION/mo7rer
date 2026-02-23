@@ -22,7 +22,7 @@ $fixtureSpecs = @(
     RelativePath = "tests/fixtures/regression/12.docx"
     Extension = "docx"
     Requires = "none"
-    ExpectedMethod = "mammoth"
+    ExpectedMethod = "docx-xml-direct"
   },
   @{
     RelativePath = "tests/fixtures/regression/12.pdf"

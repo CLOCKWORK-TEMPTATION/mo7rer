@@ -24,7 +24,7 @@ const ENV_BACKEND_ENDPOINT =
 
 const EXTRACTION_METHODS = new Set<ExtractionMethod>([
   'native-text',
-  'mammoth',
+  'docx-xml-direct',
   'pdfjs-text-layer',
   'doc-converter-flow',
   'ocr-mistral',

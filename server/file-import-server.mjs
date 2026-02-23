@@ -6,9 +6,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, extname, join } from 'node:path'
 import { config as loadEnv } from 'dotenv'
-import mammoth from 'mammoth'
 import { extractPdfTextWithOcr, getPdfOcrModel } from './pdf-ocr.mjs'
-import { normalizeExtractedDocxText } from '../src/utils/file-import/extract/docx-html-to-text.mjs'
 import { extractDocxFromXmlBuffer } from './docx-xml-extract.mjs'
 import {
   AgentReviewValidationError,
@@ -33,7 +31,6 @@ const DEFAULT_ANTIWORD_HOME = '/usr/share/antiword'
 const SUPPORTED_EXTENSIONS = new Set(['txt', 'fountain', 'fdx', 'docx', 'pdf', 'doc'])
 const SUPPORTED_EXTRACTION_METHODS = new Set([
   'native-text',
-  'mammoth',
   'docx-xml-direct',
   'pdfjs-text-layer',
   'doc-converter-flow',
@@ -73,43 +70,15 @@ const normalizeText = (value) =>
     .trim()
 
 const extractDocxBufferToText = async (buffer) => {
-  const attempts = []
-  const warnings = []
-
-  // المسار الأساسي: استخراج XML مباشر
-  attempts.push('docx-xml-direct')
-  try {
-    const result = await extractDocxFromXmlBuffer(buffer)
-    warnings.push(...result.warnings)
-
-    if (result.text.trim()) {
-      return { text: result.text, attempts, warnings }
-    }
-    warnings.push('docx-xml-direct أعاد نصًا فارغًا؛ الهبوط إلى Mammoth.')
-  } catch (xmlError) {
-    warnings.push(
-      `فشل docx-xml-direct: ${xmlError instanceof Error ? xmlError.message : String(xmlError)}; الهبوط إلى Mammoth.`,
-    )
+  const result = await extractDocxFromXmlBuffer(buffer)
+  if (!result.text.trim()) {
+    throw new Error('استخراج DOCX أعاد نصًا فارغًا.')
   }
-
-  // المسار الاحتياطي: Mammoth extractRawText فقط
-  const extractRawText = mammoth.extractRawText
-  if (extractRawText) {
-    try {
-      const result = await extractRawText({ buffer })
-      const text = normalizeExtractedDocxText(result.value ?? '')
-      attempts.push('mammoth-raw-fallback')
-      if (text) {
-        return { text, attempts, warnings }
-      }
-    } catch (error) {
-      warnings.push(
-        `فشل mammoth-raw-fallback: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
+  return {
+    text: result.text,
+    attempts: ['docx-xml-direct'],
+    warnings: result.warnings,
   }
-
-  throw new Error(`فشل استخراج DOCX عبر جميع المسارات: ${warnings.join(' | ')}`)
 }
 
 const sendJson = (res, statusCode, payload) => {
@@ -396,7 +365,7 @@ const extractByType = async (buffer, extension, filename) => {
     const result = await extractDocxBufferToText(buffer)
     return {
       text: result.text,
-      method: result.attempts.includes('mammoth-raw-fallback') ? 'mammoth' : 'docx-xml-direct',
+      method: 'docx-xml-direct',
       usedOcr: false,
       attempts: result.attempts,
       warnings: result.warnings,

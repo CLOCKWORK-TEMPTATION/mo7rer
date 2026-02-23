@@ -3,7 +3,7 @@
  * @description أنماط استيراد الملفات — تُعرّف الأنواع المدعومة وطرق الاستخراج ونتائج العملية
  *
  * يدعم التطبيق 6 صيغ ملفات: doc, docx, txt, pdf, fountain, fdx
- * ويستخدم 7 طرق استخراج مختلفة حسب نوع الملف وبيئة التشغيل.
+ * ويستخدم عدة طرق استخراج مختلفة حسب نوع الملف وبيئة التشغيل.
  *
  * @see utils/file-import/ — خط أنابيب الاستيراد الكامل
  */
@@ -37,7 +37,7 @@ export type ImportedFileType =
 /**
  * طريقة الاستخراج — الأسلوب المُستخدم لاستخراج النص من الملف
  * - `native-text` — قراءة مباشرة كنص عادي (txt, fountain)
- * - `mammoth` — مكتبة Mammoth لتحويل docx إلى نص
+ * - `docx-xml-direct` — قراءة `word/document.xml` مباشرة من ملف DOCX
  * - `pdfjs-text-layer` — طبقة النص في PDF.js
  * - `doc-converter-flow` — تحويل doc عبر خدمة خارجية
  * - `ocr-mistral` — التعرف البصري على الحروف عبر Mistral
@@ -46,7 +46,6 @@ export type ImportedFileType =
  */
 export type ExtractionMethod =
   | 'native-text'
-  | 'mammoth'
   | 'docx-xml-direct'
   | 'pdfjs-text-layer'
   | 'doc-converter-flow'
