@@ -180,6 +180,22 @@ const normalizeSuspiciousLine = (entry, index) => {
     distinctDetectors,
   };
 };
+
+const normalizeItemIndexList = (value, fieldName) => {
+  if (!Array.isArray(value)) return null;
+  const normalized = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const itemIndex = value[index];
+    if (!isIntegerNumber(itemIndex)) {
+      throw new AgentReviewValidationError(
+        `Invalid ${fieldName} entry at index ${index}.`
+      );
+    }
+    normalized.push(itemIndex);
+  }
+  return [...new Set(normalized)];
+};
+
 export const validateAgentReviewRequestBody = (rawBody) => {
   if (!isObjectRecord(rawBody)) {
     throw new AgentReviewValidationError("Invalid agent-review request body.");
@@ -208,13 +224,52 @@ export const validateAgentReviewRequestBody = (rawBody) => {
       "Invalid suspiciousLines in agent-review request."
     );
   }
+
+  const normalizedSuspiciousLines = suspiciousLines.map((entry, index) =>
+    normalizeSuspiciousLine(entry, index)
+  );
+  const suspiciousIndexesSet = new Set(
+    normalizedSuspiciousLines.map((line) => line.itemIndex)
+  );
+  const defaultRequired = [...suspiciousIndexesSet];
+  const defaultForced = normalizedSuspiciousLines
+    .filter((line) => line.routingBand === "agent-forced")
+    .map((line) => line.itemIndex);
+
+  const requiredItemIndexes =
+    normalizeItemIndexList(rawBody.requiredItemIndexes, "requiredItemIndexes") ??
+    defaultRequired;
+  const forcedItemIndexes =
+    normalizeItemIndexList(rawBody.forcedItemIndexes, "forcedItemIndexes") ??
+    [...new Set(defaultForced)];
+
+  for (const itemIndex of requiredItemIndexes) {
+    if (!suspiciousIndexesSet.has(itemIndex)) {
+      throw new AgentReviewValidationError(
+        `requiredItemIndexes contains unknown itemIndex: ${itemIndex}.`
+      );
+    }
+  }
+  for (const itemIndex of forcedItemIndexes) {
+    if (!suspiciousIndexesSet.has(itemIndex)) {
+      throw new AgentReviewValidationError(
+        `forcedItemIndexes contains unknown itemIndex: ${itemIndex}.`
+      );
+    }
+    if (!requiredItemIndexes.includes(itemIndex)) {
+      throw new AgentReviewValidationError(
+        `forcedItemIndexes must be subset of requiredItemIndexes: ${itemIndex}.`
+      );
+    }
+  }
+
   return {
     sessionId,
     totalReviewed,
     reviewPacketText: reviewPacketText || undefined,
-    suspiciousLines: suspiciousLines.map((entry, index) =>
-      normalizeSuspiciousLine(entry, index)
-    ),
+    suspiciousLines: normalizedSuspiciousLines,
+    requiredItemIndexes,
+    forcedItemIndexes,
   };
 };
 let anthropicClientSingleton = null;
@@ -420,6 +475,9 @@ action, dialogue, character, scene-header-1, scene-header-2, scene-header-3, sce
 قواعد مهمة:
 - confidence رقم بين 0 و 1.
 - itemIndex لازم يطابق المدخل.
+- يجب إرجاع قرار لكل itemIndex في requiredItemIndexes.
+- أي itemIndex داخل forcedItemIndexes لا يجوز أن يبقى بلا قرار.
+- إذا كان السطر في forcedItemIndexes ومؤشراته تدل على "dialogue + سرد فعلي/أكشن"، يجب ألا يكون finalType = dialogue.
 - لا ترجع أي مفاتيح إضافية.
 - لو مافيش تعديل، ارجع نفس النوع الحالي.`;
 const clampConfidence = (value) => {
@@ -903,19 +961,136 @@ ${text}`;
 const buildReviewUserPrompt = (request) => {
   const payload = {
     totalReviewed: request.totalReviewed,
+    requiredItemIndexes: request.requiredItemIndexes,
+    forcedItemIndexes: request.forcedItemIndexes,
     suspiciousLines: request.suspiciousLines,
   };
   return `راجع عناصر التصنيف المشتبه فيها فقط، وارجع JSON بالمخطط المطلوب حرفيًا.\n\n${JSON.stringify(payload, null, 2)}`;
 };
-export const reviewSuspiciousLinesWithClaude = async (request) => {
-  const startedAt = Date.now();
-  if (!process.env.ANTHROPIC_API_KEY) {
+
+const uniqueSortedIntegers = (values) =>
+  [...new Set((values ?? []).filter((value) => isIntegerNumber(value)))].sort(
+    (a, b) => a - b
+  );
+
+const normalizeDecisionsAgainstRequest = (request, rawDecisions) => {
+  const allowedIndexes = new Set(
+    request.suspiciousLines.map((line) => line.itemIndex)
+  );
+  const bestByIndex = new Map();
+
+  for (const decision of rawDecisions) {
+    if (!allowedIndexes.has(decision.itemIndex)) continue;
+    const existing = bestByIndex.get(decision.itemIndex);
+    if (!existing || decision.confidence >= existing.confidence) {
+      bestByIndex.set(decision.itemIndex, decision);
+    }
+  }
+
+  return Array.from(bestByIndex.values()).sort(
+    (a, b) => a.itemIndex - b.itemIndex
+  );
+};
+
+const buildReviewCoverageMeta = (request, decisions) => {
+  const decisionByIndex = new Map(
+    decisions.map((decision) => [decision.itemIndex, decision])
+  );
+  const suspiciousByIndex = new Map(
+    request.suspiciousLines.map((line) => [line.itemIndex, line])
+  );
+  const requiredItemIndexes = uniqueSortedIntegers(request.requiredItemIndexes);
+  const forcedItemIndexes = uniqueSortedIntegers(request.forcedItemIndexes);
+
+  const missingItemIndexes = requiredItemIndexes.filter(
+    (itemIndex) => !decisionByIndex.has(itemIndex)
+  );
+  const unresolvedForcedItemIndexes = forcedItemIndexes.filter((itemIndex) => {
+    const source = suspiciousByIndex.get(itemIndex);
+    const decision = decisionByIndex.get(itemIndex);
+    if (!source || !decision) return true;
+    return decision.finalType === source.assignedType;
+  });
+
+  return {
+    requestedCount: requiredItemIndexes.length,
+    decisionCount: decisions.length,
+    missingItemIndexes,
+    forcedItemIndexes,
+    unresolvedForcedItemIndexes,
+  };
+};
+
+const createReviewResponseWithCoverage = (
+  request,
+  decisions,
+  startedAt,
+  defaultAppliedMessage
+) => {
+  const normalizedDecisions = normalizeDecisionsAgainstRequest(request, decisions);
+  const meta = buildReviewCoverageMeta(request, normalizedDecisions);
+  const latencyMs = Date.now() - startedAt;
+
+  if (meta.unresolvedForcedItemIndexes.length > 0) {
+    return {
+      status: "error",
+      model: MODEL_ID,
+      decisions: normalizedDecisions,
+      message:
+        "تعذر حسم عناصر forced المطلوبة: " +
+        meta.unresolvedForcedItemIndexes.join(", "),
+      latencyMs,
+      meta,
+    };
+  }
+
+  if (meta.missingItemIndexes.length > 0) {
     return {
       status: "warning",
+      model: MODEL_ID,
+      decisions: normalizedDecisions,
+      message:
+        "الوكيل لم يُرجع قرارات كاملة لكل requiredItemIndexes: " +
+        meta.missingItemIndexes.join(", "),
+      latencyMs,
+      meta,
+    };
+  }
+
+  if (normalizedDecisions.length === 0) {
+    return {
+      status: "skipped",
+      model: MODEL_ID,
+      decisions: [],
+      message: "الوكيل لم يرجع قرارات قابلة للتطبيق.",
+      latencyMs,
+      meta,
+    };
+  }
+
+  return {
+    status: "applied",
+    model: MODEL_ID,
+    decisions: normalizedDecisions,
+    message: defaultAppliedMessage,
+    latencyMs,
+    meta,
+  };
+};
+
+export const reviewSuspiciousLinesWithClaude = async (request) => {
+  const startedAt = Date.now();
+  const emptyMeta = buildReviewCoverageMeta(request, []);
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    const hasUnresolvedForced = emptyMeta.unresolvedForcedItemIndexes.length > 0;
+    return {
+      status: hasUnresolvedForced ? "error" : "warning",
       model: MODEL_ID,
       decisions: [],
       message: "ANTHROPIC_API_KEY غير موجود؛ تم تخطي مرحلة الوكيل.",
       latencyMs: Date.now() - startedAt,
+      meta: emptyMeta,
     };
   }
   if (
@@ -928,6 +1103,7 @@ export const reviewSuspiciousLinesWithClaude = async (request) => {
       decisions: [],
       message: "لا توجد سطور مشتبه فيها لإرسالها للوكيل.",
       latencyMs: Date.now() - startedAt,
+      meta: emptyMeta,
     };
   }
   const maxTokens = Math.min(
@@ -949,27 +1125,13 @@ export const reviewSuspiciousLinesWithClaude = async (request) => {
   try {
     const message = await tryCreateMessageWithSdk(params);
     const text = extractTextFromAnthropicBlocks(message.content);
-    const decisions = parseReviewDecisions(text).filter((decision) =>
-      request.suspiciousLines.some(
-        (line) => line.itemIndex === decision.itemIndex
-      )
-    );
-    if (decisions.length === 0) {
-      return {
-        status: "skipped",
-        model: MODEL_ID,
-        decisions: [],
-        message: "الوكيل لم يرجع قرارات قابلة للتطبيق.",
-        latencyMs: Date.now() - startedAt,
-      };
-    }
-    return {
-      status: "applied",
-      model: MODEL_ID,
+    const decisions = parseReviewDecisions(text);
+    return createReviewResponseWithCoverage(
+      request,
       decisions,
-      message: `تم استلام ${decisions.length} قرار من الوكيل.`,
-      latencyMs: Date.now() - startedAt,
-    };
+      startedAt,
+      `تم استلام ${decisions.length} قرار من الوكيل.`
+    );
   } catch (sdkError) {
     console.warn(
       `تحذير: فشل SDK في المراجعة، تجربة REST fallback: ${sdkError}`
@@ -993,27 +1155,13 @@ export const reviewSuspiciousLinesWithClaude = async (request) => {
         }
       );
       const text = response.data.content[0]?.text ?? "";
-      const decisions = parseReviewDecisions(text).filter((decision) =>
-        request.suspiciousLines.some(
-          (line) => line.itemIndex === decision.itemIndex
-        )
-      );
-      if (decisions.length === 0) {
-        return {
-          status: "skipped",
-          model: MODEL_ID,
-          decisions: [],
-          message: "REST fallback لم يرجع قرارات قابلة للتطبيق.",
-          latencyMs: Date.now() - startedAt,
-        };
-      }
-      return {
-        status: "applied",
-        model: MODEL_ID,
+      const decisions = parseReviewDecisions(text);
+      return createReviewResponseWithCoverage(
+        request,
         decisions,
-        message: `تم استلام ${decisions.length} قرار (REST fallback).`,
-        latencyMs: Date.now() - startedAt,
-      };
+        startedAt,
+        `تم استلام ${decisions.length} قرار (REST fallback).`
+      );
     } catch (restError) {
       return {
         status: "error",
@@ -1021,6 +1169,7 @@ export const reviewSuspiciousLinesWithClaude = async (request) => {
         decisions: [],
         message: `فشل الوكيل: ${restError}`,
         latencyMs: Date.now() - startedAt,
+        meta: emptyMeta,
       };
     }
   }

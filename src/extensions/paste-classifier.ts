@@ -473,6 +473,29 @@ interface ReviewRoutingStats {
   countAgentForced: number;
 }
 
+const EMBEDDED_NARRATIVE_SUSPICION_FLOOR = 96;
+
+const promoteHighSeverityMismatches = (
+  suspiciousLines: readonly SuspiciousLine[]
+): SuspiciousLine[] =>
+  suspiciousLines.map((suspicious) => {
+    if (
+      suspicious.routingBand === "agent-candidate" &&
+      suspicious.findings.some(
+        (f) =>
+          f.detectorId === "content-type-mismatch" &&
+          f.suspicionScore >= EMBEDDED_NARRATIVE_SUSPICION_FLOOR
+      )
+    ) {
+      return {
+        ...suspicious,
+        routingBand: "agent-forced" as const,
+        escalationScore: Math.max(suspicious.escalationScore, 90),
+      };
+    }
+    return suspicious;
+  });
+
 const summarizeRoutingStats = (
   totalReviewed: number,
   suspiciousLines: readonly SuspiciousLine[]
@@ -510,16 +533,29 @@ const shouldEscalateToAgent = (suspicious: SuspiciousLine): boolean => {
 export const selectSuspiciousLinesForAgent = (
   packet: LLMReviewPacket
 ): SuspiciousLine[] => {
-  const candidates = packet.suspiciousLines
-    .filter((line) => shouldEscalateToAgent(line))
+  const forced = packet.suspiciousLines
+    .filter((line) => line.routingBand === "agent-forced")
     .sort((a, b) => b.escalationScore - a.escalationScore);
 
-  if (candidates.length === 0) return [];
+  const candidates = packet.suspiciousLines
+    .filter(
+      (line) =>
+        line.routingBand === "agent-candidate" && shouldEscalateToAgent(line)
+    )
+    .sort((a, b) => b.escalationScore - a.escalationScore);
+
+  if (forced.length === 0 && candidates.length === 0) return [];
+
   const maxToAgent = Math.max(
     1,
     Math.ceil(packet.totalReviewed * AGENT_REVIEW_MAX_RATIO)
   );
-  return candidates.slice(0, maxToAgent);
+  if (forced.length >= maxToAgent) {
+    return forced;
+  }
+
+  const remainingSlots = Math.max(0, maxToAgent - forced.length);
+  return [...forced, ...candidates.slice(0, remainingSlots)];
 };
 
 const shouldSkipAgentReviewInRuntime = (): boolean => {
@@ -537,6 +573,54 @@ const waitBeforeRetry = (ms: number): Promise<void> =>
 
 const isRetryableHttpStatus = (status: number): boolean =>
   status === 408 || status === 429 || status >= 500;
+
+const toUniqueSortedIndexes = (values: readonly number[]): number[] =>
+  [...new Set(values.filter((value) => Number.isInteger(value) && value >= 0))]
+    .sort((a, b) => a - b);
+
+const toNormalizedMetaIndexes = (value: unknown): number[] =>
+  Array.isArray(value)
+    ? toUniqueSortedIndexes(
+        value.filter(
+          (item): item is number =>
+            typeof item === "number" && Number.isInteger(item) && item >= 0
+        )
+      )
+    : [];
+
+const toValidAgentReviewMeta = (
+  raw: unknown
+): AgentReviewResponsePayload["meta"] => {
+  if (!raw || typeof raw !== "object") return undefined;
+
+  const record = raw as {
+    requestedCount?: unknown;
+    decisionCount?: unknown;
+    missingItemIndexes?: unknown;
+    forcedItemIndexes?: unknown;
+    unresolvedForcedItemIndexes?: unknown;
+  };
+
+  const requestedCount =
+    typeof record.requestedCount === "number" &&
+    Number.isFinite(record.requestedCount)
+      ? Math.max(0, Math.trunc(record.requestedCount))
+      : 0;
+  const decisionCount =
+    typeof record.decisionCount === "number" && Number.isFinite(record.decisionCount)
+      ? Math.max(0, Math.trunc(record.decisionCount))
+      : 0;
+
+  return {
+    requestedCount,
+    decisionCount,
+    missingItemIndexes: toNormalizedMetaIndexes(record.missingItemIndexes),
+    forcedItemIndexes: toNormalizedMetaIndexes(record.forcedItemIndexes),
+    unresolvedForcedItemIndexes: toNormalizedMetaIndexes(
+      record.unresolvedForcedItemIndexes
+    ),
+  };
+};
 
 const toValidAgentDecisions = (
   raw: unknown
@@ -598,6 +682,7 @@ const normalizeAgentReviewPayload = (
           ? "Applied from fallback text parsing."
           : "Empty/invalid agent payload.",
       latencyMs: 0,
+      meta: undefined,
     };
   }
 
@@ -607,6 +692,7 @@ const normalizeAgentReviewPayload = (
     model?: unknown;
     decisions?: unknown;
     latencyMs?: unknown;
+    meta?: unknown;
   };
 
   const status =
@@ -654,6 +740,7 @@ const normalizeAgentReviewPayload = (
       typeof record.latencyMs === "number" && Number.isFinite(record.latencyMs)
         ? record.latencyMs
         : 0,
+    meta: toValidAgentReviewMeta(record.meta),
   };
 };
 
@@ -665,11 +752,18 @@ const requestAgentReview = async (
       sessionId: request.sessionId,
     });
     return {
-      status: "applied",
+      status: "skipped",
       model: AGENT_REVIEW_MODEL,
       decisions: [],
       message: "Agent review mocked as applied in current runtime.",
       latencyMs: 0,
+      meta: {
+        requestedCount: request.requiredItemIndexes.length,
+        decisionCount: 0,
+        missingItemIndexes: [...request.requiredItemIndexes],
+        forcedItemIndexes: [...request.forcedItemIndexes],
+        unresolvedForcedItemIndexes: [...request.forcedItemIndexes],
+      },
     };
   }
 
@@ -751,9 +845,13 @@ const requestAgentReview = async (
         decisions: payload.decisions?.length ?? 0,
         model: payload.model,
         latencyMs: payload.latencyMs,
+        requestedCount: payload.meta?.requestedCount ?? 0,
+        decisionCount: payload.meta?.decisionCount ?? 0,
+        unresolvedForced:
+          payload.meta?.unresolvedForcedItemIndexes?.length ?? 0,
         attempt,
       });
-      if (payload.status !== "applied") {
+      if (payload.status === "error") {
         throw new Error(
           `Agent review status is ${payload.status}: ${payload.message}`
         );
@@ -812,6 +910,43 @@ const requestAgentReview = async (
   );
 };
 
+const buildAgentReviewMetaFallback = (
+  requestPayload: AgentReviewRequestPayload,
+  decisions: readonly AgentReviewResponsePayload["decisions"][number][],
+  classified: readonly ClassifiedDraft[]
+): NonNullable<AgentReviewResponsePayload["meta"]> => {
+  const decisionByIndex = new Map<
+    number,
+    AgentReviewResponsePayload["decisions"][number]
+  >();
+  for (const decision of decisions) {
+    decisionByIndex.set(decision.itemIndex, decision);
+  }
+
+  const missingItemIndexes = requestPayload.requiredItemIndexes.filter(
+    (itemIndex) => !decisionByIndex.has(itemIndex)
+  );
+  const unresolvedForcedItemIndexes = requestPayload.forcedItemIndexes.filter(
+    (itemIndex) => {
+      const decision = decisionByIndex.get(itemIndex);
+      if (!decision) return true;
+      const mapped = lineTypeToElementType(decision.finalType);
+      if (!mapped || !isElementType(mapped)) return true;
+      const original = classified[itemIndex];
+      if (!original) return true;
+      return original.type === mapped;
+    }
+  );
+
+  return {
+    requestedCount: requestPayload.requiredItemIndexes.length,
+    decisionCount: decisionByIndex.size,
+    missingItemIndexes: toUniqueSortedIndexes(missingItemIndexes),
+    forcedItemIndexes: [...requestPayload.forcedItemIndexes],
+    unresolvedForcedItemIndexes: toUniqueSortedIndexes(unresolvedForcedItemIndexes),
+  };
+};
+
 const applyRemoteAgentReview = async (
   classified: ClassifiedDraft[]
 ): Promise<ClassifiedDraft[]> => {
@@ -819,12 +954,32 @@ const applyRemoteAgentReview = async (
 
   const reviewInput = toClassifiedLineRecords(classified);
   const reviewer = new PostClassificationReviewer();
-  const reviewPacket = reviewer.review(reviewInput);
+  const basePacket = reviewer.review(reviewInput);
+  const reviewPacket: LLMReviewPacket = {
+    ...basePacket,
+    suspiciousLines: promoteHighSeverityMismatches(basePacket.suspiciousLines),
+  };
   const routingStats = summarizeRoutingStats(
     reviewPacket.totalReviewed,
     reviewPacket.suspiciousLines
   );
   const selectedForAgent = selectSuspiciousLinesForAgent(reviewPacket);
+  const selectedItemIndexesPreview = toUniqueSortedIndexes(
+    selectedForAgent.map((line) => line.line.lineIndex)
+  );
+  const forcedItemIndexesPreview = toUniqueSortedIndexes(
+    selectedForAgent
+      .filter((line) => line.routingBand === "agent-forced")
+      .map((line) => line.line.lineIndex)
+  );
+
+  const suspectSnapshots = selectedForAgent.map((suspicious) => ({
+    itemIndex: suspicious.line.lineIndex,
+    assignedType: suspicious.line.assignedType,
+    routingBand: suspicious.routingBand,
+    escalationScore: suspicious.escalationScore,
+    reason: suspicious.findings[0]?.reason ?? "",
+  }));
 
   agentReviewLogger.telemetry("packet-built", {
     totalReviewed: reviewPacket.totalReviewed,
@@ -832,11 +987,26 @@ const applyRemoteAgentReview = async (
     suspicionRate: reviewPacket.suspicionRate,
     ...routingStats,
     countSentToAgent: selectedForAgent.length,
+    sentItemIndexes: selectedItemIndexesPreview,
+    forcedItemIndexes: forcedItemIndexesPreview,
   });
+  if (suspectSnapshots.length > 0) {
+    agentReviewLogger.debug("packet-suspects-snapshot", {
+      lines: suspectSnapshots,
+    });
+  }
   if (selectedForAgent.length === 0) {
     agentReviewLogger.info("packet-skipped-after-routing", {
       ...routingStats,
       countSentToAgent: 0,
+    });
+    return classified;
+  }
+
+  if (shouldSkipAgentReviewInRuntime()) {
+    agentReviewLogger.info("agent-review-bypassed-runtime", {
+      reason: "test-or-non-browser-runtime",
+      countSentToAgent: selectedForAgent.length,
     });
     return classified;
   }
@@ -901,34 +1071,72 @@ const applyRemoteAgentReview = async (
     return classified;
   }
 
+  const sentItemIndexes = toUniqueSortedIndexes(
+    suspiciousPayload.map((entry) => entry.itemIndex)
+  );
+  const forcedItemIndexes = toUniqueSortedIndexes(
+    suspiciousPayload
+      .filter((entry) => entry.routingBand === "agent-forced")
+      .map((entry) => entry.itemIndex)
+  );
+
   const requestPayload: AgentReviewRequestPayload = {
     sessionId: `paste-${Date.now()}`,
     totalReviewed: reviewPacket.totalReviewed,
     reviewPacketText: reviewPacketText || undefined,
     suspiciousLines: suspiciousPayload,
+    requiredItemIndexes: sentItemIndexes,
+    forcedItemIndexes,
   };
 
   const response = await requestAgentReview(requestPayload);
-  if (response.status !== "applied") {
+  const fallbackMeta = buildAgentReviewMetaFallback(
+    requestPayload,
+    response.decisions,
+    classified
+  );
+  const responseMeta = response.meta ?? fallbackMeta;
+  const missingRequiredItemIndexes = toUniqueSortedIndexes(
+    responseMeta.missingItemIndexes
+  );
+  const unresolvedForcedItemIndexesFromMeta = toUniqueSortedIndexes(
+    responseMeta.unresolvedForcedItemIndexes
+  );
+
+  if (response.status === "error") {
     throw new Error(
-      `Agent review status is ${response.status}: ${response.message}`
+      `Agent review failed: status=${response.status} | message=${response.message}`
     );
   }
 
   const corrected = [...classified];
+  const decisionItemIndexes: number[] = [];
+  const effectiveAppliedItemIndexes: number[] = [];
+  const unchangedDecisionItemIndexes: number[] = [];
+
   for (const decision of response.decisions) {
     const idx = decision.itemIndex;
+    if (idx >= 0) decisionItemIndexes.push(idx);
     if (idx < 0 || idx >= corrected.length) continue;
 
     const mapped = lineTypeToElementType(decision.finalType);
-    if (!mapped || !isElementType(mapped)) continue;
+    if (!mapped || !isElementType(mapped)) {
+      unchangedDecisionItemIndexes.push(idx);
+      continue;
+    }
 
     const original = corrected[idx];
-    if (!original || original.type === mapped) continue;
+    if (!original || original.type === mapped) {
+      unchangedDecisionItemIndexes.push(idx);
+      continue;
+    }
 
     if (mapped === "sceneHeaderTopLine") {
       const parts = splitSceneHeaderLine(original.text);
-      if (!parts || !parts.header2) continue;
+      if (!parts || !parts.header2) {
+        unchangedDecisionItemIndexes.push(idx);
+        continue;
+      }
       corrected[idx] = {
         ...original,
         type: mapped,
@@ -941,6 +1149,7 @@ const applyRemoteAgentReview = async (
         ),
         classificationMethod: "context",
       };
+      effectiveAppliedItemIndexes.push(idx);
       continue;
     }
 
@@ -956,10 +1165,60 @@ const applyRemoteAgentReview = async (
       ),
       classificationMethod: "context",
     };
+    effectiveAppliedItemIndexes.push(idx);
+  }
+
+  const uniqueDecisionItemIndexes = toUniqueSortedIndexes(decisionItemIndexes);
+  const uniqueEffectiveAppliedItemIndexes = toUniqueSortedIndexes(
+    effectiveAppliedItemIndexes
+  );
+  const uniqueUnchangedDecisionItemIndexes = toUniqueSortedIndexes(
+    unchangedDecisionItemIndexes
+  );
+  const unresolvedForcedItemIndexesFromEffect = forcedItemIndexes.filter(
+    (itemIndex) => !uniqueEffectiveAppliedItemIndexes.includes(itemIndex)
+  );
+  const unresolvedForcedItemIndexes = toUniqueSortedIndexes([
+    ...unresolvedForcedItemIndexesFromMeta,
+    ...unresolvedForcedItemIndexesFromEffect,
+  ]);
+
+  if (unresolvedForcedItemIndexes.length > 0) {
+    agentReviewLogger.error("response-unresolved-forced-lines", {
+      status: response.status,
+      message: response.message,
+      forcedItemIndexes,
+      unresolvedForcedItemIndexesFromMeta,
+      unresolvedForcedItemIndexesFromEffect,
+      unresolvedForcedItemIndexes,
+      decisionItemIndexes: uniqueDecisionItemIndexes,
+      effectiveAppliedItemIndexes: uniqueEffectiveAppliedItemIndexes,
+      unchangedDecisionItemIndexes: uniqueUnchangedDecisionItemIndexes,
+      missingRequiredItemIndexes,
+    });
+    throw new Error(
+      `Agent review unresolved for forced lines: ${unresolvedForcedItemIndexes.join(", ")} | status=${response.status} | message=${response.message}`
+    );
+  }
+
+  if (response.status === "warning") {
+    agentReviewLogger.warn("response-warning-partial-coverage", {
+      message: response.message,
+      missingRequiredItemIndexes,
+      unresolvedForcedItemIndexes,
+    });
   }
 
   agentReviewLogger.telemetry("response-applied", {
+    status: response.status,
     decisions: response.decisions.length,
+    sentItemIndexes,
+    forcedItemIndexes,
+    decisionItemIndexes: uniqueDecisionItemIndexes,
+    effectiveAppliedItemIndexes: uniqueEffectiveAppliedItemIndexes,
+    unchangedDecisionItemIndexes: uniqueUnchangedDecisionItemIndexes,
+    missingRequiredItemIndexes,
+    unresolvedForcedItemIndexes,
   });
   return corrected;
 };

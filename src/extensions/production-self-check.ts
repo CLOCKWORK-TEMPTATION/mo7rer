@@ -476,6 +476,8 @@ const runExtensionFunctionCalls = async (sampleText: string): Promise<void> => {
   await reviewSuspiciousLinesWithClaude({
     sessionId: "self-check-session",
     totalReviewed: sampleClassifiedLines.length,
+    requiredItemIndexes: [0],
+    forcedItemIndexes: [0],
     suspiciousLines: [
       {
         itemIndex: 0,

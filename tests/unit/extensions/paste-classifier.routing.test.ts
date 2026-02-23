@@ -80,4 +80,22 @@ describe("paste-classifier agent routing", () => {
 
     expect(selectSuspiciousLinesForAgent(packet)).toEqual([]);
   });
+
+  it("agent-forced lines always take priority over agent-candidate", () => {
+    const packet: LLMReviewPacket = {
+      totalReviewed: 10,
+      totalSuspicious: 3,
+      suspicionRate: 0.3,
+      suspiciousLines: [
+        makeSuspicious(0, "agent-candidate", 89, true, 2),
+        makeSuspicious(1, "agent-forced", 90, true, 1),
+        makeSuspicious(2, "agent-candidate", 88, true, 1),
+      ],
+    };
+
+    const selected = selectSuspiciousLinesForAgent(packet);
+    // ceil(10 * 0.18) = 2, forced first
+    expect(selected[0].line.lineIndex).toBe(1);
+    expect(selected[0].routingBand).toBe("agent-forced");
+  });
 });

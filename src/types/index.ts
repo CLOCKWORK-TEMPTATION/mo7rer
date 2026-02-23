@@ -56,5 +56,6 @@ export type {
   AgentSuspiciousLinePayload,
   AgentReviewRequestPayload,
   AgentReviewDecision,
+  AgentReviewResponseMeta,
   AgentReviewResponsePayload,
 } from "./agent-review";

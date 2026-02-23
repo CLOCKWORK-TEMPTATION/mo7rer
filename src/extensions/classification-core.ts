@@ -15,7 +15,12 @@ import {
   matchesActionStartPattern,
   startsWithBullet,
 } from "./text-utils";
-import { PRONOUN_ACTION_RE } from "./arabic-patterns";
+import {
+  CONVERSATIONAL_MARKERS_RE,
+  FULL_ACTION_VERB_SET,
+  PRONOUN_ACTION_RE,
+  VOCATIVE_RE,
+} from "./arabic-patterns";
 import {
   CLASSIFICATION_SEQUENCE_VIOLATION_SEVERITY,
   CLASSIFICATION_VALID_SEQUENCES,
@@ -98,6 +103,52 @@ const hasHighConfidenceActionSignal = (text: string): boolean => {
     isActionVerbStart(text) ||
     hasActionVerbStructure(text)
   );
+};
+
+const CONNECTOR_THEN_ACTION_RE =
+  /(?:^|[\s،,؛:.!?؟…])ثم\s+([يتنأ][\u0600-\u06FF]{2,})(?=$|[\s،,؛:.!?؟…])/;
+const ARABIC_EDGE_CLEAN_RE = /(^[^\u0600-\u06FF]+)|([^\u0600-\u06FF]+$)/g;
+const ACTION_VERB_LIKE_RE = /^(?:[وف]?)[يتنأ][\u0600-\u06FF]{2,}$/;
+const DIALOGUE_ACTION_CONNECTORS = new Set([
+  "ثم",
+  "وبعدين",
+  "بعدها",
+  "عندها",
+  "فجأة",
+]);
+
+const cleanArabicToken = (token: string): string =>
+  (token ?? "").replace(ARABIC_EDGE_CLEAN_RE, "").trim();
+
+const hasEmbeddedNarrativeActionInDialogue = (text: string): boolean => {
+  const normalized = (text ?? "").replace(/[\u200f\u200e\ufeff]/g, "").trim();
+  if (!normalized) return false;
+
+  const thenMatch = normalized.match(CONNECTOR_THEN_ACTION_RE);
+  if (thenMatch?.[1]) {
+    const verbToken = cleanArabicToken(thenMatch[1]);
+    if (verbToken && (FULL_ACTION_VERB_SET.has(verbToken) || ACTION_VERB_LIKE_RE.test(verbToken))) {
+      return true;
+    }
+  }
+
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  if (tokens.length < 4) return false;
+
+  for (let index = 1; index < tokens.length - 1; index += 1) {
+    const connector = cleanArabicToken(tokens[index]);
+    if (!DIALOGUE_ACTION_CONNECTORS.has(connector)) {
+      continue;
+    }
+
+    const nextToken = cleanArabicToken(tokens[index + 1]);
+    if (!nextToken) continue;
+    if (FULL_ACTION_VERB_SET.has(nextToken) || ACTION_VERB_LIKE_RE.test(nextToken)) {
+      return true;
+    }
+  }
+
+  return false;
 };
 
 const normalizeNameFragment = (text: string): string =>
@@ -221,6 +272,16 @@ const createContentTypeMismatchDetector = (): SuspicionDetector => ({
     }
 
     if (type === "dialogue") {
+      if (hasEmbeddedNarrativeActionInDialogue(features.normalized)) {
+        return {
+          detectorId: "content-type-mismatch",
+          suspicionScore: 96,
+          reason:
+            'مصنّف "dialogue" لكن السطر حوار مختلط بوصف/حدث سردي داخل نفس الجملة',
+          suggestedType: "action",
+        };
+      }
+
       if (hasHighConfidenceActionSignal(features.normalized)) {
         return {
           detectorId: "content-type-mismatch",
@@ -236,6 +297,24 @@ const createContentTypeMismatchDetector = (): SuspicionDetector => ({
           suspicionScore: 88,
           reason: 'مصنّف "dialogue" لكنه محاط بأقواس بالكامل → إرشاد مسرحي',
           suggestedType: "parenthetical",
+        };
+      }
+    }
+
+    if (type === "action" && features.wordCount >= 8) {
+      const hasDialogueSignals =
+        VOCATIVE_RE.test(features.normalized) ||
+        CONVERSATIONAL_MARKERS_RE.test(features.normalized);
+      if (
+        hasDialogueSignals &&
+        hasEmbeddedNarrativeActionInDialogue(features.normalized)
+      ) {
+        return {
+          detectorId: "content-type-mismatch",
+          suspicionScore: 96,
+          reason:
+            'مصنّف "action" لكن يحتوي مؤشرات حوار مع وصف سردي مدمج → حوار مختلط بوصف',
+          suggestedType: "dialogue",
         };
       }
     }

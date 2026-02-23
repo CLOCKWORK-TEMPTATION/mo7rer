@@ -60,12 +60,33 @@ export interface AgentSuspiciousLinePayload {
  * @property totalReviewed - إجمالي الأسطر التي فحصها PostClassificationReviewer
  * @property reviewPacketText - تمثيل نصي مُنسّق للحزمة من `formatForLLM` (اختياري)
  * @property suspiciousLines - الأسطر التي تجاوزت عتبة الشك
+ * @property requiredItemIndexes - جميع فهارس العناصر المطلوب أن يعود لها قرار
+ * @property forcedItemIndexes - فهارس العناصر الحرجة التي لا يُقبل بقاؤها بلا حسم
  */
 export interface AgentReviewRequestPayload {
   sessionId: string;
   totalReviewed: number;
   reviewPacketText?: string;
   suspiciousLines: AgentSuspiciousLinePayload[];
+  requiredItemIndexes: number[];
+  forcedItemIndexes: number[];
+}
+
+/**
+ * بيانات تشخيص التغطية في استجابة الوكيل.
+ *
+ * @property requestedCount - عدد العناصر المطلوب حسمها
+ * @property decisionCount - عدد القرارات المستلمة بعد التحقق
+ * @property missingItemIndexes - العناصر التي لم يرجع لها الوكيل قرارًا
+ * @property forcedItemIndexes - العناصر الحرجة كما أُرسلت للوكيل
+ * @property unresolvedForcedItemIndexes - العناصر الحرجة غير المحسومة (مفقودة/غير فعالة)
+ */
+export interface AgentReviewResponseMeta {
+  requestedCount: number;
+  decisionCount: number;
+  missingItemIndexes: number[];
+  forcedItemIndexes: number[];
+  unresolvedForcedItemIndexes: number[];
 }
 
 /**
@@ -95,6 +116,7 @@ export interface AgentReviewDecision {
  * @property decisions - مصفوفة القرارات — واحد لكل سطر مشبوه
  * @property message - رسالة نصية وصفية
  * @property latencyMs - زمن الاستجابة بالمللي ثانية
+ * @property meta - تشخيص تغطية القرارات (اختياري للتوافق العكسي)
  */
 export interface AgentReviewResponsePayload {
   status: "applied" | "skipped" | "warning" | "error";
@@ -102,4 +124,5 @@ export interface AgentReviewResponsePayload {
   decisions: AgentReviewDecision[];
   message: string;
   latencyMs: number;
+  meta?: AgentReviewResponseMeta;
 }
