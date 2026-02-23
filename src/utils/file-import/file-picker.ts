@@ -3,7 +3,7 @@
  * @description فتح نافذة اختيار ملف عبر عنصر `<input type="file">` مخفي.
  * يُعيد Promise يحمل الملف المحدد أو `null` عند الإلغاء.
  */
-import { ACCEPTED_FILE_EXTENSIONS } from '../../types/file-import'
+import { ACCEPTED_FILE_EXTENSIONS } from "../../types/file-import";
 
 /**
  * يفتح مربع حوار اختيار ملف ويعيد الملف المحدد.
@@ -18,16 +18,16 @@ import { ACCEPTED_FILE_EXTENSIONS } from '../../types/file-import'
  * ```
  */
 export const pickImportFile = (
-  accept: string = ACCEPTED_FILE_EXTENSIONS,
+  accept: string = ACCEPTED_FILE_EXTENSIONS
 ): Promise<File | null> =>
   new Promise((resolve) => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = accept
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
 
     input.onchange = () => {
-      resolve(input.files?.[0] ?? null)
-    }
+      resolve(input.files?.[0] ?? null);
+    };
 
-    input.click()
-  })
+    input.click();
+  });

@@ -34,7 +34,14 @@
   width: 100%;
   padding: 0 !important;
   outline: none;
-  font-family: var(--editor-font-family, 'AzarMehrMonospaced-San', 'Noto Naskh Arabic', 'Amiri', 'Traditional Arabic', monospace) !important;
+  font-family: var(
+    --editor-font-family,
+    "AzarMehrMonospaced-San",
+    "Noto Naskh Arabic",
+    "Amiri",
+    "Traditional Arabic",
+    monospace
+  ) !important;
   font-size: var(--editor-font-size, 10pt);
   line-height: var(--editor-line-height, 15pt);
   direction: rtl;
@@ -55,7 +62,14 @@
 .screenplay-sheet__body .tiptap-page-header,
 .screenplay-sheet__body .tiptap-page-footer,
 .screenplay-sheet__body .tiptap-page {
-  font-family: var(--editor-font-family, 'AzarMehrMonospaced-San', 'Noto Naskh Arabic', 'Amiri', 'Traditional Arabic', monospace) !important;
+  font-family: var(
+    --editor-font-family,
+    "AzarMehrMonospaced-San",
+    "Noto Naskh Arabic",
+    "Amiri",
+    "Traditional Arabic",
+    monospace
+  ) !important;
   font-size: var(--editor-font-size, 13pt) !important;
   line-height: var(--editor-line-height, 15pt) !important;
 }
@@ -203,7 +217,7 @@
  * عند تطبيق محاذاة من شريط الأدوات (Tiptap يضيف style="text-align: ..."),
  * لا نفرض text-align-last حتى لا نكسر left/center/right.
  */
-.screenplay-action:not([style*='text-align']) {
+.screenplay-action:not([style*="text-align"]) {
   text-align: justify;
   text-align-last: right;
   text-justify: inter-word;

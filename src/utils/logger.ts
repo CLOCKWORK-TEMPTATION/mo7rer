@@ -13,7 +13,7 @@
  * - `error` — أخطاء تتطلب انتباهاً
  * - `debug` — تفاصيل تصحيح (بيئة التطوير فقط)
  */
-export type LogLevel = 'info' | 'warn' | 'error' | 'debug'
+export type LogLevel = "info" | "warn" | "error" | "debug";
 
 /**
  * سياق إضافي يُمرّر مع كل رسالة تسجيل.
@@ -21,19 +21,19 @@ export type LogLevel = 'info' | 'warn' | 'error' | 'debug'
  * @property data - بيانات تشخيصية إضافية تُطبع بجوار الرسالة
  */
 export interface LogContext {
-  scope?: string
-  data?: unknown
-  tags?: string[]
+  scope?: string;
+  data?: unknown;
+  tags?: string[];
 }
 
 /** يسمح بتسجيل debug فقط في بيئة التطوير */
-const canDebug = import.meta.env.DEV
+const canDebug = import.meta.env.DEV;
 
 /** يُضيف النطاق كبادئة `[scope]` للرسالة */
 const withScope = (message: string, scope?: string): string => {
-  if (!scope) return message
-  return `[${scope}] ${message}`
-}
+  if (!scope) return message;
+  return `[${scope}] ${message}`;
+};
 
 const normalizeLogData = (data: unknown): unknown => {
   if (data instanceof Error) {
@@ -41,38 +41,42 @@ const normalizeLogData = (data: unknown): unknown => {
       name: data.name,
       message: data.message,
       stack: data.stack,
-    }
+    };
   }
-  return data
-}
+  return data;
+};
 
 const normalizeTags = (tags?: string[]): string =>
-  Array.isArray(tags) && tags.length > 0 ? ` tags=${tags.join(',')}` : ''
+  Array.isArray(tags) && tags.length > 0 ? ` tags=${tags.join(",")}` : "";
 
-const writeLog = (level: Exclude<LogLevel, 'debug'> | 'debug', message: string, context?: LogContext): void => {
-  const formatted = `${new Date().toISOString()} ${withScope(message, context?.scope)}${normalizeTags(context?.tags)}`
-  const payload = normalizeLogData(context?.data)
+const writeLog = (
+  level: Exclude<LogLevel, "debug"> | "debug",
+  message: string,
+  context?: LogContext
+): void => {
+  const formatted = `${new Date().toISOString()} ${withScope(message, context?.scope)}${normalizeTags(context?.tags)}`;
+  const payload = normalizeLogData(context?.data);
 
-  if (level === 'info') {
+  if (level === "info") {
     // eslint-disable-next-line no-console
-    console.info(formatted, payload ?? '')
-    return
+    console.info(formatted, payload ?? "");
+    return;
   }
-  if (level === 'warn') {
+  if (level === "warn") {
     // eslint-disable-next-line no-console
-    console.warn(formatted, payload ?? '')
-    return
+    console.warn(formatted, payload ?? "");
+    return;
   }
-  if (level === 'error') {
+  if (level === "error") {
     // eslint-disable-next-line no-console
-    console.error(formatted, payload ?? '')
-    return
+    console.error(formatted, payload ?? "");
+    return;
   }
   if (canDebug) {
     // eslint-disable-next-line no-console
-    console.debug(formatted, payload ?? '')
+    console.debug(formatted, payload ?? "");
   }
-}
+};
 
 /**
  * كائن المسجّل المركزي — يُستخدم بدلاً من `console.*` مباشرة.
@@ -85,27 +89,31 @@ const writeLog = (level: Exclude<LogLevel, 'debug'> | 'debug', message: string, 
  */
 export const logger = {
   info(message: string, context?: LogContext): void {
-    writeLog('info', message, context)
+    writeLog("info", message, context);
   },
 
   warn(message: string, context?: LogContext): void {
-    writeLog('warn', message, context)
+    writeLog("warn", message, context);
   },
 
   error(message: string, context?: LogContext): void {
-    writeLog('error', message, context)
+    writeLog("error", message, context);
   },
 
   debug(message: string, context?: LogContext): void {
-    writeLog('debug', message, context)
+    writeLog("debug", message, context);
   },
 
-  telemetry(event: string, data?: unknown, context?: Omit<LogContext, 'data'>): void {
-    writeLog('info', `telemetry:${event}`, {
+  telemetry(
+    event: string,
+    data?: unknown,
+    context?: Omit<LogContext, "data">
+  ): void {
+    writeLog("info", `telemetry:${event}`, {
       scope: context?.scope,
       tags: context?.tags,
       data,
-    })
+    });
   },
 
   createScope(scope: string) {
@@ -120,6 +128,6 @@ export const logger = {
         logger.debug(message, { scope, data }),
       telemetry: (event: string, data?: unknown): void =>
         logger.telemetry(event, data, { scope }),
-    }
+    };
   },
-}
+};

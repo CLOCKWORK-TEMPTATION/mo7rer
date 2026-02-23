@@ -13,6 +13,7 @@ Return practical guidance with exact local file references and avoid guessing wh
 ## Core Workflow
 
 1. Classify the request into one domain:
+
 - editor basics and extensions
 - collaboration and Hocuspocus
 - Content AI / AI Toolkit
@@ -21,15 +22,18 @@ Return practical guidance with exact local file references and avoid guessing wh
 - migration or troubleshooting
 
 2. Run corpus search first:
+
 - Use `scripts/search_tiptap_docs.ps1 -Query "<user request>"`.
 - Read top matches and select only relevant files.
 
 3. Synthesize answer with evidence:
+
 - Provide concise steps or code-level guidance.
 - Cite local file paths from `tiptap_all_docs` for each key claim.
 - Mark any inferred point explicitly.
 
 4. Handle gaps:
+
 - If no relevant match exists, say so clearly.
 - Suggest the closest available docs section from the corpus.
 
@@ -48,6 +52,7 @@ Return practical guidance with exact local file references and avoid guessing wh
 ## Output Contract
 
 When answering:
+
 1. Start with direct answer.
 2. Add minimal implementation steps.
 3. End with source bullets using local file paths.

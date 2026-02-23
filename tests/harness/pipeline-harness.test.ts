@@ -1,5 +1,9 @@
-import { runOpenPipelineHarness, runPlainTextBlocksHarness, runStructurePipelineHarness } from './pipeline-harness'
+import {
+  runOpenPipelineHarness,
+  runPlainTextBlocksHarness,
+  runStructurePipelineHarness,
+} from "./pipeline-harness";
 
-runStructurePipelineHarness()
-runPlainTextBlocksHarness()
-runOpenPipelineHarness()
+runStructurePipelineHarness();
+runPlainTextBlocksHarness();
+runOpenPipelineHarness();

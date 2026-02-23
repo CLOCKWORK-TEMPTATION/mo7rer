@@ -1,4 +1,4 @@
-import { createUiPrimitive } from './_factory'
+import { createUiPrimitive } from "./_factory";
 
-export const createCheckboxPrimitive = (text = 'checkbox'): HTMLElement => createUiPrimitive('checkbox', text)
-
+export const createCheckboxPrimitive = (text = "checkbox"): HTMLElement =>
+  createUiPrimitive("checkbox", text);

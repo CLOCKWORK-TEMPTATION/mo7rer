@@ -6,7 +6,7 @@
  * اللصق من خارج التطبيق يمر عبر خط أنابيب التصنيف التلقائي.
  */
 
-import type { ScreenplayBlock } from '../utils/file-import/document-model'
+import type { ScreenplayBlock } from "../utils/file-import/document-model";
 
 /**
  * نوع MIME المخصص للحافظة — يُميّز محتوى أفان تيتر عن النص العادي
@@ -16,14 +16,15 @@ import type { ScreenplayBlock } from '../utils/file-import/document-model'
  * event.clipboardData?.getData(FILMLANE_CLIPBOARD_MIME)
  * ```
  */
-export const FILMLANE_CLIPBOARD_MIME = 'application/x-filmlane-blocks+json' as const
+export const FILMLANE_CLIPBOARD_MIME =
+  "application/x-filmlane-blocks+json" as const;
 
 /**
  * مصدر محتوى الحافظة
  * - `selection` — نص محدد جزئياً
  * - `document` — المستند بالكامل
  */
-export type ClipboardSourceKind = 'selection' | 'document'
+export type ClipboardSourceKind = "selection" | "document";
 
 /**
  * مصدر عملية اللصق — يحدد كيف بدأ المستخدم عملية اللصق
@@ -32,7 +33,7 @@ export type ClipboardSourceKind = 'selection' | 'document'
  * - `context` — من قائمة النقر الأيمن
  * - `native` — لصق أصلي من المتصفح
  */
-export type ClipboardOrigin = 'menu' | 'shortcut' | 'context' | 'native'
+export type ClipboardOrigin = "menu" | "shortcut" | "context" | "native";
 
 /**
  * حمولة الحافظة الداخلية — تُخزن مع MIME المخصص عند النسخ
@@ -45,10 +46,10 @@ export type ClipboardOrigin = 'menu' | 'shortcut' | 'context' | 'native'
  * @property createdAt - طابع زمني ISO 8601 لوقت النسخ
  */
 export interface EditorClipboardPayload {
-  plainText: string
-  html?: string
-  blocks?: ScreenplayBlock[]
-  sourceKind: ClipboardSourceKind
-  hash: string
-  createdAt: string
+  plainText: string;
+  html?: string;
+  blocks?: ScreenplayBlock[];
+  sourceKind: ClipboardSourceKind;
+  hash: string;
+  createdAt: string;
 }

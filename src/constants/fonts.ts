@@ -7,23 +7,25 @@
 /** خيار خط في قائمة الخطوط */
 export interface FontOption {
   /** قيمة CSS لـ font-family */
-  value: string
+  value: string;
   /** التسمية بالعربية في واجهة المستخدم */
-  label: string
+  label: string;
 }
 
 /** خيار حجم نص في قائمة الأحجام */
 export interface TextSizeOption {
   /** قيمة CSS لـ font-size (مثل '12pt') */
-  value: string
+  value: string;
   /** التسمية الرقمية في واجهة المستخدم */
-  label: string
+  label: string;
 }
 
 /** الخطوط المتاحة — مقفلة حالياً على AzarMehrMonospaced-San */
 export const fonts: readonly FontOption[] = [
-  { value: 'AzarMehrMonospaced-San', label: 'أزار مهر أحادي' },
-]
+  { value: "AzarMehrMonospaced-San", label: "أزار مهر أحادي" },
+];
 
 /** أحجام النص المتاحة — مقفلة حالياً على 12pt */
-export const textSizes: readonly TextSizeOption[] = [{ value: '12pt', label: '12' }]
+export const textSizes: readonly TextSizeOption[] = [
+  { value: "12pt", label: "12" },
+];

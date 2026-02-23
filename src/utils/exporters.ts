@@ -1,58 +1,267 @@
-import { AlignmentType, Document, Packer, Paragraph, TextRun } from 'docx'
-import { jsPDF } from 'jspdf'
-import type { ScreenplayBlock } from './file-import'
+import { jsPDF } from "jspdf";
+import {
+  buildPayloadMarker,
+  createPayloadFromBlocks,
+  encodeScreenplayPayload,
+  htmlToScreenplayBlocks,
+  type ScreenplayBlock,
+} from "./file-import/document-model";
 
-export type ExportFormat = 'html' | 'docx' | 'pdf'
-
-export interface ExportRequest {
-  html: string
-  text?: string
-  blocks?: ScreenplayBlock[]
-  fileNameBase?: string
-  title?: string
+interface ExportRequest {
+  html: string;
+  fileNameBase?: string;
+  title?: string;
 }
 
-const DEFAULT_EXPORT_FILE_BASE = 'screenplay'
-
-const DOCX_BOLD_FORMATS = new Set<ScreenplayBlock['formatId']>([
-  'basmala',
-  'scene-header-1',
-  'scene-header-2',
-  'scene-header-3',
-  'character',
-  'transition',
-])
-
-const sanitizeLine = (value: string): string => (value ?? '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim()
-
-const getParagraphSpacingByFormat = (formatId: ScreenplayBlock['formatId']) => {
-  if (formatId === 'dialogue') {
-    return { after: 120, line: 320 }
-  }
-  if (formatId === 'scene-header-1' || formatId === 'scene-header-2' || formatId === 'scene-header-3') {
-    return { before: 160, after: 120, line: 320 }
-  }
-  return { after: 140, line: 320 }
+interface ExportToDocxOptions {
+  blocks?: ScreenplayBlock[];
 }
+
+const DEFAULT_EXPORT_FILE_BASE = "screenplay";
+const DEFAULT_DOCX_FONT = "AzarMehrMonospaced-San";
+const DEFAULT_DOCX_SIZE_HALF_POINTS = 24;
+
+type DocxParagraphPreset = {
+  alignment: "right" | "center" | "left" | "justify";
+  bold?: boolean;
+  italics?: boolean;
+  spacingBeforePt?: number;
+  spacingAfterPt?: number;
+  indentStartTwip?: number;
+  indentEndTwip?: number;
+};
 
 const downloadBlob = (fileName: string, blob: Blob): void => {
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = fileName
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
-  URL.revokeObjectURL(url)
-}
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+};
 
 export const sanitizeExportFileBaseName = (fileNameBase?: string): string => {
-  const candidate = (fileNameBase ?? DEFAULT_EXPORT_FILE_BASE).trim()
-  const normalized = candidate.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '-')
-  return normalized || DEFAULT_EXPORT_FILE_BASE
-}
+  const candidate = (fileNameBase ?? DEFAULT_EXPORT_FILE_BASE).trim();
+  const normalized = candidate
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
+  return normalized || DEFAULT_EXPORT_FILE_BASE;
+};
 
-export const buildFullHtmlDocument = (bodyHtml: string, title = 'تصدير محرر السيناريو'): string => `<!DOCTYPE html>
+const pointsToTwips = (value: number): number =>
+  Math.max(0, Math.round(value * 20));
+
+const normalizeText = (value: string): string =>
+  (value ?? "")
+    .replace(/\u00A0/g, " ")
+    .replace(/\r/g, "")
+    .trim();
+
+const resolveBlocksForExport = (
+  content: string,
+  blocks?: ScreenplayBlock[]
+): ScreenplayBlock[] => {
+  if (Array.isArray(blocks) && blocks.length > 0) {
+    return blocks;
+  }
+  return htmlToScreenplayBlocks(content);
+};
+
+const getDocxPresetForFormat = (
+  formatId: ScreenplayBlock["formatId"]
+): DocxParagraphPreset => {
+  switch (formatId) {
+    case "basmala":
+      return {
+        alignment: "center",
+        bold: true,
+        spacingAfterPt: 10,
+      };
+    case "scene-header-1":
+      return {
+        alignment: "right",
+        bold: true,
+        spacingBeforePt: 8,
+        spacingAfterPt: 6,
+      };
+    case "scene-header-2":
+      return {
+        alignment: "right",
+        spacingAfterPt: 4,
+      };
+    case "scene-header-3":
+      return {
+        alignment: "center",
+        spacingAfterPt: 4,
+      };
+    case "scene-header-top-line":
+      return {
+        alignment: "right",
+        spacingAfterPt: 6,
+      };
+    case "character":
+      return {
+        alignment: "center",
+        bold: true,
+        spacingBeforePt: 8,
+        spacingAfterPt: 2,
+      };
+    case "dialogue":
+      return {
+        alignment: "right",
+        spacingAfterPt: 6,
+        indentStartTwip: 960,
+        indentEndTwip: 720,
+      };
+    case "parenthetical":
+      return {
+        alignment: "center",
+        italics: true,
+        spacingAfterPt: 4,
+      };
+    case "transition":
+      return {
+        alignment: "left",
+        bold: true,
+        spacingBeforePt: 6,
+        spacingAfterPt: 6,
+      };
+    case "action":
+      return {
+        alignment: "justify",
+        spacingAfterPt: 6,
+      };
+    default:
+      return {
+        alignment: "right",
+        spacingAfterPt: 6,
+      };
+  }
+};
+
+const mapAlignment = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  AlignmentType: any,
+  alignment: DocxParagraphPreset["alignment"]
+) => {
+  switch (alignment) {
+    case "center":
+      return AlignmentType.CENTER;
+    case "left":
+      return AlignmentType.LEFT;
+    case "justify":
+      return AlignmentType.JUSTIFIED;
+    default:
+      return AlignmentType.RIGHT;
+  }
+};
+
+export const exportToDocx = async (
+  content: string,
+  filename: string = "screenplay.docx",
+  options?: ExportToDocxOptions
+): Promise<void> => {
+  const { AlignmentType, Document, Packer, Paragraph, TextRun } =
+    await import("docx");
+
+  const blocks = resolveBlocksForExport(content, options?.blocks);
+  const payload = createPayloadFromBlocks(blocks, {
+    font: "AzarMehrMonospaced-San",
+    size: "12pt",
+  });
+  const payloadMarker = buildPayloadMarker(encodeScreenplayPayload(payload));
+
+  const paragraphs = blocks.map((block) => {
+    const preset = getDocxPresetForFormat(block.formatId);
+    return new Paragraph({
+      bidirectional: true,
+      alignment: mapAlignment(AlignmentType, preset.alignment),
+      spacing: {
+        before: pointsToTwips(preset.spacingBeforePt ?? 0),
+        after: pointsToTwips(preset.spacingAfterPt ?? 0),
+      },
+      indent: {
+        start: preset.indentStartTwip,
+        end: preset.indentEndTwip,
+      },
+      children: [
+        new TextRun({
+          text: normalizeText(block.text),
+          font: DEFAULT_DOCX_FONT,
+          size: DEFAULT_DOCX_SIZE_HALF_POINTS,
+          bold: preset.bold,
+          italics: preset.italics,
+        }),
+      ],
+    });
+  });
+
+  if (paragraphs.length === 0) {
+    paragraphs.push(
+      new Paragraph({
+        bidirectional: true,
+        children: [
+          new TextRun({
+            text: "",
+            font: DEFAULT_DOCX_FONT,
+            size: DEFAULT_DOCX_SIZE_HALF_POINTS,
+          }),
+        ],
+      })
+    );
+  }
+
+  // Marker مخفي لاسترجاع payload 1:1 عند إعادة فتح الملف.
+  paragraphs.push(
+    new Paragraph({
+      bidirectional: true,
+      spacing: { before: 0, after: 0 },
+      children: [
+        new TextRun({
+          text: payloadMarker,
+          color: "FFFFFF",
+          size: 2,
+          font: DEFAULT_DOCX_FONT,
+        }),
+      ],
+    })
+  );
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              top: 1440,
+              right: 1440,
+              bottom: 1440,
+              left: 1440,
+            },
+          },
+        },
+        children: paragraphs,
+      },
+    ],
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+export const buildFullHtmlDocument = (
+  bodyHtml: string,
+  title = "تصدير محرر السيناريو"
+): string => `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
@@ -86,124 +295,51 @@ export const buildFullHtmlDocument = (bodyHtml: string, title = 'تصدير مح
 <body>
 ${bodyHtml}
 </body>
-</html>`
-
-const toDocxParagraphs = (request: ExportRequest): Paragraph[] => {
-  if (Array.isArray(request.blocks) && request.blocks.length > 0) {
-    return request.blocks.map((block) => {
-      const text = sanitizeLine(block.text)
-      return new Paragraph({
-        bidirectional: true,
-        alignment: AlignmentType.RIGHT,
-        spacing: getParagraphSpacingByFormat(block.formatId),
-        children: [
-          new TextRun({
-            text,
-            bold: DOCX_BOLD_FORMATS.has(block.formatId),
-            size: 26,
-          }),
-        ],
-      })
-    })
-  }
-
-  const lines = (request.text ?? '')
-    .split(/\r?\n/g)
-    .map((line) => sanitizeLine(line))
-    .filter((line) => line.length > 0)
-
-  return lines.map((line) =>
-    new Paragraph({
-      bidirectional: true,
-      alignment: AlignmentType.RIGHT,
-      spacing: { after: 140, line: 320 },
-      children: [new TextRun({ text: line, size: 26 })],
-    }),
-  )
-}
+</html>`;
 
 export const exportAsHtml = (request: ExportRequest): void => {
-  const fileBase = sanitizeExportFileBaseName(request.fileNameBase)
-  const fullDoc = buildFullHtmlDocument(request.html, request.title)
-  const blob = new Blob([fullDoc], { type: 'text/html;charset=utf-8' })
-  downloadBlob(`${fileBase}.html`, blob)
-}
-
-export const exportAsDocx = async (request: ExportRequest): Promise<void> => {
-  const fileBase = sanitizeExportFileBaseName(request.fileNameBase)
-  const documentRef = new Document({
-    sections: [
-      {
-        properties: {},
-        children: toDocxParagraphs(request),
-      },
-    ],
-  })
-
-  const blob = await Packer.toBlob(documentRef)
-  downloadBlob(`${fileBase}.docx`, blob)
-}
+  const fileBase = sanitizeExportFileBaseName(request.fileNameBase);
+  const fullDoc = buildFullHtmlDocument(request.html, request.title);
+  const blob = new Blob([fullDoc], { type: "text/html;charset=utf-8" });
+  downloadBlob(`${fileBase}.html`, blob);
+};
 
 export const exportAsPdf = async (request: ExportRequest): Promise<void> => {
-  const fileBase = sanitizeExportFileBaseName(request.fileNameBase)
-  const container = document.createElement('div')
-  container.style.position = 'fixed'
-  container.style.left = '-10000px'
-  container.style.top = '0'
-  container.style.width = '794px'
-  container.style.background = '#fff'
-  container.style.direction = 'rtl'
-  container.style.padding = '24px'
-  container.innerHTML = request.html
-  document.body.appendChild(container)
+  const fileBase = sanitizeExportFileBaseName(request.fileNameBase);
+  const container = document.createElement("div");
+  container.style.position = "fixed";
+  container.style.left = "-10000px";
+  container.style.top = "0";
+  container.style.width = "794px";
+  container.style.background = "#fff";
+  container.style.direction = "rtl";
+  container.style.padding = "24px";
+  container.innerHTML = request.html;
+  document.body.appendChild(container);
 
   try {
     const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'pt',
-      format: 'a4',
+      orientation: "portrait",
+      unit: "pt",
+      format: "a4",
       compress: true,
-    })
-    pdf.setR2L(true)
+    });
+    pdf.setR2L(true);
 
     await pdf.html(container, {
       x: 24,
       y: 24,
       margin: [24, 24, 24, 24],
-      autoPaging: 'text',
+      autoPaging: "text",
       width: 547,
       windowWidth: 794,
       html2canvas: {
         scale: 1.2,
       },
-    })
+    });
 
-    pdf.save(`${fileBase}.pdf`)
+    pdf.save(`${fileBase}.pdf`);
   } finally {
-    container.remove()
+    container.remove();
   }
-}
-
-export const exportDocument = async (
-  request: ExportRequest,
-  format: ExportFormat,
-): Promise<void> => {
-  if (!request.html.trim()) {
-    throw new Error('لا يوجد محتوى قابل للتصدير.')
-  }
-
-  if (format === 'html') {
-    exportAsHtml(request)
-    return
-  }
-
-  if (format === 'docx') {
-    await exportAsDocx(request)
-    return
-  }
-
-  if (format === 'pdf') {
-    await exportAsPdf(request)
-    return
-  }
-}
+};

@@ -1,5 +1,3 @@
-
-
 name: fsd-structure-migration-workflow
 description: >
   Multi-agent orchestration workflow to safely migrate a React + Vite + TypeScript + Tiptap
@@ -18,7 +16,6 @@ orchestrator:
     - trigger_next_agent
 
 agents:
-
   - name: BaselineAgent
     role: baseline_and_boundaries
     phases:

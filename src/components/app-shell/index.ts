@@ -1,4 +1,13 @@
-export { AppHeader, type AppShellMenuItem, type AppShellMenuSection } from './AppHeader'
-export { AppSidebar, type AppSidebarSection } from './AppSidebar'
-export { AppDock, type AppDockButtonItem } from './AppDock'
-export { AppFooter } from './AppFooter'
+export {
+  AppHeader,
+  type AppHeaderProps,
+  type AppShellMenuItem,
+  type AppShellMenuSection,
+} from "./AppHeader";
+export {
+  AppSidebar,
+  type AppSidebarProps,
+  type AppSidebarSection,
+} from "./AppSidebar";
+export { AppDock, type AppDockButtonItem, type AppDockProps } from "./AppDock";
+export { AppFooter, type AppFooterProps } from "./AppFooter";

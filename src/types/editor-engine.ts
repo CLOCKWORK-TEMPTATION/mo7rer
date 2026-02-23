@@ -6,8 +6,8 @@
  * مما يسمح بتبديل محرك التحرير دون تغيير المكونات المستهلكة.
  */
 
-import type { ClipboardOrigin } from './editor-clipboard'
-import type { ScreenplayBlock } from '../utils/file-import/document-model'
+import type { ClipboardOrigin } from "./editor-clipboard";
+import type { ScreenplayBlock } from "../utils/file-import/document-model";
 
 /**
  * خيارات تشغيل أمر المحرر — تُحدد الأوامر المدعومة
@@ -19,7 +19,7 @@ import type { ScreenplayBlock } from '../utils/file-import/document-model'
  *   - `focus-end` — نقل المؤشر إلى نهاية المستند
  */
 export interface RunEditorCommandOptions {
-  command: 'undo' | 'redo' | 'select-all' | 'focus-end'
+  command: "undo" | "redo" | "select-all" | "focus-end";
 }
 
 /**
@@ -41,12 +41,12 @@ export interface RunEditorCommandOptions {
  * @property pasteFromClipboard - لصق محتوى الحافظة مع تحديد مصدر العملية
  */
 export interface EditorEngineAdapter {
-  insertBlocks: (blocks: ScreenplayBlock[]) => Promise<void>
-  replaceBlocks: (blocks: ScreenplayBlock[]) => Promise<void>
-  getBlocks: () => ScreenplayBlock[]
-  runCommand: (options: RunEditorCommandOptions) => boolean
-  hasSelection: () => boolean
-  copySelectionToClipboard: () => Promise<boolean>
-  cutSelectionToClipboard: () => Promise<boolean>
-  pasteFromClipboard: (origin: ClipboardOrigin) => Promise<boolean>
+  insertBlocks: (blocks: ScreenplayBlock[]) => Promise<void>;
+  replaceBlocks: (blocks: ScreenplayBlock[]) => Promise<void>;
+  getBlocks: () => ScreenplayBlock[];
+  runCommand: (options: RunEditorCommandOptions) => boolean;
+  hasSelection: () => boolean;
+  copySelectionToClipboard: () => Promise<boolean>;
+  cutSelectionToClipboard: () => Promise<boolean>;
+  pasteFromClipboard: (origin: ClipboardOrigin) => Promise<boolean>;
 }

@@ -1,46 +1,46 @@
-import type { ToastActionElement, ToastProps } from '../components/ui/toast'
+import type { ToastActionElement, ToastProps } from "../components/ui/toast";
 
-const TOAST_LIMIT = 3
-const TOAST_REMOVE_DELAY = 5000
+const TOAST_LIMIT = 3;
+const TOAST_REMOVE_DELAY = 5000;
 
 /**
  * @description واجهة بيانات الإشعار الممتدة التي تحتوي على الخصائص الإضافية.
  */
 export interface ToasterToast extends ToastProps {
-  id: string
-  title?: string
-  description?: string
-  action?: ToastActionElement
+  id: string;
+  title?: string;
+  description?: string;
+  action?: ToastActionElement;
 }
 
 interface State {
-  toasts: ToasterToast[]
+  toasts: ToasterToast[];
 }
 
-type Listener = (state: State) => void
+type Listener = (state: State) => void;
 
-const listeners: Listener[] = []
-let state: State = { toasts: [] }
-let counter = 0
+const listeners: Listener[] = [];
+let state: State = { toasts: [] };
+let counter = 0;
 
 const notify = (): void => {
   for (const listener of listeners) {
-    listener(state)
+    listener(state);
   }
-}
+};
 
 const genId = (): string => {
-  counter = (counter + 1) % Number.MAX_SAFE_INTEGER
-  return counter.toString()
-}
+  counter = (counter + 1) % Number.MAX_SAFE_INTEGER;
+  return counter.toString();
+};
 
 const removeToast = (toastId: string): void => {
   state = {
     ...state,
     toasts: state.toasts.filter((toastItem) => toastItem.id !== toastId),
-  }
-  notify()
-}
+  };
+  notify();
+};
 
 /**
  * @description إخفاء إشعار معين أو جميع الإشعارات. يبدأ عملية تنظيف وإزالة من الحالة.
@@ -49,15 +49,15 @@ const removeToast = (toastId: string): void => {
  */
 export const dismissToast = (toastId?: string): void => {
   if (!toastId) {
-    const ids = state.toasts.map((item) => item.id)
+    const ids = state.toasts.map((item) => item.id);
     for (const id of ids) {
-      window.setTimeout(() => removeToast(id), 0)
+      window.setTimeout(() => removeToast(id), 0);
     }
-    return
+    return;
   }
 
-  window.setTimeout(() => removeToast(toastId), 0)
-}
+  window.setTimeout(() => removeToast(toastId), 0);
+};
 
 /**
  * @description دالة رئيسية لإنشاء وإظهار إشعار جديد. يعيش لفترة محددة ثم يختفي تلقائياً. المجموع الكلي محكوم بحد أقصى.
@@ -80,34 +80,36 @@ export const dismissToast = (toastId?: string): void => {
  * toast({ title: "تم الحفظ", description: "تم حفظ الملف بنجاح" });
  * ```
  */
-export const toast = (props: Omit<ToasterToast, 'id'>): { id: string; dismiss: () => void } => {
-  const id = genId()
+export const toast = (
+  props: Omit<ToasterToast, "id">
+): { id: string; dismiss: () => void } => {
+  const id = genId();
   const next: ToasterToast = {
     ...props,
     id,
     open: true,
     onOpenChange: (open) => {
       if (!open) {
-        dismissToast(id)
+        dismissToast(id);
       }
     },
-  }
+  };
 
   state = {
     ...state,
     toasts: [next, ...state.toasts].slice(0, TOAST_LIMIT),
-  }
-  notify()
+  };
+  notify();
 
   window.setTimeout(() => {
-    removeToast(id)
-  }, props.duration ?? TOAST_REMOVE_DELAY)
+    removeToast(id);
+  }, props.duration ?? TOAST_REMOVE_DELAY);
 
   return {
     id,
     dismiss: () => dismissToast(id),
-  }
-}
+  };
+};
 
 /**
  * @description تشترك في التغيرات على حالة الإشعارات (لغرض إعادة التصيير في طبقة العرض).
@@ -117,16 +119,16 @@ export const toast = (props: Omit<ToasterToast, 'id'>): { id: string; dismiss: (
  * @returns {() => void} دالة إلغاء الاشتراك من الإشعارات.
  */
 export const subscribeToastState = (listener: Listener): (() => void) => {
-  listeners.push(listener)
-  listener(state)
+  listeners.push(listener);
+  listener(state);
 
   return () => {
-    const index = listeners.indexOf(listener)
+    const index = listeners.indexOf(listener);
     if (index >= 0) {
-      listeners.splice(index, 1)
+      listeners.splice(index, 1);
     }
-  }
-}
+  };
+};
 
 /**
  * @description كائن الوصول المركز لمنظومة الإشعارات، لتسهيل التصدير والاستخدام.
@@ -138,4 +140,4 @@ export const useToast = () => ({
   subscribe: subscribeToastState,
   toast,
   dismiss: dismissToast,
-})
+});

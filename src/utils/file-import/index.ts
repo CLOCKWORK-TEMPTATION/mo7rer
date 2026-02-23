@@ -14,32 +14,30 @@
  * } from '@/utils/file-import'
  * ```
  */
-export {
-  pickImportFile,
-} from './file-picker'
+export { pickImportFile } from "./file-picker";
 
 export {
   preprocessImportedTextForClassifier,
   normalizeDocTextFromAntiword,
   computeImportedTextQualityScore,
   type ImportPreprocessResult,
-} from './preprocessor'
+} from "./preprocessor";
 
 export {
   buildFileOpenPipelineAction,
   type FileOpenPipelineAction,
-} from './open-pipeline'
+} from "./open-pipeline";
 
 export {
   extractImportedFile,
   type ExtractImportedFileOptions,
-} from './extract'
+} from "./extract";
 
 export {
   isBackendExtractionConfigured,
   extractFileWithBackend,
   type BackendExtractOptions,
-} from './extract/backend-extract'
+} from "./extract/backend-extract";
 
 export {
   htmlToScreenplayBlocks,
@@ -58,15 +56,13 @@ export {
   type ScreenplayBlock,
   type ScreenplayFormatId,
   type ScreenplayPayloadV1,
-} from './document-model'
+} from "./document-model";
 
 export {
   normalizeTextForStructure,
   segmentLinesStrict,
   buildStructuredBlocksFromText,
   buildProjectionGuardReport,
-} from './structure-pipeline'
+} from "./structure-pipeline";
 
-export {
-  plainTextToScreenplayBlocks,
-} from './plain-text-to-blocks'
+export { plainTextToScreenplayBlocks } from "./plain-text-to-blocks";

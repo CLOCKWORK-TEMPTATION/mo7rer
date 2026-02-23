@@ -1,4 +1,4 @@
-import { createUiPrimitive } from './_factory'
+import { createUiPrimitive } from "./_factory";
 
-export const createCollapsiblePrimitive = (text = 'collapsible'): HTMLElement => createUiPrimitive('collapsible', text)
-
+export const createCollapsiblePrimitive = (text = "collapsible"): HTMLElement =>
+  createUiPrimitive("collapsible", text);

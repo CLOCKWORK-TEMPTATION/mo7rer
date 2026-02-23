@@ -16,10 +16,10 @@
  * @property scenes - عدد المشاهد (عدد عناصر scene-header-1)
  */
 export interface DocumentStats {
-  words: number
-  characters: number
-  pages: number
-  scenes: number
+  words: number;
+  characters: number;
+  pages: number;
+  scenes: number;
 }
 
 /**
@@ -37,13 +37,19 @@ export interface DocumentStats {
  * @see extensions/ — كل نوع له عقدة Tiptap مخصصة في مجلد الامتدادات
  */
 export type LineType =
-  | 'basmala'
-  | 'scene-header-top-line'
-  | 'scene-header-1'
-  | 'scene-header-2'
-  | 'scene-header-3'
-  | 'action'
-  | 'character'
-  | 'dialogue'
-  | 'parenthetical'
-  | 'transition'
+  | "basmala"
+  | "scene-header-top-line"
+  | "scene-header-1"
+  | "scene-header-2"
+  | "scene-header-3"
+  | "action"
+  | "character"
+  | "dialogue"
+  | "parenthetical"
+  | "transition";
+
+/**
+ * نوع الملف السينمائي — صيغ الاستيراد/التصدير الشائعة في المحرر.
+ * أُضيف `docx` ضمن النقل التوافقي مع Filmlane.
+ */
+export type FileType = "fountain" | "fdx" | "pdf" | "docx" | "txt" | "html";

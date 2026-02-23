@@ -1,5 +1,5 @@
-import { Node, mergeAttributes } from '@tiptap/core'
-import type { ClassificationContext } from './classification-types'
+import { Node, mergeAttributes } from "@tiptap/core";
+import type { ClassificationContext } from "./classification-types";
 import {
   ARABIC_ONLY_WITH_NUMBERS_RE,
   CHARACTER_RE,
@@ -10,10 +10,10 @@ import {
   SCENE_NUMBER_EXACT_RE,
   SHORT_DIALOGUE_WORDS,
   TRANSITION_RE,
-} from './arabic-patterns'
-import { collectActionEvidence } from './action'
-import { hasDirectDialogueCues } from './dialogue'
-import { isParentheticalLine } from './parenthetical'
+} from "./arabic-patterns";
+import { collectActionEvidence } from "./action";
+import { hasDirectDialogueCues } from "./dialogue";
+import { isParentheticalLine } from "./parenthetical";
 import {
   hasActionVerbStructure,
   isActionCueLine,
@@ -22,105 +22,106 @@ import {
   normalizeCharacterName,
   normalizeLine,
   stripLeadingBullets,
-} from './text-utils'
+} from "./text-utils";
 
 export interface ParsedInlineCharacterDialogue {
-  characterName: string
-  dialogueText: string
-  cue?: string
+  characterName: string;
+  dialogueText: string;
+  cue?: string;
 }
 
 /**
  * يضمن أن اسم الشخصية ينتهي دائمًا بنقطتين.
  */
 export const ensureCharacterTrailingColon = (value: string): string => {
-  const normalized = normalizeCharacterName(stripLeadingBullets(value ?? ''))
-  if (!normalized) return ''
-  return `${normalized}:`
-}
+  const normalized = normalizeCharacterName(stripLeadingBullets(value ?? ""));
+  if (!normalized) return "";
+  return `${normalized}:`;
+};
 
 const NON_CHARACTER_SINGLE_TOKENS = new Set([
-  'أنا',
-  'انا',
-  'إحنا',
-  'احنا',
-  'إنت',
-  'انت',
-  'إنتي',
-  'انتي',
-  'أنت',
-  'أنتِ',
-  'هو',
-  'هي',
-  'هم',
-  'هن',
-])
+  "أنا",
+  "انا",
+  "إحنا",
+  "احنا",
+  "إنت",
+  "انت",
+  "إنتي",
+  "انتي",
+  "أنت",
+  "أنتِ",
+  "هو",
+  "هي",
+  "هم",
+  "هن",
+]);
 
 const NON_NAME_TOKENS = new Set([
   ...Array.from(CHARACTER_STOP_WORDS),
   ...CONVERSATIONAL_STARTS,
   ...SHORT_DIALOGUE_WORDS,
-  'لن',
-  'لم',
-  'لا',
-  'ما',
-  'هل',
-  'لو',
-  'إن',
-  'ان',
-  'إذا',
-  'اذا',
-  'أين',
-  'اين',
-  'متى',
-  'كيف',
-  'لماذا',
-])
+  "لن",
+  "لم",
+  "لا",
+  "ما",
+  "هل",
+  "لو",
+  "إن",
+  "ان",
+  "إذا",
+  "اذا",
+  "أين",
+  "اين",
+  "متى",
+  "كيف",
+  "لماذا",
+]);
 
 const isShortDialogueWord = (line: string): boolean => {
-  const normalized = normalizeLine(line).toLowerCase()
-  return SHORT_DIALOGUE_WORDS.includes(normalized)
-}
+  const normalized = normalizeLine(line).toLowerCase();
+  return SHORT_DIALOGUE_WORDS.includes(normalized);
+};
 
 const isCandidateCharacterName = (value: string): boolean => {
-  const candidate = normalizeCharacterName(value)
-  if (!candidate) return false
-  if (!ARABIC_ONLY_WITH_NUMBERS_RE.test(candidate)) return false
-  if (isShortDialogueWord(candidate)) return false
-  if (/[؟!؟,،"«»]/.test(candidate)) return false
+  const candidate = normalizeCharacterName(value);
+  if (!candidate) return false;
+  if (!ARABIC_ONLY_WITH_NUMBERS_RE.test(candidate)) return false;
+  if (isShortDialogueWord(candidate)) return false;
+  if (/[؟!؟,،"«»]/.test(candidate)) return false;
 
-  const tokens = candidate.split(/\s+/).filter(Boolean)
-  if (tokens.length === 0 || tokens.length > 5) return false
-  if (tokens.some((token) => CHARACTER_STOP_WORDS.has(token))) return false
-  if (tokens.length === 1 && NON_CHARACTER_SINGLE_TOKENS.has(tokens[0])) return false
+  const tokens = candidate.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0 || tokens.length > 5) return false;
+  if (tokens.some((token) => CHARACTER_STOP_WORDS.has(token))) return false;
+  if (tokens.length === 1 && NON_CHARACTER_SINGLE_TOKENS.has(tokens[0]))
+    return false;
   if (
     tokens.some((token) => {
-      const normalizedToken = normalizeLine(token)
-      return NON_NAME_TOKENS.has(normalizedToken)
+      const normalizedToken = normalizeLine(token);
+      return NON_NAME_TOKENS.has(normalizedToken);
     })
   ) {
-    return false
+    return false;
   }
 
-  if (isActionVerbStart(candidate)) return false
-  if (matchesActionStartPattern(candidate)) return false
-  if (hasActionVerbStructure(candidate)) return false
+  if (isActionVerbStart(candidate)) return false;
+  if (matchesActionStartPattern(candidate)) return false;
+  if (hasActionVerbStructure(candidate)) return false;
 
-  return CHARACTER_RE.test(`${candidate}:`)
-}
+  return CHARACTER_RE.test(`${candidate}:`);
+};
 
 export const parseInlineCharacterDialogue = (
   line: string
 ): ParsedInlineCharacterDialogue | null => {
-  const trimmed = (line ?? '').trim()
-  const sanitized = normalizeLine(stripLeadingBullets(trimmed))
-  if (!sanitized) return null
+  const trimmed = (line ?? "").trim();
+  const sanitized = normalizeLine(stripLeadingBullets(trimmed));
+  if (!sanitized) return null;
 
-  const glueMatch = sanitized.match(INLINE_DIALOGUE_GLUE_RE)
+  const glueMatch = sanitized.match(INLINE_DIALOGUE_GLUE_RE);
   if (glueMatch) {
-    const cueText = glueMatch[1].trim()
-    const candidateName = normalizeCharacterName(glueMatch[2])
-    const dialogueText = (glueMatch[3] ?? '').trim()
+    const cueText = glueMatch[1].trim();
+    const candidateName = normalizeCharacterName(glueMatch[2]);
+    const dialogueText = (glueMatch[3] ?? "").trim();
 
     if (
       cueText &&
@@ -129,65 +130,69 @@ export const parseInlineCharacterDialogue = (
       dialogueText &&
       isCandidateCharacterName(candidateName)
     ) {
-      return { characterName: candidateName, dialogueText, cue: cueText }
+      return { characterName: candidateName, dialogueText, cue: cueText };
     }
   }
 
-  const inlineMatch = sanitized.match(INLINE_DIALOGUE_RE)
-  if (!inlineMatch) return null
+  const inlineMatch = sanitized.match(INLINE_DIALOGUE_RE);
+  if (!inlineMatch) return null;
 
-  const rawNamePart = (inlineMatch[1] ?? '').trim()
-  const dialogueText = (inlineMatch[2] ?? '').trim()
-  if (!rawNamePart || !dialogueText) return null
+  const rawNamePart = (inlineMatch[1] ?? "").trim();
+  const dialogueText = (inlineMatch[2] ?? "").trim();
+  if (!rawNamePart || !dialogueText) return null;
 
-  const nameTokens = rawNamePart.split(/\s+/).filter(Boolean)
+  const nameTokens = rawNamePart.split(/\s+/).filter(Boolean);
   if (nameTokens.length >= 2) {
-    const maxNameTokens = Math.min(3, nameTokens.length - 1)
+    const maxNameTokens = Math.min(3, nameTokens.length - 1);
     for (let k = 1; k <= maxNameTokens; k++) {
-      const candidateName = normalizeCharacterName(nameTokens.slice(-k).join(' '))
-      const cueText = nameTokens.slice(0, -k).join(' ').trim()
-      if (!cueText) continue
-      if (!isActionCueLine(cueText)) continue
-      if (!isCandidateCharacterName(candidateName)) continue
-      return { characterName: candidateName, dialogueText, cue: cueText }
+      const candidateName = normalizeCharacterName(
+        nameTokens.slice(-k).join(" ")
+      );
+      const cueText = nameTokens.slice(0, -k).join(" ").trim();
+      if (!cueText) continue;
+      if (!isActionCueLine(cueText)) continue;
+      if (!isCandidateCharacterName(candidateName)) continue;
+      return { characterName: candidateName, dialogueText, cue: cueText };
     }
   }
 
-  const normalizedName = normalizeCharacterName(rawNamePart)
-  if (!isCandidateCharacterName(normalizedName)) return null
+  const normalizedName = normalizeCharacterName(rawNamePart);
+  if (!isCandidateCharacterName(normalizedName)) return null;
 
-  return { characterName: normalizedName, dialogueText }
-}
+  return { characterName: normalizedName, dialogueText };
+};
 
 export const parseImplicitCharacterDialogueWithoutColon = (
   line: string,
   context: Partial<ClassificationContext>
 ): ParsedInlineCharacterDialogue | null => {
-  const trimmed = (line ?? '').trim()
-  if (!trimmed) return null
-  if (/[:：]/.test(trimmed)) return null
-  if (!context.isInDialogueBlock) return null
+  const trimmed = (line ?? "").trim();
+  if (!trimmed) return null;
+  if (/[:：]/.test(trimmed)) return null;
+  if (!context.isInDialogueBlock) return null;
 
-  if (SCENE_NUMBER_EXACT_RE.test(trimmed)) return null
-  if (TRANSITION_RE.test(trimmed)) return null
-  if (isParentheticalLine(trimmed)) return null
+  if (SCENE_NUMBER_EXACT_RE.test(trimmed)) return null;
+  if (TRANSITION_RE.test(trimmed)) return null;
+  if (isParentheticalLine(trimmed)) return null;
 
-  const normalized = normalizeLine(trimmed)
-  const tokens = normalized.split(/\s+/).filter(Boolean)
-  if (tokens.length < 3) return null
+  const normalized = normalizeLine(trimmed);
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  if (tokens.length < 3) return null;
 
-  const maxNameTokens = Math.min(3, tokens.length - 1)
+  const maxNameTokens = Math.min(3, tokens.length - 1);
   for (let k = 1; k <= maxNameTokens; k++) {
-    const candidateName = normalizeCharacterName(tokens.slice(0, k).join(' '))
-    const dialogueText = tokens.slice(k).join(' ').trim()
-    if (!candidateName || !dialogueText) continue
-    if (!isCandidateCharacterName(candidateName)) continue
+    const candidateName = normalizeCharacterName(tokens.slice(0, k).join(" "));
+    const dialogueText = tokens.slice(k).join(" ").trim();
+    if (!candidateName || !dialogueText) continue;
+    if (!isCandidateCharacterName(candidateName)) continue;
 
     const hasSpeechCue =
-      hasDirectDialogueCues(dialogueText) || /[؟?!]/.test(dialogueText) || /(?:\.{2,}|…)/.test(dialogueText)
-    if (!hasSpeechCue) continue
+      hasDirectDialogueCues(dialogueText) ||
+      /[؟?!]/.test(dialogueText) ||
+      /(?:\.{2,}|…)/.test(dialogueText);
+    if (!hasSpeechCue) continue;
 
-    const actionEvidence = collectActionEvidence(dialogueText)
+    const actionEvidence = collectActionEvidence(dialogueText);
     const hasStrongAction =
       actionEvidence.byDash ||
       actionEvidence.byPattern ||
@@ -196,105 +201,101 @@ export const parseImplicitCharacterDialogueWithoutColon = (
       actionEvidence.byNarrativeSyntax ||
       actionEvidence.byPronounAction ||
       actionEvidence.byThenAction ||
-      actionEvidence.byAudioNarrative
+      actionEvidence.byAudioNarrative;
 
-    if (hasStrongAction) continue
+    if (hasStrongAction) continue;
 
-    return { characterName: candidateName, dialogueText }
+    return { characterName: candidateName, dialogueText };
   }
 
-  return null
-}
+  return null;
+};
 
 export const isCharacterLine = (
   line: string,
   context?: Partial<ClassificationContext>
 ): boolean => {
-  const trimmed = normalizeLine(stripLeadingBullets((line ?? '').trim()))
-  if (!trimmed) return false
+  const trimmed = normalizeLine(stripLeadingBullets((line ?? "").trim()));
+  if (!trimmed) return false;
 
-  if (!/[:：]\s*$/.test(trimmed)) return false
-  if (SCENE_NUMBER_EXACT_RE.test(trimmed)) return false
-  if (TRANSITION_RE.test(trimmed)) return false
-  if (isParentheticalLine(trimmed)) return false
+  if (!/[:：]\s*$/.test(trimmed)) return false;
+  if (SCENE_NUMBER_EXACT_RE.test(trimmed)) return false;
+  if (TRANSITION_RE.test(trimmed)) return false;
+  if (isParentheticalLine(trimmed)) return false;
 
-  const namePart = normalizeCharacterName(trimmed)
-  if (!isCandidateCharacterName(namePart)) return false
+  const namePart = normalizeCharacterName(trimmed);
+  if (!isCandidateCharacterName(namePart)) return false;
 
-  const tokens = namePart.split(/\s+/).filter(Boolean)
+  const tokens = namePart.split(/\s+/).filter(Boolean);
   if (
     context?.isInDialogueBlock &&
-    context.previousType === 'dialogue' &&
+    context.previousType === "dialogue" &&
     tokens.length === 1 &&
     namePart.length < 4
   ) {
-    return false
+    return false;
   }
 
-  return true
-}
+  return true;
+};
 
 /**
  * اسم الشخصية (Character)
  * يظهر بالوسط فوق الحوار
  */
 export const Character = Node.create({
-  name: 'character',
-  group: 'block',
-  content: 'inline*',
+  name: "character",
+  group: "block",
+  content: "inline*",
   defining: true,
 
   parseHTML() {
-    return [{ tag: 'div[data-type="character"]' }]
+    return [{ tag: 'div[data-type="character"]' }];
   },
 
   renderHTML({ HTMLAttributes }) {
     return [
-      'div',
+      "div",
       mergeAttributes(HTMLAttributes, {
-        'data-type': 'character',
-        class: 'screenplay-character',
+        "data-type": "character",
+        class: "screenplay-character",
       }),
       0,
-    ]
+    ];
   },
 
   addKeyboardShortcuts() {
     return {
       // الانتقال إلى الحوار عند الضغط على Enter
       Enter: ({ editor }) => {
-        if (!editor.isActive('character')) return false
+        if (!editor.isActive("character")) return false;
 
         // تأكيد وجود ":" في نهاية اسم الشخصية قبل الانتقال للحوار.
         editor
           .chain()
           .command(({ state, tr }) => {
-            const { $from } = state.selection
+            const { $from } = state.selection;
 
             for (let depth = $from.depth; depth >= 0; depth--) {
-              if ($from.node(depth).type.name !== 'character') continue
+              if ($from.node(depth).type.name !== "character") continue;
 
-              const characterNode = $from.node(depth)
-              const currentText = characterNode.textContent.trim()
-              if (!currentText) return true
-              if (/[:：]\s*$/.test(currentText)) return true
+              const characterNode = $from.node(depth);
+              const currentText = characterNode.textContent.trim();
+              if (!currentText) return true;
+              if (/[:：]\s*$/.test(currentText)) return true;
 
-              const nodeContentEnd = $from.start(depth) + characterNode.content.size
-              tr.insertText(':', nodeContentEnd, nodeContentEnd)
-              return true
+              const nodeContentEnd =
+                $from.start(depth) + characterNode.content.size;
+              tr.insertText(":", nodeContentEnd, nodeContentEnd);
+              return true;
             }
 
-            return true
+            return true;
           })
-          .run()
+          .run();
 
-        return editor
-          .chain()
-          .focus()
-          .splitBlock()
-          .setDialogue()
-          .run()
+        return editor.chain().focus().splitBlock().setDialogue().run();
       },
-    }
+    };
   },
-})
+});

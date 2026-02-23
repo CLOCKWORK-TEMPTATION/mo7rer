@@ -8,7 +8,7 @@
  * @see utils/file-import/structure-pipeline.ts — التنفيذ الفعلي
  */
 
-import type { ScreenplayBlock } from '../utils/file-import/document-model'
+import type { ScreenplayBlock } from "../utils/file-import/document-model";
 
 /**
  * سياسة الدمج — تُحدد مدى عدوانية دمج الأسطر المتتالية في كتلة واحدة
@@ -16,21 +16,23 @@ import type { ScreenplayBlock } from '../utils/file-import/document-model'
  * - `safe` — دمج آمن: دمج الأسطر المتتالية من نفس النوع فقط
  * - `aggressive` — دمج عدواني: دمج مع إعادة تصنيف محتملة
  */
-export type StructurePipelineMergePolicy = 'none' | 'safe' | 'aggressive'
+export type StructurePipelineMergePolicy = "none" | "safe" | "aggressive";
 
 /**
  * دور المُصنّف — يُحدد صلاحيات المُصنّف في تعديل المحتوى
  * - `label-only` — تسمية فقط: يُصنّف النوع دون تعديل النص
  * - `limited-rewrite` — إعادة كتابة محدودة: يُصحّح التنسيق البسيط
  */
-export type StructurePipelineClassifierRole = 'label-only' | 'limited-rewrite'
+export type StructurePipelineClassifierRole = "label-only" | "limited-rewrite";
 
 /**
  * ملف تعريف خط الأنابيب — يُحدد مجموعة القواعد المُطبّقة
  * - `strict-structure` — هيكلة صارمة: قواعد تصنيف محافظة
  * - `interactive-legacy` — تفاعلي قديم: توافق مع السلوك السابق
  */
-export type StructurePipelineProfile = 'strict-structure' | 'interactive-legacy'
+export type StructurePipelineProfile =
+  | "strict-structure"
+  | "interactive-legacy";
 
 /**
  * سياسة خط أنابيب الهيكلة — تجمع بين سياسة الدمج ودور المُصنّف
@@ -39,8 +41,8 @@ export type StructurePipelineProfile = 'strict-structure' | 'interactive-legacy'
  * @property classifierRole - صلاحيات المُصنّف في تعديل المحتوى
  */
 export interface StructurePipelinePolicy {
-  mergePolicy: StructurePipelineMergePolicy
-  classifierRole: StructurePipelineClassifierRole
+  mergePolicy: StructurePipelineMergePolicy;
+  classifierRole: StructurePipelineClassifierRole;
 }
 
 /**
@@ -52,10 +54,10 @@ export interface StructurePipelinePolicy {
  * @property policy - السياسة المُستخدمة في هذه العملية
  */
 export interface StructurePipelineResult {
-  normalizedText: string
-  normalizedLines: string[]
-  blocks: ScreenplayBlock[]
-  policy: StructurePipelinePolicy
+  normalizedText: string;
+  normalizedLines: string[];
+  blocks: ScreenplayBlock[];
+  policy: StructurePipelinePolicy;
 }
 
 /**
@@ -74,20 +76,20 @@ export interface StructurePipelineResult {
  * @property fallbackApplied - هل طُبّق سلوك بديل (مثل استيراد كنص عادي)
  */
 export interface ProjectionGuardReport {
-  accepted: boolean
-  reasons: string[]
-  inputLineCount: number
-  outputBlockCount: number
-  currentBlockCount?: number
-  currentNonActionCount?: number
-  outputNonActionCount: number
-  fallbackApplied: boolean
+  accepted: boolean;
+  reasons: string[];
+  inputLineCount: number;
+  outputBlockCount: number;
+  currentBlockCount?: number;
+  currentNonActionCount?: number;
+  outputNonActionCount: number;
+  fallbackApplied: boolean;
 }
 
 /**
  * السياسة الافتراضية لخط أنابيب الهيكلة — لا دمج + تسمية فقط
  */
 export const DEFAULT_STRUCTURE_PIPELINE_POLICY: StructurePipelinePolicy = {
-  mergePolicy: 'none',
-  classifierRole: 'label-only',
-}
+  mergePolicy: "none",
+  classifierRole: "label-only",
+};

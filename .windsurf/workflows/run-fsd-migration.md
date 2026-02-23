@@ -6,19 +6,23 @@ auto_execution_mode: 3
 # FSD Migration Workflow Runner
 
 يستخدم هذا الـ Workflow ملفين أساسيين:
+
 - **Prompt**: `.uix/prompts/run-fsd-migration.txt`
 - **Workflow Definition**: `.uix/workflows/fsd-structure-migration-workflow.yaml`
 
 ## المتطلبات المسبقة
 
 // turbo
+
 1. التأكد من وجود Git repo نظيف
+
 ```bash
 git status
 git add -A && git commit -m "checkpoint: pre-fsd-migration" || echo "no changes"
 ```
 
 2. التحقق من وجود الملفات المطلوبة
+
 ```bash
 test -f .uix/prompts/run-fsd-migration.txt && echo "✅ Prompt exists"
 test -f .uix/workflows/fsd-structure-migration-workflow.yaml && echo "✅ Workflow exists"
@@ -27,16 +31,20 @@ test -f .uix/workflows/fsd-structure-migration-workflow.yaml && echo "✅ Workfl
 ## خطوات التنفيذ
 
 ### الخطوة 1: تحميل الـ Prompt
+
 اقرأ محتوى `.uix/prompts/run-fsd-migration.txt` كتعليمات Orchestrator.
 
 ### الخطوة 2: تحميل Workflow YAML
+
 اقرأ `.uips/workflows/fsd-structure-migration-workflow.yaml` لفهم:
+
 - ترتيب الـ Agents (10 Agents)
 - الأ phases (14 phase)
 - الـ Checkpoints بعد كل phase
 - الـ Stop on failure policy
 
 ### الخطوة 3: إنشاء Git Branch
+
 ```bash
 git checkout -b refactor/fsd-migration-$(date +%s)
 ```
@@ -45,27 +53,31 @@ git checkout -b refactor/fsd-migration-$(date +%s)
 
 按照这个顺序执行:
 
-| # | Agent | Phase(s) | Critical |
-|---|-------|----------|----------|
-| 1 | BaselineAgent | 1-2 | ✅ |
-| 2 | StructureAgent | 3-4 | ✅ |
-| 3 | TypeSafetyAgent | 5 | ✅ |
-| 4 | EditorAgent | 6 | ⚠️ Tiptap Behavior |
-| 5 | UIAgent | 7 | ✅ |
-| 6 | FeatureAgent | 8-9 | ✅ |
-| 7 | AppWiringAgent | 10 | ✅ |
-| 8 | CleanupAgent | 11 | ✅ |
-| 9 | QAAgent | 12-13 | ✅ |
-| 10 | ReportAgent | 14 | - |
+| #   | Agent           | Phase(s) | Critical           |
+| --- | --------------- | -------- | ------------------ |
+| 1   | BaselineAgent   | 1-2      | ✅                 |
+| 2   | StructureAgent  | 3-4      | ✅                 |
+| 3   | TypeSafetyAgent | 5        | ✅                 |
+| 4   | EditorAgent     | 6        | ⚠️ Tiptap Behavior |
+| 5   | UIAgent         | 7        | ✅                 |
+| 6   | FeatureAgent    | 8-9      | ✅                 |
+| 7   | AppWiringAgent  | 10       | ✅                 |
+| 8   | CleanupAgent    | 11       | ✅                 |
+| 9   | QAAgent         | 12-13    | ✅                 |
+| 10  | ReportAgent     | 14       | -                  |
 
 ### الخطوة 5: Checkpoints بعد كل Phase
+
 بعد كل phase تحقق من:
+
 - [ ] `pnpm run build` نجح
-- [ ] `pnpm run lint` نجح  
+- [ ] `pnpm run lint` نجح
 - [ ] `pnpm run test` نجح (إن وجد)
 
 ### الخطوة 6: Final Report
+
 أنشئ ملف `docs/fsd-migration-report.md` يحتوي على:
+
 1. Executive Summary
 2. Created/Moved/Modified Files
 3. Fixed Violations
@@ -86,6 +98,7 @@ git checkout -b refactor/fsd-migration-$(date +%s)
 ## في حالة Failure
 
 إذا فشل أي phase:
+
 1. توقف فوراً (Halt)
 2. سجّل الـ error
 3. لا تنتقل للـ agent التالي
@@ -94,6 +107,7 @@ git checkout -b refactor/fsd-migration-$(date +%s)
 ## Post-Execution
 
 // turbo
+
 ```bash
 git add -A
 git commit -m "refactor: complete FSD architecture migration"

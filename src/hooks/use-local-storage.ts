@@ -1,24 +1,24 @@
 const loadJson = <T>(key: string, fallback: T): T => {
-  if (typeof window === 'undefined') return fallback
+  if (typeof window === "undefined") return fallback;
   try {
-    const raw = window.localStorage.getItem(key)
-    if (!raw) return fallback
-    return JSON.parse(raw) as T
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
   } catch {
-    return fallback
+    return fallback;
   }
-}
+};
 
 const saveJson = <T>(key: string, value: T): void => {
-  if (typeof window === 'undefined') return
+  if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(key, JSON.stringify(value))
+    window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
     // ignore storage errors
   }
-}
+};
 
-const timeoutMap = new Map<string, number>()
+const timeoutMap = new Map<string, number>();
 
 /**
  * @description تقوم بحفظ القيمة في `localStorage` تلقائياً بعد مرور فترة زمنية باستخدام مؤقت (Debounce).
@@ -40,20 +40,20 @@ const timeoutMap = new Map<string, number>()
  * ```
  */
 export const useAutoSave = <T>(key: string, value: T, delay = 3000): void => {
-  if (typeof window === 'undefined') return
+  if (typeof window === "undefined") return;
 
-  const pending = timeoutMap.get(key)
+  const pending = timeoutMap.get(key);
   if (pending !== undefined) {
-    window.clearTimeout(pending)
+    window.clearTimeout(pending);
   }
 
   const timeoutId = window.setTimeout(() => {
-    saveJson(key, value)
-    timeoutMap.delete(key)
-  }, delay)
+    saveJson(key, value);
+    timeoutMap.delete(key);
+  }, delay);
 
-  timeoutMap.set(key, timeoutId)
-}
+  timeoutMap.set(key, timeoutId);
+};
 
 /**
  * @description دالة سريعة لاسترجاع قيمة مخزنة بصيغة JSON. تُرجع القيمة الافتراضية في حال الفشل أو عدم الوجود.
@@ -63,7 +63,8 @@ export const useAutoSave = <T>(key: string, value: T, delay = 3000): void => {
  *
  * @returns {T} القيمة المُسترجعة أو القيمة الافتراضية.
  */
-export const loadFromStorage = <T>(key: string, defaultValue: T): T => loadJson<T>(key, defaultValue)
+export const loadFromStorage = <T>(key: string, defaultValue: T): T =>
+  loadJson<T>(key, defaultValue);
 
 /**
  * @description دالة مباشرة لحفظ القيمة في `localStorage` بصيغة JSON دون تأخير.
@@ -71,4 +72,5 @@ export const loadFromStorage = <T>(key: string, defaultValue: T): T => loadJson<
  * @param {string} key - مفتاح التخزين.
  * @param {T} value - القيمة المراد حفظها.
  */
-export const saveToStorage = <T>(key: string, value: T): void => saveJson(key, value)
+export const saveToStorage = <T>(key: string, value: T): void =>
+  saveJson(key, value);

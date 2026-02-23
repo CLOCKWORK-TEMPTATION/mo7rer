@@ -364,28 +364,28 @@ flowchart TD
 
 ## 12. جدول الاعتمادات الخارجية المباشرة
 
-| الملف | يعتمد على (خارجي) |
-|-------|-------------------|
-| `editor.ts` | `@tiptap/core`, `@tiptap/starter-kit` |
-| `EditorArea.ts` | `@tiptap/core` (Editor instance) |
-| `components/ui/_factory.ts` | `@radix-ui/*` (عبر التغليف) |
-| `components/ui/*.ts` | `@radix-ui/*` (مكونات فردية) |
-| `lib/utils.ts` | `clsx`, `tailwind-merge` |
-| `hooks/use-toast.ts` | لا شيء (تنفيذ محلي بالكامل) |
-| `providers/ThemeProvider.ts` | لا شيء (تنفيذ محلي بالكامل) |
-| `main.tsx` | `react`, `react-dom` |
-| `App.tsx` | `react` |
+| الملف                        | يعتمد على (خارجي)                     |
+| ---------------------------- | ------------------------------------- |
+| `editor.ts`                  | `@tiptap/core`, `@tiptap/starter-kit` |
+| `EditorArea.ts`              | `@tiptap/core` (Editor instance)      |
+| `components/ui/_factory.ts`  | `@radix-ui/*` (عبر التغليف)           |
+| `components/ui/*.ts`         | `@radix-ui/*` (مكونات فردية)          |
+| `lib/utils.ts`               | `clsx`, `tailwind-merge`              |
+| `hooks/use-toast.ts`         | لا شيء (تنفيذ محلي بالكامل)           |
+| `providers/ThemeProvider.ts` | لا شيء (تنفيذ محلي بالكامل)           |
+| `main.tsx`                   | `react`, `react-dom`                  |
+| `App.tsx`                    | `react`                               |
 
 ---
 
 ## 13. الملفات الأكثر استيراداً (Hub Files)
 
-| الملف | عدد الملفات التي تستورده |
-|-------|-------------------------|
-| `types/screenplay.ts` | ~15+ |
-| `extensions/classification-types.ts` | ~10+ |
-| `extensions/arabic-patterns.ts` | ~8+ |
-| `constants/formats.ts` | ~7+ |
-| `constants/editor-format-styles.ts` | ~5+ |
-| `lib/utils.ts` | ~50+ (كل مكونات ui/) |
-| `extensions/screenplay-commands.ts` | 10 (كل عُقد السيناريو) |
+| الملف                                | عدد الملفات التي تستورده |
+| ------------------------------------ | ------------------------ |
+| `types/screenplay.ts`                | ~15+                     |
+| `extensions/classification-types.ts` | ~10+                     |
+| `extensions/arabic-patterns.ts`      | ~8+                      |
+| `constants/formats.ts`               | ~7+                      |
+| `constants/editor-format-styles.ts`  | ~5+                      |
+| `lib/utils.ts`                       | ~50+ (كل مكونات ui/)     |
+| `extensions/screenplay-commands.ts`  | 10 (كل عُقد السيناريو)   |

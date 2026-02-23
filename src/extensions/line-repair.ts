@@ -11,12 +11,12 @@
  *
  * يُستهلك في {@link PasteClassifier} أثناء المعالجة المسبقة للنص الملصوق.
  */
-import type { ElementType } from './classification-types'
-import { CHARACTER_RE } from './arabic-patterns'
-import { normalizeLine, stripLeadingBullets } from './text-utils'
+import type { ElementType } from "./classification-types";
+import { CHARACTER_RE } from "./arabic-patterns";
+import { normalizeLine, stripLeadingBullets } from "./text-utils";
 
 /** نمط regex لمطابقة وسوم HTML */
-const HTML_TAG_RE = /<[^>]+>/g
+const HTML_TAG_RE = /<[^>]+>/g;
 
 /**
  * يستخرج نصاً عادياً من سطر يحتوي وسوم HTML.
@@ -28,15 +28,15 @@ const HTML_TAG_RE = /<[^>]+>/g
  * @returns النص العادي بدون وسوم
  */
 export const extractPlainTextFromHtmlLikeLine = (line: string): string => {
-  const raw = (line ?? '').trim()
-  if (!raw || !/[<>]/.test(raw)) return raw
+  const raw = (line ?? "").trim();
+  if (!raw || !/[<>]/.test(raw)) return raw;
 
   return raw
-    .replace(HTML_TAG_RE, ' ')
-    .replace(/\u00A0/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
+    .replace(HTML_TAG_RE, " ")
+    .replace(/\u00A0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
 
 /**
  * ينظّف سطراً من HTML ثم يزيل العلامات النقطية ويطبّعه.
@@ -47,9 +47,9 @@ export const extractPlainTextFromHtmlLikeLine = (line: string): string => {
  * @returns النص المُنظّف والمُطبّع
  */
 export const parseBulletLine = (line: string): string => {
-  const plain = extractPlainTextFromHtmlLikeLine(line)
-  return normalizeLine(stripLeadingBullets(plain))
-}
+  const plain = extractPlainTextFromHtmlLikeLine(line);
+  return normalizeLine(stripLeadingBullets(plain));
+};
 
 /**
  * دمج التفاف السطر للحوار فقط عندما يبدو استكمالًا لنفس الجملة.
@@ -74,17 +74,17 @@ export const shouldMergeWrappedLines = (
   currentLine: string,
   previousType?: ElementType
 ): boolean => {
-  const prev = normalizeLine(previousLine)
-  const curr = normalizeLine(currentLine)
-  if (!prev || !curr) return false
-  if (previousType !== 'dialogue') return false
-  if (/^[-–—•●○]/.test(prev) || /^[-–—•●○]/.test(curr)) return false
-  if (/[:：]\s*$/.test(curr)) return false
+  const prev = normalizeLine(previousLine);
+  const curr = normalizeLine(currentLine);
+  if (!prev || !curr) return false;
+  if (previousType !== "dialogue") return false;
+  if (/^[-–—•●○]/.test(prev) || /^[-–—•●○]/.test(curr)) return false;
+  if (/[:：]\s*$/.test(curr)) return false;
 
-  const prevEndsSentence = /[.!؟?!…»"]\s*$/.test(prev)
-  const startsAsContinuation = /^(?:\.{3}|…|،|(?:و|ثم)\s+)/.test(curr)
-  return startsAsContinuation && !prevEndsSentence
-}
+  const prevEndsSentence = /[.!؟?!…»"]\s*$/.test(prev);
+  const startsAsContinuation = /^(?:\.{3}|…|،|(?:و|ثم)\s+)/.test(curr);
+  return startsAsContinuation && !prevEndsSentence;
+};
 
 /**
  * يحاول دمج اسم شخصية منقسم على سطرين (حالة شائعة في نسخ Word/PDF).
@@ -113,32 +113,31 @@ export const mergeBrokenCharacterName = (
   previousLine: string,
   currentLine: string
 ): string | null => {
-  const prevRaw = parseBulletLine(previousLine)
-  const currRaw = parseBulletLine(currentLine)
+  const prevRaw = parseBulletLine(previousLine);
+  const currRaw = parseBulletLine(currentLine);
 
-  if (!prevRaw || !currRaw) return null
-  if (/[.!؟"]$/.test(prevRaw)) return null
-  if (!/[:：]\s*$/.test(currRaw)) return null
+  if (!prevRaw || !currRaw) return null;
+  if (/[.!؟"]$/.test(prevRaw)) return null;
+  if (!/[:：]\s*$/.test(currRaw)) return null;
 
-  const prevNamePart = prevRaw.replace(/[:：]+\s*$/, '').trim()
-  const currNamePart = currRaw.replace(/[:：]+\s*$/, '').trim()
-  if (!prevNamePart || !currNamePart) return null
+  const prevNamePart = prevRaw.replace(/[:：]+\s*$/, "").trim();
+  const currNamePart = currRaw.replace(/[:：]+\s*$/, "").trim();
+  if (!prevNamePart || !currNamePart) return null;
 
-  if (prevNamePart.length > 25) return null
-  if (currNamePart.split(/\s+/).filter(Boolean).length > 3) return null
-  if (prevNamePart.length + currNamePart.length > 32) return null
+  if (prevNamePart.length > 25) return null;
+  if (currNamePart.split(/\s+/).filter(Boolean).length > 3) return null;
+  if (prevNamePart.length + currNamePart.length > 32) return null;
 
-  const directMerge = `${prevNamePart}${currNamePart}`
-  const spaceMerge = `${prevNamePart} ${currNamePart}`
+  const directMerge = `${prevNamePart}${currNamePart}`;
+  const spaceMerge = `${prevNamePart} ${currNamePart}`;
 
   if (CHARACTER_RE.test(`${directMerge}:`) && !/[.!؟,،"«»]/.test(directMerge)) {
-    return `${directMerge}:`
+    return `${directMerge}:`;
   }
 
   if (CHARACTER_RE.test(`${spaceMerge}:`) && !/[.!؟,،"«»]/.test(spaceMerge)) {
-    return `${spaceMerge}:`
+    return `${spaceMerge}:`;
   }
 
-  return null
-}
-
+  return null;
+};

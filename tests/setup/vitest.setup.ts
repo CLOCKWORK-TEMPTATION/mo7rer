@@ -1,4 +1,4 @@
-import { afterEach, vi } from 'vitest'
+import { afterEach, vi } from "vitest";
 
 class ResizeObserverMock {
   observe(): void {}
@@ -6,13 +6,13 @@ class ResizeObserverMock {
   disconnect(): void {}
 }
 
-if (typeof globalThis.ResizeObserver === 'undefined') {
+if (typeof globalThis.ResizeObserver === "undefined") {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ;(globalThis as any).ResizeObserver = ResizeObserverMock
+  (globalThis as any).ResizeObserver = ResizeObserverMock;
 }
 
-if (typeof window !== 'undefined' && !window.matchMedia) {
-  window.matchMedia = ((query: string): MediaQueryList =>
+if (typeof window !== "undefined" && !window.matchMedia) {
+  window.matchMedia = (query: string): MediaQueryList =>
     ({
       matches: false,
       media: query,
@@ -22,19 +22,19 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
       addEventListener: () => undefined,
       removeEventListener: () => undefined,
       dispatchEvent: () => false,
-    }) as MediaQueryList)
+    }) as MediaQueryList;
 }
 
-if (typeof window !== 'undefined' && !window.ClipboardItem) {
+if (typeof window !== "undefined" && !window.ClipboardItem) {
   class ClipboardItemMock {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     constructor(_items: Record<string, any>) {}
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ;(window as any).ClipboardItem = ClipboardItemMock
+  (window as any).ClipboardItem = ClipboardItemMock;
 }
 
 afterEach(() => {
-  vi.restoreAllMocks()
-  vi.unstubAllGlobals()
-})
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});

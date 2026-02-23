@@ -1,29 +1,29 @@
-import React from 'react'
-import { User } from 'lucide-react'
-import { HoverBorderGradient } from '../ui/hover-border-gradient'
+import React from "react";
+import { User } from "lucide-react";
+import { HoverBorderGradient } from "../ui/hover-border-gradient";
 
 export interface AppShellMenuItem {
-  label: string
-  actionId: string
-  shortcut?: string
-  icon?: React.ElementType
-  iconGlyph?: string
-  disabled?: boolean
+  label: string;
+  actionId: string;
+  shortcut?: string;
+  icon?: React.ElementType;
+  iconGlyph?: string;
+  disabled?: boolean;
 }
 
 export interface AppShellMenuSection {
-  label: string
-  items: readonly AppShellMenuItem[]
+  label: string;
+  items: readonly AppShellMenuItem[];
 }
 
-interface AppHeaderProps {
-  menuSections: readonly AppShellMenuSection[]
-  activeMenu: string | null
-  onToggleMenu: (sectionLabel: string) => void
-  onAction: (actionId: string) => void
-  infoDotColor: string
-  brandGradient: string
-  onlineDotColor: string
+export interface AppHeaderProps {
+  menuSections: readonly AppShellMenuSection[];
+  activeMenu: string | null;
+  onToggleMenu: (sectionLabel: string) => void;
+  onAction: (actionId: string) => void;
+  infoDotColor: string;
+  brandGradient: string;
+  onlineDotColor: string;
 }
 
 export function AppHeader({
@@ -36,7 +36,7 @@ export function AppHeader({
   onlineDotColor,
 }: AppHeaderProps): React.JSX.Element {
   return (
-    <header className="app-header relative z-40 flex h-[60px] flex-shrink-0 items-center justify-between bg-[var(--card)]/80 px-7 backdrop-blur-2xl">
+    <header className="app-header bg-[var(--card)]/80 relative z-40 flex h-[60px] flex-shrink-0 items-center justify-between px-7 backdrop-blur-2xl">
       <div className="flex items-center gap-3">
         <HoverBorderGradient
           as="div"
@@ -69,14 +69,14 @@ export function AppHeader({
               key={section.label}
               className="group relative h-full"
               onClick={(event) => {
-                event.stopPropagation()
+                event.stopPropagation();
               }}
             >
               <button
                 className={`flex h-full min-w-[72px] items-center justify-center rounded-full px-4 text-[13px] font-medium transition-all ${
                   activeMenu === section.label
-                    ? 'bg-neutral-800 text-white'
-                    : 'bg-transparent text-neutral-400 hover:bg-neutral-900 hover:text-white group-hover:text-white'
+                    ? "bg-neutral-800 text-white"
+                    : "bg-transparent text-neutral-400 hover:bg-neutral-900 hover:text-white group-hover:text-white"
                 }`}
                 onClick={() => onToggleMenu(section.label)}
               >
@@ -92,13 +92,15 @@ export function AppHeader({
                       onClick={() => onAction(item.actionId)}
                       className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-right text-[13px] transition-colors ${
                         item.disabled
-                          ? 'cursor-not-allowed text-neutral-600'
-                          : 'text-neutral-300 hover:bg-white/5 hover:text-white'
+                          ? "cursor-not-allowed text-neutral-600"
+                          : "text-neutral-300 hover:bg-white/5 hover:text-white"
                       }`}
                     >
                       <span className="flex-1 text-right">{item.label}</span>
                       {item.shortcut && (
-                        <span className="text-[10px] text-neutral-500">{item.shortcut}</span>
+                        <span className="text-[10px] text-neutral-500">
+                          {item.shortcut}
+                        </span>
                       )}
                       {item.iconGlyph && (
                         <span className="w-4 text-center text-[13px] text-neutral-400">
@@ -127,9 +129,9 @@ export function AppHeader({
           as="div"
           duration={1}
           containerClassName="h-full rounded-full"
-          className="flex h-full items-center gap-2 rounded-[inherit] bg-neutral-900/90 px-4 text-[11px] font-bold uppercase tracking-wider text-ring"
+          className="text-ring flex h-full items-center gap-2 rounded-[inherit] bg-neutral-900/90 px-4 text-[11px] font-bold uppercase tracking-wider"
         >
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ring" />
+          <span className="bg-ring h-1.5 w-1.5 animate-pulse rounded-full" />
           Online
         </HoverBorderGradient>
 
@@ -163,5 +165,5 @@ export function AppHeader({
         </HoverBorderGradient>
       </HoverBorderGradient>
     </header>
-  )
+  );
 }

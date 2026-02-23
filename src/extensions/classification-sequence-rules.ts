@@ -12,91 +12,128 @@
  *
  * يُستهلك في {@link PostClassificationReviewer} لكشف انتهاكات التسلسل.
  */
-import type { ElementType } from './classification-types'
+import type { ElementType } from "./classification-types";
+export const CLASSIFICATION_VALID_SEQUENCES: ReadonlyMap<
+  string,
+  ReadonlySet<string>
+> = new Map([
+  ["character", new Set(["dialogue", "parenthetical"])],
+  ["parenthetical", new Set(["dialogue"])],
+  [
+    "dialogue",
+    new Set(["dialogue", "action", "character", "transition", "parenthetical"]),
+  ],
+  [
+    "action",
+    new Set([
+      "action",
+      "character",
+      "transition",
+      "scene-header-1",
+      "scene-header-top-line",
+    ]),
+  ],
+  [
+    "transition",
+    new Set(["scene-header-1", "scene-header-top-line", "action"]),
+  ],
+  [
+    "scene-header-top-line",
+    new Set([
+      "action",
+      "character",
+      "transition",
+      "scene-header-1",
+      "scene-header-top-line",
+    ]),
+  ],
+  [
+    "scene-header-1",
+    new Set([
+      "scene-header-2",
+      "scene-header-3",
+      "action",
+      "scene-header-top-line",
+    ]),
+  ],
+  ["scene-header-2", new Set(["scene-header-3", "action"])],
+  ["scene-header-3", new Set(["action", "character"])],
+  [
+    "basmala",
+    new Set(["scene-header-top-line", "scene-header-1", "action", "character"]),
+  ],
+]);
 
-/**
- * خصائص السطر المُستخدمة في {@link suggestTypeFromClassificationSequence}
- * لاقتراح النوع الأنسب بناءً على سمات النص.
- */
-export interface SequenceSuggestionFeatures {
-  readonly wordCount: number
-  readonly startsWithDash: boolean
-  readonly isParenthetical: boolean
-  readonly hasActionIndicators: boolean
-  readonly endsWithColon: boolean
+export const CLASSIFICATION_SEQUENCE_VIOLATION_SEVERITY: ReadonlyMap<
+  string,
+  number
+> = new Map([
+  ["character→character", 95],
+  ["parenthetical→action", 90],
+  ["parenthetical→character", 90],
+  ["parenthetical→transition", 90],
+  ["transition→dialogue", 80],
+  ["transition→character", 75],
+  ["scene-header-1→dialogue", 70],
+  ["scene-header-2→dialogue", 70],
+  ["scene-header-3→dialogue", 70],
+  ["scene-header-1→action", 75],
+  ["scene-header-1→character", 75],
+  ["scene-header-2→action", 75],
+  ["scene-header-2→character", 75],
+]);
+
+export interface ClassificationSequenceSuggestionFeatures {
+  isParenthetical: boolean;
+  endsWithColon: boolean;
+  wordCount: number;
+  hasPunctuation: boolean;
+  startsWithDash: boolean;
+  hasActionIndicators: boolean;
 }
 
-/**
- * خريطة التسلسلات الصالحة — لكل نوع عنصر، مجموعة الأنواع المسموح أن تليه.
- *
- * مثال: بعد `character` يُسمح فقط بـ `dialogue` أو `parenthetical`.
- * أي تسلسل غير موجود يُعد انتهاكاً.
- */
-export const CLASSIFICATION_VALID_SEQUENCES: ReadonlyMap<ElementType, ReadonlySet<ElementType>> = new Map([
-  ['basmala', new Set<ElementType>(['sceneHeaderTopLine'])],
-  ['sceneHeaderTopLine', new Set<ElementType>(['sceneHeader3'])],
-  ['sceneHeader3', new Set<ElementType>(['action'])],
-  ['action', new Set<ElementType>(['action', 'character', 'transition', 'sceneHeaderTopLine'])],
-  ['character', new Set<ElementType>(['dialogue', 'parenthetical'])],
-  ['dialogue', new Set<ElementType>(['dialogue', 'character', 'action', 'transition', 'parenthetical'])],
-  ['parenthetical', new Set<ElementType>(['dialogue', 'character', 'action', 'transition'])],
-  ['transition', new Set<ElementType>(['sceneHeaderTopLine', 'sceneHeader3'])],
-])
-
-/**
- * درجة خطورة انتهاكات التسلسل — كلما زادت القيمة زادت الشبهة.
- *
- * المفتاح بصيغة `'نوع_سابق→نوع_حالي'`.
- * القيم: 72–90 (الأعلى = الأكثر شذوذاً).
- *
- * @example
- * ```ts
- * CLASSIFICATION_SEQUENCE_VIOLATION_SEVERITY.get('character→character') // 90
- * ```
- */
-export const CLASSIFICATION_SEQUENCE_VIOLATION_SEVERITY: ReadonlyMap<string, number> = new Map([
-  ['character→character', 90],
-  ['character→action', 82],
-  ['character→transition', 84],
-  ['dialogue→dialogue', 72],
-  ['sceneHeaderTopLine→action', 86],
-  ['sceneHeaderTopLine→character', 88],
-  ['sceneHeader3→character', 78],
-  ['transition→dialogue', 85],
-])
-
-/**
- * يقترح النوع التالي بناءً على النوع السابق وخصائص السطر الحالي.
- *
- * ترتيب الأولوية:
- * 1. قواعد إلزامية: sceneHeaderTopLine→sceneHeader3، sceneHeader3→action، transition→sceneHeaderTopLine
- * 2. بعد character: parenthetical (إذا بين أقواس) أو dialogue
- * 3. بعد dialogue + سطر قصير بنقطتين: character
- * 4. خصائص عامة: شرطة→action، نقطتين→character، قصير→dialogue
- *
- * @param prevType - نوع العنصر السابق
- * @param features - خصائص السطر الحالي
- * @returns النوع المقترح أو `null` إذا لم يتمكن من الاقتراح
- */
-export function suggestTypeFromClassificationSequence(
-  prevType: ElementType,
-  features: SequenceSuggestionFeatures
-): ElementType | null {
-  if (prevType === 'sceneHeaderTopLine') return 'sceneHeader3'
-  if (prevType === 'sceneHeader3') return 'action'
-  if (prevType === 'transition') return 'sceneHeaderTopLine'
-  if (prevType === 'character') {
-    if (features.isParenthetical) return 'parenthetical'
-    return 'dialogue'
-  }
-  if (prevType === 'dialogue' && features.endsWithColon && features.wordCount <= 5) {
-    return 'character'
+export const suggestTypeFromClassificationSequence = (
+  prevType: ElementType | string,
+  features: ClassificationSequenceSuggestionFeatures
+): ElementType | null => {
+  if (prevType === "character") {
+    return features.isParenthetical
+      ? ("parenthetical" as ElementType)
+      : ("dialogue" as ElementType);
   }
 
-  if (features.isParenthetical) return 'parenthetical'
-  if (features.startsWithDash || features.hasActionIndicators) return 'action'
-  if (features.endsWithColon && features.wordCount <= 5) return 'character'
-  if (features.wordCount <= 4) return 'dialogue'
+  if (prevType === "parenthetical") {
+    return "dialogue" as ElementType;
+  }
 
-  return null
-}
+  if (prevType === "dialogue") {
+    if (features.startsWithDash || features.hasActionIndicators) {
+      return "action" as ElementType;
+    }
+    if (
+      features.endsWithColon ||
+      (features.wordCount <= 3 && !features.hasPunctuation)
+    ) {
+      return "character" as ElementType;
+    }
+    return "action" as ElementType;
+  }
+
+  if (prevType === "transition") {
+    return "scene-header-1" as ElementType;
+  }
+
+  if (prevType === "scene-header-1") {
+    return "scene-header-2" as ElementType;
+  }
+
+  if (prevType === "scene-header-2") {
+    return "scene-header-3" as ElementType;
+  }
+
+  if (prevType === "scene-header-3") {
+    return "action" as ElementType;
+  }
+
+  return null;
+};

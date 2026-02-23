@@ -6,9 +6,9 @@
    4) ui-kit.css => optional UI effects/utilities
    5) toolbar.css + shell.css => legacy compatibility layer
 */
-@import './globals.css';
-@import './main.css';
-@import './page.css';
-@import './ui-kit.css';
-@import './toolbar.css';
-@import './shell.css';
+@import "./globals.css";
+@import "./main.css";
+@import "./page.css";
+@import "./ui-kit.css";
+@import "./toolbar.css";
+@import "./shell.css";

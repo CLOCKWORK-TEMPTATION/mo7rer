@@ -10,34 +10,34 @@
  * - {@link getSpacingMarginTop} — حاسب التباعد العمودي بين عنصرين متتاليين
  * - {@link applyEditorFormatStyleVariables} — يكتب متغيرات CSS المخصصة على عنصر DOM
  */
-import type { CSSProperties } from 'react'
+import type { CSSProperties } from "react";
 
 /**
  * المعرّفات العشرة لأنواع عناصر السيناريو المدعومة في المحرر.
  * تُستخدم كمفاتيح في أنماط CSS وفي خريطة التنسيقات.
  */
 export const EDITOR_STYLE_FORMAT_IDS = [
-  'basmala',
-  'scene-header-1',
-  'scene-header-2',
-  'scene-header-3',
-  'action',
-  'character',
-  'dialogue',
-  'parenthetical',
-  'transition',
-  'scene-header-top-line',
-] as const
+  "basmala",
+  "scene-header-1",
+  "scene-header-2",
+  "scene-header-3",
+  "action",
+  "character",
+  "dialogue",
+  "parenthetical",
+  "transition",
+  "scene-header-top-line",
+] as const;
 
 /** نوع TypeScript مشتق من {@link EDITOR_STYLE_FORMAT_IDS}، يمثل أي معرّف تنسيق صالح */
-export type EditorStyleFormatId = (typeof EDITOR_STYLE_FORMAT_IDS)[number]
+export type EditorStyleFormatId = (typeof EDITOR_STYLE_FORMAT_IDS)[number];
 
 /** عائلة الخط المقفلة للمحرر (AzarMehrMonospaced-San مع احتياطي monospace) */
-export const LOCKED_EDITOR_FONT_FAMILY = "'AzarMehrMonospaced-San', monospace"
+export const LOCKED_EDITOR_FONT_FAMILY = "'AzarMehrMonospaced-San', monospace";
 /** حجم الخط المقفل للمحرر: 12 نقطة */
-export const LOCKED_EDITOR_FONT_SIZE = '12pt'
+export const LOCKED_EDITOR_FONT_SIZE = "12pt";
 /** ارتفاع السطر المقفل للمحرر: 15 نقطة */
-export const LOCKED_EDITOR_LINE_HEIGHT = '15pt'
+export const LOCKED_EDITOR_LINE_HEIGHT = "15pt";
 
 /**
  * يُرجع كائن {@link CSSProperties} يحتوي الأنماط المناسبة لنوع عنصر سيناريو معيّن.
@@ -56,79 +56,82 @@ export const LOCKED_EDITOR_LINE_HEIGHT = '15pt'
 export const getFormatStyles = (
   formatType: EditorStyleFormatId | string,
   selectedSize: string = LOCKED_EDITOR_FONT_SIZE,
-  selectedFont: string = 'AzarMehrMonospaced-San',
+  selectedFont: string = "AzarMehrMonospaced-San"
 ): CSSProperties => {
-  const normalizedSize = selectedSize === LOCKED_EDITOR_FONT_SIZE ? selectedSize : LOCKED_EDITOR_FONT_SIZE
-  const normalizedLineHeight = LOCKED_EDITOR_LINE_HEIGHT
+  const normalizedSize =
+    selectedSize === LOCKED_EDITOR_FONT_SIZE
+      ? selectedSize
+      : LOCKED_EDITOR_FONT_SIZE;
+  const normalizedLineHeight = LOCKED_EDITOR_LINE_HEIGHT;
 
   const baseStyles: CSSProperties = {
     fontFamily: selectedFont,
     fontSize: normalizedSize,
-    direction: 'rtl',
+    direction: "rtl",
     lineHeight: normalizedLineHeight,
     minHeight: normalizedLineHeight,
-    fontWeight: 'bold',
-  }
+    fontWeight: "bold",
+  };
 
   const formatStyles: Record<string, CSSProperties> = {
     basmala: {
-      textAlign: 'left',
-      direction: 'rtl',
-      width: '100%',
-      fontWeight: 'normal',
-      margin: '0 0 0 0',
+      textAlign: "left",
+      direction: "rtl",
+      width: "100%",
+      fontWeight: "normal",
+      margin: "0 0 0 0",
     },
-    'scene-header-top-line': {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'baseline',
-      width: '100%',
-      fontWeight: 'bold',
+    "scene-header-top-line": {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "baseline",
+      width: "100%",
+      fontWeight: "bold",
     },
-    'scene-header-1': {
-      fontWeight: 'bold',
-      textTransform: 'uppercase',
+    "scene-header-1": {
+      fontWeight: "bold",
+      textTransform: "uppercase",
     },
-    'scene-header-2': {
-      fontWeight: 'bold',
+    "scene-header-2": {
+      fontWeight: "bold",
     },
-    'scene-header-3': {
-      textAlign: 'center',
-      fontWeight: 'bold',
+    "scene-header-3": {
+      textAlign: "center",
+      fontWeight: "bold",
     },
     action: {
-      textAlign: 'justify',
-      textAlignLast: 'right',
-      textJustify: 'inter-word',
-      width: '100%',
-      margin: '0',
+      textAlign: "justify",
+      textAlignLast: "right",
+      textJustify: "inter-word",
+      width: "100%",
+      margin: "0",
     },
     character: {
-      textAlign: 'center',
-      margin: '0 auto',
+      textAlign: "center",
+      margin: "0 auto",
     },
     parenthetical: {
-      textAlign: 'center',
-      margin: '0 auto',
+      textAlign: "center",
+      margin: "0 auto",
     },
     dialogue: {
-      width: '4.1in',
-      textAlign: 'center',
-      margin: '0 auto',
-      fontWeight: 'normal',
-      paddingLeft: '1.5em',
-      paddingRight: '1em',
-      paddingTop: '0.25em',
-      paddingBottom: '0',
+      width: "4.1in",
+      textAlign: "center",
+      margin: "0 auto",
+      fontWeight: "normal",
+      paddingLeft: "1.5em",
+      paddingRight: "1em",
+      paddingTop: "0.25em",
+      paddingBottom: "0",
     },
     transition: {
-      textAlign: 'center',
-      margin: '0 auto',
+      textAlign: "center",
+      margin: "0 auto",
     },
-  }
+  };
 
-  return { ...baseStyles, ...formatStyles[formatType] }
-}
+  return { ...baseStyles, ...formatStyles[formatType] };
+};
 
 /**
  * =========================
@@ -154,91 +157,94 @@ export const getFormatStyles = (
  */
 export const getSpacingMarginTop = (
   previousFormat: string,
-  currentFormat: string,
+  currentFormat: string
 ): string => {
   if (
-    previousFormat === 'basmala' &&
-    currentFormat === 'scene-header-top-line'
+    previousFormat === "basmala" &&
+    currentFormat === "scene-header-top-line"
   ) {
-    return '12pt'
+    return "12pt";
   }
 
-  if (previousFormat === 'basmala') {
-    return '0'
+  if (previousFormat === "basmala") {
+    return "0";
   }
 
-  if (previousFormat === 'character') {
-    if (currentFormat === 'dialogue' || currentFormat === 'parenthetical') {
-      return '0'
+  if (previousFormat === "character") {
+    if (currentFormat === "dialogue" || currentFormat === "parenthetical") {
+      return "0";
     }
   }
 
-  if (previousFormat === 'parenthetical' && currentFormat === 'dialogue') {
-    return '0'
+  if (previousFormat === "parenthetical" && currentFormat === "dialogue") {
+    return "0";
   }
 
   if (
-    previousFormat === 'scene-header-2' &&
-    currentFormat === 'scene-header-3'
+    previousFormat === "scene-header-2" &&
+    currentFormat === "scene-header-3"
   ) {
-    return '0'
+    return "0";
   }
 
-  if (previousFormat === 'scene-header-3' && currentFormat === 'action') {
-    return '12pt'
+  if (previousFormat === "scene-header-3" && currentFormat === "action") {
+    return "12pt";
   }
 
-  if (previousFormat === 'action') {
+  if (previousFormat === "action") {
     if (
-      currentFormat === 'action' ||
-      currentFormat === 'character' ||
-      currentFormat === 'transition'
+      currentFormat === "action" ||
+      currentFormat === "character" ||
+      currentFormat === "transition"
     ) {
-      return '12pt'
+      return "12pt";
     }
   }
 
-  if (previousFormat === 'dialogue') {
+  if (previousFormat === "dialogue") {
     if (
-      currentFormat === 'character' ||
-      currentFormat === 'action' ||
-      currentFormat === 'transition'
+      currentFormat === "character" ||
+      currentFormat === "action" ||
+      currentFormat === "transition"
     ) {
-      return '12pt'
+      return "12pt";
     }
   }
 
-  if (previousFormat === 'parenthetical') {
+  if (previousFormat === "parenthetical") {
     if (
-      currentFormat === 'character' ||
-      currentFormat === 'action' ||
-      currentFormat === 'transition'
+      currentFormat === "character" ||
+      currentFormat === "action" ||
+      currentFormat === "transition"
     ) {
-      return '0'
+      return "0";
     }
   }
 
-  if (previousFormat === 'transition') {
+  if (previousFormat === "transition") {
     if (
-      currentFormat === 'scene-header-1' ||
-      currentFormat === 'scene-header-top-line'
+      currentFormat === "scene-header-1" ||
+      currentFormat === "scene-header-top-line"
     ) {
-      return '12pt'
+      return "12pt";
     }
   }
 
-  return ''
-}
+  return "";
+};
 
 /**
  * @internal يحوّل قيمة CSS إلى سلسلة نصية مع قيمة احتياطية.
  * @param value - القيمة المُستخرجة من كائن CSSProperties
  * @param fallback - القيمة الاحتياطية عند `undefined` أو `null` (افتراضي: `'0'`)
  */
-const cssValue = (value: CSSProperties[keyof CSSProperties] | undefined, fallback = '0'): string => {
-  if (value === undefined || value === null) return fallback
-  return typeof value === 'number' ? `${value}` : String(value)
-}
+const cssValue = (
+  value: CSSProperties[keyof CSSProperties] | undefined,
+  fallback = "0"
+): string => {
+  if (value === undefined || value === null) return fallback;
+  return typeof value === "number" ? `${value}` : String(value);
+};
 
 /**
  * يكتب متغيرات CSS المخصصة (`--fmt-*` و `--editor-*`) على كائن {@link CSSStyleDeclaration}.
@@ -250,49 +256,111 @@ const cssValue = (value: CSSProperties[keyof CSSProperties] | undefined, fallbac
  *
  * @param style - كائن CSSStyleDeclaration المُستهدَف (عادةً `document.documentElement.style`)
  */
-export const applyEditorFormatStyleVariables = (style: CSSStyleDeclaration): void => {
+export const applyEditorFormatStyleVariables = (
+  style: CSSStyleDeclaration
+): void => {
   const stylesByFormat: Record<EditorStyleFormatId, CSSProperties> = {
-    basmala: getFormatStyles('basmala'),
-    'scene-header-1': getFormatStyles('scene-header-1'),
-    'scene-header-2': getFormatStyles('scene-header-2'),
-    'scene-header-3': getFormatStyles('scene-header-3'),
-    action: getFormatStyles('action'),
-    character: getFormatStyles('character'),
-    dialogue: getFormatStyles('dialogue'),
-    parenthetical: getFormatStyles('parenthetical'),
-    transition: getFormatStyles('transition'),
-    'scene-header-top-line': getFormatStyles('scene-header-top-line'),
-  }
+    basmala: getFormatStyles("basmala"),
+    "scene-header-1": getFormatStyles("scene-header-1"),
+    "scene-header-2": getFormatStyles("scene-header-2"),
+    "scene-header-3": getFormatStyles("scene-header-3"),
+    action: getFormatStyles("action"),
+    character: getFormatStyles("character"),
+    dialogue: getFormatStyles("dialogue"),
+    parenthetical: getFormatStyles("parenthetical"),
+    transition: getFormatStyles("transition"),
+    "scene-header-top-line": getFormatStyles("scene-header-top-line"),
+  };
 
-  style.setProperty('--editor-font-family', LOCKED_EDITOR_FONT_FAMILY)
-  style.setProperty('--editor-font-size', LOCKED_EDITOR_FONT_SIZE)
-  style.setProperty('--editor-line-height', LOCKED_EDITOR_LINE_HEIGHT)
+  style.setProperty("--editor-font-family", LOCKED_EDITOR_FONT_FAMILY);
+  style.setProperty("--editor-font-size", LOCKED_EDITOR_FONT_SIZE);
+  style.setProperty("--editor-line-height", LOCKED_EDITOR_LINE_HEIGHT);
 
-  style.setProperty('--fmt-basmala-margin', cssValue(stylesByFormat.basmala.margin, '0'))
-  style.setProperty('--fmt-basmala-padding', cssValue(stylesByFormat.basmala.padding, '0'))
+  style.setProperty(
+    "--fmt-basmala-margin",
+    cssValue(stylesByFormat.basmala.margin, "0")
+  );
+  style.setProperty(
+    "--fmt-basmala-padding",
+    cssValue(stylesByFormat.basmala.padding, "0")
+  );
 
-  style.setProperty('--fmt-scene-header-top-line-margin-top', cssValue(stylesByFormat['scene-header-top-line'].marginTop, '0'))
-  style.setProperty('--fmt-scene-header-top-line-padding', cssValue(stylesByFormat['scene-header-top-line'].padding, '0'))
+  style.setProperty(
+    "--fmt-scene-header-top-line-margin-top",
+    cssValue(stylesByFormat["scene-header-top-line"].marginTop, "0")
+  );
+  style.setProperty(
+    "--fmt-scene-header-top-line-padding",
+    cssValue(stylesByFormat["scene-header-top-line"].padding, "0")
+  );
 
-  style.setProperty('--fmt-scene-header-3-padding', cssValue(stylesByFormat['scene-header-3'].padding, '0'))
-  style.setProperty('--fmt-scene-header-3-margin-bottom', cssValue(stylesByFormat['scene-header-3'].marginBottom, '0'))
+  style.setProperty(
+    "--fmt-scene-header-3-padding",
+    cssValue(stylesByFormat["scene-header-3"].padding, "0")
+  );
+  style.setProperty(
+    "--fmt-scene-header-3-margin-bottom",
+    cssValue(stylesByFormat["scene-header-3"].marginBottom, "0")
+  );
 
-  style.setProperty('--fmt-action-margin', cssValue(stylesByFormat.action.margin, '0'))
-  style.setProperty('--fmt-action-padding', cssValue(stylesByFormat.action.padding, '0'))
+  style.setProperty(
+    "--fmt-action-margin",
+    cssValue(stylesByFormat.action.margin, "0")
+  );
+  style.setProperty(
+    "--fmt-action-padding",
+    cssValue(stylesByFormat.action.padding, "0")
+  );
 
-  style.setProperty('--fmt-character-margin', cssValue(stylesByFormat.character.margin, '0 auto'))
-  style.setProperty('--fmt-character-padding', cssValue(stylesByFormat.character.padding, '0'))
+  style.setProperty(
+    "--fmt-character-margin",
+    cssValue(stylesByFormat.character.margin, "0 auto")
+  );
+  style.setProperty(
+    "--fmt-character-padding",
+    cssValue(stylesByFormat.character.padding, "0")
+  );
 
-  style.setProperty('--fmt-parenthetical-margin', cssValue(stylesByFormat.parenthetical.margin, '0 auto'))
-  style.setProperty('--fmt-parenthetical-padding', cssValue(stylesByFormat.parenthetical.padding, '0'))
+  style.setProperty(
+    "--fmt-parenthetical-margin",
+    cssValue(stylesByFormat.parenthetical.margin, "0 auto")
+  );
+  style.setProperty(
+    "--fmt-parenthetical-padding",
+    cssValue(stylesByFormat.parenthetical.padding, "0")
+  );
 
-  style.setProperty('--fmt-dialogue-width', cssValue(stylesByFormat.dialogue.width, '4.1in'))
-  style.setProperty('--fmt-dialogue-margin', cssValue(stylesByFormat.dialogue.margin, '0 auto'))
-  style.setProperty('--fmt-dialogue-padding-left', cssValue(stylesByFormat.dialogue.paddingLeft, '1.5em'))
-  style.setProperty('--fmt-dialogue-padding-right', cssValue(stylesByFormat.dialogue.paddingRight, '1em'))
-  style.setProperty('--fmt-dialogue-padding-top', cssValue(stylesByFormat.dialogue.paddingTop, '0.25em'))
-  style.setProperty('--fmt-dialogue-padding-bottom', cssValue(stylesByFormat.dialogue.paddingBottom, '0'))
+  style.setProperty(
+    "--fmt-dialogue-width",
+    cssValue(stylesByFormat.dialogue.width, "4.1in")
+  );
+  style.setProperty(
+    "--fmt-dialogue-margin",
+    cssValue(stylesByFormat.dialogue.margin, "0 auto")
+  );
+  style.setProperty(
+    "--fmt-dialogue-padding-left",
+    cssValue(stylesByFormat.dialogue.paddingLeft, "1.5em")
+  );
+  style.setProperty(
+    "--fmt-dialogue-padding-right",
+    cssValue(stylesByFormat.dialogue.paddingRight, "1em")
+  );
+  style.setProperty(
+    "--fmt-dialogue-padding-top",
+    cssValue(stylesByFormat.dialogue.paddingTop, "0.25em")
+  );
+  style.setProperty(
+    "--fmt-dialogue-padding-bottom",
+    cssValue(stylesByFormat.dialogue.paddingBottom, "0")
+  );
 
-  style.setProperty('--fmt-transition-margin', cssValue(stylesByFormat.transition.margin, '0 auto'))
-  style.setProperty('--fmt-transition-padding', cssValue(stylesByFormat.transition.padding, '0'))
-}
+  style.setProperty(
+    "--fmt-transition-margin",
+    cssValue(stylesByFormat.transition.margin, "0 auto")
+  );
+  style.setProperty(
+    "--fmt-transition-padding",
+    cssValue(stylesByFormat.transition.padding, "0")
+  );
+};

@@ -1,4 +1,4 @@
-import { createUiPrimitive } from './_factory'
+import { createUiPrimitive } from "./_factory";
 
-export const createTextareaPrimitive = (text = 'textarea'): HTMLElement => createUiPrimitive('textarea', text)
-
+export const createTextareaPrimitive = (text = "textarea"): HTMLElement =>
+  createUiPrimitive("textarea", text);
